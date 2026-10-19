@@ -1,20 +1,33 @@
 import { useCallback, useMemo, useState } from 'react'
 import { View, Text, Pressable, TextInput, Switch } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { colors } from '../theme/mobile-theme'
 import { BottomDrawer } from './BottomDrawer'
 import {
   buildTerminalShortcutKey,
   normalizeShortcutKeyInput,
-  TERMINAL_SHORTCUT_SPECIAL_KEYS,
-  type TerminalShortcutModifier,
-  type TerminalShortcutSpecialKey
+  type TerminalShortcutModifier
 } from '../terminal/terminal-accessory-keys'
 import { customKeyModalStyles as styles } from './CustomKeyModal.styles'
-import { persistMirrored } from '../storage/mirrored-storage-keys'
+import {
+  customKeyEditDraft,
+  customKeyModalTitle,
+  customKeySaveLabel,
+  replaceCustomKeyPreservingId
+} from './custom-key-edit'
+import {
+  loadCustomKeys,
+  removeCustomKey,
+  saveCustomKeys,
+  updateStoredCustomKeys
+} from './custom-keys-storage'
+import {
+  SHORTCUT_MODIFIERS,
+  SPECIAL_KEY_BY_ID,
+  SPECIAL_KEY_GROUPS
+} from './custom-key-picker-constants'
 
-const CUSTOM_ACCESSORY_KEYS_STORAGE_KEY = 'orca:custom-accessory-keys'
+export { loadCustomKeys, removeCustomKey, saveCustomKeys }
 
 export type CustomKey = {
   id: string
@@ -25,99 +38,30 @@ export type CustomKey = {
 
 type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
 
-// Why: Alt is rendered with the ⌥ glyph because on macOS hosts the Option key
-// is the only modifier that produces an ESC-prefixed byte sequence terminals
-// can read. Cmd is intentionally absent — macOS swallows it before keystrokes
-// reach the shell, so there's nothing to encode.
-const SHORTCUT_MODIFIERS: { id: TerminalShortcutModifier; label: string; glyph?: string }[] = [
-  { id: 'ctrl', label: 'Ctrl' },
-  { id: 'alt', label: 'Alt', glyph: '⌥' },
-  { id: 'shift', label: 'Shift' }
-]
-
-// Why: special keys are grouped by purpose so the picker reads as three small
-// fixed grids rather than one ragged wrap row that clipped F7-F12.
-const SPECIAL_KEY_GROUPS: { title: string; ids: string[]; columns: number }[] = [
-  {
-    title: 'Editing',
-    ids: ['escape', 'tab', 'enter', 'backspace', 'delete', 'insert', 'space'],
-    columns: 4
-  },
-  {
-    title: 'Navigation',
-    ids: ['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight', 'home', 'end', 'pageUp', 'pageDown'],
-    columns: 4
-  },
-  {
-    title: 'Function',
-    ids: ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'],
-    columns: 6
-  }
-]
-
-const SPECIAL_KEY_BY_ID: Record<string, TerminalShortcutSpecialKey> = Object.fromEntries(
-  TERMINAL_SHORTCUT_SPECIAL_KEYS.map((key) => [key.id, key])
-)
-
 type Props = {
   visible: boolean
   onClose: () => void
   onKeysChanged: (keys: CustomKey[]) => void
   onManageShortcuts?: () => void
+  editingKey?: CustomKey | null
 }
 
-// Throws on a failed read or parse, so a write never starts from an empty list it made up.
-async function readStoredCustomKeys(): Promise<CustomKey[]> {
-  const raw = await AsyncStorage.getItem(CUSTOM_ACCESSORY_KEYS_STORAGE_KEY)
-  return raw ? (JSON.parse(raw) as CustomKey[]) : []
-}
-
-export function loadCustomKeys(): Promise<CustomKey[]> {
-  return readStoredCustomKeys().catch(() => [])
-}
-
-function writeCustomKeys(keys: CustomKey[]): Promise<void> {
-  // Through the one write path, which notes the mirror on an accepted write and on nothing else
-  // (ruling 35). There is no rollback here any more because there is nothing to undo: on the page
-  // a value over the cap rejects, and a rejected write never reached the map.
-  return persistMirrored(CUSTOM_ACCESSORY_KEYS_STORAGE_KEY, JSON.stringify(keys))
-}
-
-// Every write to the stored list takes a turn here, so a settings save, an add and a removal never
-// land over one that started first, and an add or removal reads what the last write saved.
-let customKeysWriteTurn: Promise<unknown> = Promise.resolve()
-
-function inCustomKeysWriteTurn<T>(write: () => Promise<T>): Promise<T> {
-  const run = customKeysWriteTurn.then(write)
-  customKeysWriteTurn = run.catch(() => {})
-  return run
-}
-
-export function saveCustomKeys(keys: CustomKey[]): Promise<void> {
-  return inCustomKeysWriteTurn(() => writeCustomKeys(keys))
-}
-
-function updateStoredCustomKeys(change: (keys: CustomKey[]) => CustomKey[]): Promise<CustomKey[]> {
-  return inCustomKeysWriteTurn(async () => {
-    const updated = change(await readStoredCustomKeys())
-    await writeCustomKeys(updated)
-    return updated
-  })
-}
-
-// Like addKey: resolves with the stored list only once the store took it, so a refused write
-// never drops a row from screen that the next load would bring back.
-export function removeCustomKey(id: string): Promise<CustomKey[]> {
-  return updateStoredCustomKeys((keys) => keys.filter((key) => key.id !== id))
-}
-
-export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortcuts }: Props) {
-  const [step, setStep] = useState<Step>('choose-type')
-  const [shortcutKey, setShortcutKey] = useState('c')
-  const [shortcutModifiers, setShortcutModifiers] = useState<TerminalShortcutModifier[]>(['ctrl'])
-  const [macroLabel, setMacroLabel] = useState('')
-  const [macroText, setMacroText] = useState('')
-  const [macroEnter, setMacroEnter] = useState(true)
+export function CustomKeyModal({
+  visible,
+  onClose,
+  onKeysChanged,
+  onManageShortcuts,
+  editingKey = null
+}: Props) {
+  const openingDraft = customKeyEditDraft(editingKey)
+  const [step, setStep] = useState<Step>(openingDraft.step)
+  const [shortcutKey, setShortcutKey] = useState(openingDraft.shortcutKey)
+  const [shortcutModifiers, setShortcutModifiers] = useState<TerminalShortcutModifier[]>(
+    openingDraft.shortcutModifiers
+  )
+  const [macroLabel, setMacroLabel] = useState(openingDraft.macroLabel)
+  const [macroText, setMacroText] = useState(openingDraft.macroText)
+  const [macroEnter, setMacroEnter] = useState(openingDraft.macroEnter)
   const [previousVisible, setPreviousVisible] = useState(visible)
 
   // Why: reset before the opening commit so the drawer does not flash the last
@@ -125,18 +69,22 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
   if (visible !== previousVisible) {
     setPreviousVisible(visible)
     if (visible) {
-      setStep('choose-type')
-      setShortcutKey('c')
-      setShortcutModifiers(['ctrl'])
-      setMacroLabel('')
-      setMacroText('')
-      setMacroEnter(true)
+      const draft = customKeyEditDraft(editingKey)
+      setStep(draft.step)
+      setShortcutKey(draft.shortcutKey)
+      setShortcutModifiers(draft.shortcutModifiers)
+      setMacroLabel(draft.macroLabel)
+      setMacroText(draft.macroText)
+      setMacroEnter(draft.macroEnter)
     }
   }
 
   const addKey = useCallback(
     async (key: Omit<CustomKey, 'id'>) => {
-      const newKey: CustomKey = { ...key, id: `custom-${Date.now()}` }
+      const newKey: CustomKey = {
+        ...key,
+        id: editingKey ? editingKey.id : `custom-${Date.now()}`
+      }
       let updated: CustomKey[]
       // Caught here because both callers are `void addKey(...)`, which leaves a rejection nowhere
       // to go. On the page this key is allowlisted and its write rejects for size — the contract
@@ -145,7 +93,9 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
       // handler, which reports a page fault and drops the generation for a key nobody could add.
       // Every other allowlisted writer in this closure already catches its own save.
       try {
-        updated = await updateStoredCustomKeys((keys) => [...keys, newKey])
+        updated = await updateStoredCustomKeys((keys) =>
+          editingKey ? replaceCustomKeyPreservingId(keys, newKey) : [...keys, newKey]
+        )
       } catch (error) {
         // Neither reported nor closed: a drawer that dismissed itself and announced the key would
         // put a row on the accessory bar that no store holds and the next load would not have.
@@ -155,7 +105,7 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
       onKeysChanged(updated)
       onClose()
     },
-    [onClose, onKeysChanged]
+    [editingKey, onClose, onKeysChanged]
   )
 
   const shortcutPreview = useMemo(
@@ -244,12 +194,7 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
         ) : (
           <View style={styles.backSpacer} />
         )}
-        <Text style={styles.title}>
-          {step === 'choose-type' && 'Add Shortcut'}
-          {step === 'shortcut-combo' && 'Shortcut Combo'}
-          {step === 'special-keys' && 'Pick a key'}
-          {step === 'text-macro' && 'Text Macro'}
-        </Text>
+        <Text style={styles.title}>{customKeyModalTitle(step, editingKey != null)}</Text>
         <View style={styles.backSpacer} />
       </View>
 
@@ -363,7 +308,7 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
             <Text
               style={[styles.saveButtonText, !shortcutPreview && styles.saveButtonTextDisabled]}
             >
-              Add
+              {customKeySaveLabel(editingKey != null, 'combo')}
             </Text>
           </Pressable>
         </View>
@@ -447,7 +392,7 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
               <Text
                 style={[styles.saveButtonText, !macroText.trim() && styles.saveButtonTextDisabled]}
               >
-                Add Shortcut
+                {customKeySaveLabel(editingKey != null, 'macro')}
               </Text>
             </Pressable>
           </View>
