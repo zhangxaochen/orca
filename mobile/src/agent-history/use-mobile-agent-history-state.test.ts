@@ -17,7 +17,7 @@ const connection = vi.hoisted((): { client: RpcClient | null; state: ConnectionS
   client: null,
   state: 'connected'
 }))
-vi.mock('../transport/client-context', () => ({
+vi.mock('../transport/host-client-hooks', () => ({
   useHostClient: () => connection,
   useForceReconnect: () => vi.fn()
 }))
@@ -196,9 +196,10 @@ describe('useMobileAgentHistoryState staged load and SWR', () => {
         sessions: [expect.objectContaining({ id: 'cached' })],
         issues: []
       })
-      expect(observed.current?.screenState.kind === 'ready' && observed.current.screenState.sessions[0]?.id).toBe(
-        'cached'
-      )
+      expect(
+        observed.current?.screenState.kind === 'ready' &&
+          observed.current.screenState.sessions[0]?.id
+      ).toBe('cached')
       expect(send.mock.calls.filter((call) => call[0] === 'aiVault.listSessions')).toHaveLength(1)
     } finally {
       act(() => {
