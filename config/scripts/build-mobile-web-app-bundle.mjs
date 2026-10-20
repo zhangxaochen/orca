@@ -140,6 +140,9 @@ export const MOBILE_WEB_APP_ROOT_RESET =
  * text field); no native TextInput paints one, and the caret and the IME already mark focus.
  * Those only: a button reached by a hardware keyboard keeps the browser's ring.
  *
+ * Textarea scrollbars: React Native Web renders multiline fields as HTML textareas; native mobile
+ * TextInput never paints scrollbars or resize grippers.
+ *
  * Text: native `Text` is unselectable unless `selectable`; react-native-web's is selectable. On
  * iOS a hold on it raises WebKit's selection over the page's own long press; on Android the
  * selection's `selectionchange` and `touchcancel` end a held press. `body`, not `#root`: modals
@@ -149,7 +152,9 @@ export const MOBILE_WEB_APP_NATIVE_PARITY_STYLE =
   '<style id="orca-native-parity">:where(input:focus,textarea:focus){outline:none}' +
   ':where(body){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}' +
   ':where(input,textarea,[contenteditable]){-webkit-user-select:text;user-select:text;' +
-  '-webkit-touch-callout:default}</style>'
+  '-webkit-touch-callout:default}' +
+  ':where(textarea){scrollbar-width:none;resize:none}' +
+  ':where(textarea)::-webkit-scrollbar{display:none;width:0;height:0}</style>'
 
 const PAGE_ASYNC_STORAGE_MODULE = join(
   mobileDir,

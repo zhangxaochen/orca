@@ -47,11 +47,17 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
     keyboardLift
   } = controller
 
-  const { commandFieldRef, emptyResetEpoch, onCommandFieldFocus, onCommandFieldBlur } =
-    useMobileCommandInputField({
-      bindCommandField,
-      input: bufferedTerminalDraftState.input
-    })
+  const {
+    commandFieldRef,
+    emptyResetEpoch,
+    inputHeight,
+    onContentSizeChange,
+    onCommandFieldFocus,
+    onCommandFieldBlur
+  } = useMobileCommandInputField({
+    bindCommandField,
+    input: bufferedTerminalDraftState.input
+  })
 
   const inputActionsProps = {
     canSend,
@@ -68,6 +74,56 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
     onDictationPressOut: handleDictationPressOut,
     onDictationCancel: cancelDictation
   }
+
+  const commandField = (
+    <TextInput
+      ref={commandFieldRef}
+      // Why: Android caches IME inputType at mount, so toggling autocomplete must remount there;
+      // cycling emptyResetEpoch on text clear forcibly tears down any lingering Android ActionMode/PopupWindow.
+      key={
+        hostOs() === 'android'
+          ? `cmd-input-${emptyResetEpoch}-${autocompleteEnabled ? 'ac-on' : 'ac-off'}`
+          : 'cmd-input'
+      }
+      style={[styles.textInput, inputHeight !== undefined ? { height: inputHeight } : null]}
+      value={bufferedTerminalDraftState.input}
+      // Why: iOS kills active dictation/IME if JS writes a value differing from native text; store raw, normalize at send.
+      onChangeText={bufferedTerminalDraftState.setInput}
+      onContentSizeChange={onContentSizeChange}
+      numberOfLines={1}
+      placeholder="Type a command…"
+      placeholderTextColor={colors.textMuted}
+      autoCapitalize="none"
+      autoCorrect={autocompleteEnabled}
+      spellCheck={autocompleteEnabled}
+      smartInsertDelete={false}
+      dataDetectorTypes="none"
+      // Why: not autofill content, but keyboard must stay default so non-Latin IMEs remain selectable.
+      autoComplete="off"
+      keyboardType={getTerminalCommandKeyboardType(hostOs(), autocompleteEnabled)}
+      returnKeyType="default"
+      multiline
+      textAlignVertical="top"
+      submitBehavior="newline"
+      blurOnSubmit={false}
+      // Why: composing is local — an outage must not lock the field or discard typed text (#6713).
+      editable={canCompose}
+      onSubmitEditing={() => void handleSend()}
+      onFocus={onCommandFieldFocus}
+      onBlur={onCommandFieldBlur}
+    />
+  )
+
+  const sendCommandButton = (
+    <Pressable
+      style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+      disabled={!canSend}
+      onPress={() => void handleSend()}
+      accessibilityLabel="Send command"
+    >
+      <ArrowUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
+    </Pressable>
+  )
 
   return (
     !activeMarkdownTab &&
@@ -130,49 +186,9 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
           </View>
         ) : (
           <View style={styles.inputBar}>
-            <TextInput
-              ref={commandFieldRef}
-              // Why: Android caches IME inputType at mount, so toggling autocomplete must remount there;
-              // cycling emptyResetEpoch on text clear forcibly tears down any lingering Android ActionMode/PopupWindow.
-              key={
-                hostOs() === 'android'
-                  ? `cmd-input-${emptyResetEpoch}-${autocompleteEnabled ? 'ac-on' : 'ac-off'}`
-                  : 'cmd-input'
-              }
-              style={styles.textInput}
-              value={bufferedTerminalDraftState.input}
-              // Why: iOS kills active dictation/IME if JS writes a value differing from native text; store raw, normalize at send.
-              onChangeText={bufferedTerminalDraftState.setInput}
-              placeholder="Type a command…"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              autoCorrect={autocompleteEnabled}
-              spellCheck={autocompleteEnabled}
-              smartInsertDelete={false}
-              dataDetectorTypes="none"
-              // Why: not autofill content, but keyboard must stay default so non-Latin IMEs remain selectable.
-              autoComplete="off"
-              keyboardType={getTerminalCommandKeyboardType(hostOs(), autocompleteEnabled)}
-              returnKeyType="default"
-              multiline
-              textAlignVertical="top"
-              submitBehavior="newline"
-              blurOnSubmit={false}
-              // Why: composing is local — an outage must not lock the field or discard typed text (#6713).
-              editable={canCompose}
-              onSubmitEditing={() => void handleSend()}
-              onFocus={onCommandFieldFocus}
-              onBlur={onCommandFieldBlur}
-            />
+            {commandField}
             <MobileTerminalInputActions {...inputActionsProps} />
-            <Pressable
-              style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-              disabled={!canSend}
-              onPress={() => void handleSend()}
-              accessibilityLabel="Send command"
-            >
-              <ArrowUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
-            </Pressable>
+            {sendCommandButton}
           </View>
         )}
       </View>

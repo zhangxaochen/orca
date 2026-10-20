@@ -16,6 +16,8 @@ export function useMobileCommandInputField({
 }): {
   commandFieldRef: (node: TextInput | null) => void
   emptyResetEpoch: number
+  inputHeight: number | undefined
+  onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) => void
   onCommandFieldFocus: () => void
   onCommandFieldBlur: () => void
 } {
@@ -64,9 +66,23 @@ export function useMobileCommandInputField({
     }
   }, [input])
 
+  const [contentHeight, setContentHeight] = useState<number | undefined>(undefined)
+
+  const onContentSizeChange = useCallback(
+    (e: { nativeEvent: { contentSize: { height: number } } }) => {
+      const height = e.nativeEvent?.contentSize?.height
+      if (typeof height === 'number' && Number.isFinite(height)) {
+        setContentHeight(Math.min(Math.max(height, 34), 120))
+      }
+    },
+    []
+  )
+
   return {
     commandFieldRef,
     emptyResetEpoch,
+    inputHeight: input ? contentHeight : undefined,
+    onContentSizeChange,
     onCommandFieldFocus: () => {
       isFocusedRef.current = true
     },
