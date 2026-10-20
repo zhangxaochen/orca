@@ -249,7 +249,10 @@ function onDocumentTouchEnd(scope: TerminalDocumentScope, e: TouchEvent) {
       scope.selMode !== 'select' &&
       Date.now() - scope.tapCandidate.t <= TAP_MAX_MS
     ) {
+      console.log('[TerminalGesture] Clean tap fired -> notifyTerminalSurfaceTap')
       notifyTerminalSurfaceTap(scope, scope.tapCandidate.x, scope.tapCandidate.y, true)
+    } else if (touches.length === 0 && scope.touchGesture.hasMoved) {
+      console.log('[TerminalGesture] Swipe gesture released -> tap SUPPRESSED')
     }
     clearLongPress(scope)
     scope.tapCandidate = null

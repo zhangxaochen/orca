@@ -173,6 +173,13 @@ export function attachSurfaceEventHandlers(
           dt = now - scope.touchGesture.lastTime
         const moveDist = Math.hypot(x - scope.touchGesture.lastX, y - scope.touchGesture.lastY)
         if (moveDist > 2) {
+          if (!scope.touchGesture.hasMoved) {
+            console.log(
+              '[TerminalGesture] Move detected: dist=' +
+                moveDist.toFixed(1) +
+                ', cancelling tapCandidate'
+            )
+          }
           scope.touchGesture.hasMoved = true
           scope.tapCandidate = null
           clearLongPress(scope)
