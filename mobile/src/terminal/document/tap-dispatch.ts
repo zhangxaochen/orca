@@ -3,6 +3,7 @@ import { cancelSelect, enterSelect } from './selection-mode'
 import { notify } from './host-notify'
 import { viewportToCell } from './viewport-cell'
 import type { TerminalDocumentScope } from './document-scope'
+import { shouldRouteScrollToTerminalInput } from './mouse-input-encoding'
 import { notifyTerminalSurfaceTap } from './surface-tap'
 import {
   eventTargetInRoot,
@@ -201,7 +202,8 @@ function onDocumentTouchMove(scope: TerminalDocumentScope, e: TouchEvent) {
       if (mt.identifier === scope.tapCandidate.identifier) {
         const dx = Math.abs(mt.clientX - scope.tapCandidate.x)
         const dy = Math.abs(mt.clientY - scope.tapCandidate.y)
-        if (dx + dy > TAP_SLOP) {
+        const slop = shouldRouteScrollToTerminalInput(scope) ? 4 : TAP_SLOP
+        if (dx + dy > slop) {
           scope.tapCandidate = null
         }
       }

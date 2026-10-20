@@ -197,9 +197,8 @@ export function attachSurfaceEventHandlers(
           if (lines !== 0) {
             scope.touchGesture.accumDelta -= lines * effectiveCellH
             routeScrollLines(scope, lines, x, y)
-            scope.tapCandidate = null
-            clearLongPress(scope)
-          } else if (Math.abs(scope.touchGesture.accumDelta) > effectiveCellH * 0.5) {
+          }
+          if (Math.abs(deltaY) > 1 || Math.abs(scope.touchGesture.accumDelta) > 2) {
             scope.tapCandidate = null
             clearLongPress(scope)
           }
@@ -210,6 +209,10 @@ export function attachSurfaceEventHandlers(
             clearLongPress(scope)
           } else {
             scope.touchGesture.velY = 0
+            if (Math.abs(deltaY) > 2) {
+              scope.tapCandidate = null
+              clearLongPress(scope)
+            }
           }
         }
         scope.touchGesture.lastX = x
