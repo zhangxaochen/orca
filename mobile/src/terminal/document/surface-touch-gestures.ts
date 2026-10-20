@@ -38,6 +38,7 @@ export type TerminalTouchState = {
   pinchScale: number
   pinchSurfX: number
   pinchSurfY: number
+  hasMoved: boolean
 }
 
 export function updateTouchVelocity(scope: TerminalDocumentScope, deltaY: number, dt: number) {
@@ -126,6 +127,7 @@ export function attachSurfaceEventHandlers(
         scope.touchGesture.lastTime = Date.now()
         scope.touchGesture.velY = 0
         scope.touchGesture.accumDelta = 0
+        scope.touchGesture.hasMoved = false
       }
     },
     { capture: true, passive: true }
@@ -169,6 +171,12 @@ export function attachSurfaceEventHandlers(
           y = touches[0].clientY
         const now = Date.now(),
           dt = now - scope.touchGesture.lastTime
+        const moveDist = Math.hypot(x - scope.touchGesture.lastX, y - scope.touchGesture.lastY)
+        if (moveDist > 2) {
+          scope.touchGesture.hasMoved = true
+          scope.tapCandidate = null
+          clearLongPress(scope)
+        }
 
         // Why: pan horizontally only when content overflows the viewport (larger
         // than fit) — same check clampPan() uses. Vertical always drives buffer

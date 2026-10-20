@@ -343,7 +343,8 @@ function createTerminalDocumentState(): TerminalDocumentState {
       pinchDist: 0,
       pinchScale: 0,
       pinchSurfX: 0,
-      pinchSurfY: 0
+      pinchSurfY: 0,
+      hasMoved: false
     }
   }
 }
