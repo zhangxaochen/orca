@@ -11,7 +11,7 @@ import {
   enqueueNormalBufferScrollDelta,
   resetSmoothScrollOffset
 } from './normal-buffer-smooth-scroll'
-import { dispatcherShouldBlockSurface } from './tap-dispatch'
+import { clearLongPress, dispatcherShouldBlockSurface } from './tap-dispatch'
 import {
   applyTextScale,
   MAX_TEXT_SCALE,
@@ -106,6 +106,8 @@ export function attachSurfaceEventHandlers(
       if (scope.touchGesture.momentumId) {
         cancelAnimationFrame(scope.touchGesture.momentumId)
         scope.touchGesture.momentumId = null
+        scope.tapCandidate = null
+        clearLongPress(scope)
       }
       const touches = touchesInRoot(scope.root, e.touches)
       if (touches.length === 2) {
@@ -180,6 +182,8 @@ export function attachSurfaceEventHandlers(
           scope.panX += x - scope.touchGesture.lastX
           clampPan(scope)
           updateTransform(scope)
+          scope.tapCandidate = null
+          clearLongPress(scope)
         }
 
         const deltaY = scope.touchGesture.lastY - y
@@ -193,10 +197,17 @@ export function attachSurfaceEventHandlers(
           if (lines !== 0) {
             scope.touchGesture.accumDelta -= lines * effectiveCellH
             routeScrollLines(scope, lines, x, y)
+            scope.tapCandidate = null
+            clearLongPress(scope)
+          } else if (Math.abs(scope.touchGesture.accumDelta) > effectiveCellH * 0.5) {
+            scope.tapCandidate = null
+            clearLongPress(scope)
           }
         } else {
           if (enqueueNormalBufferScrollDelta(scope, deltaY)) {
             updateTouchVelocity(scope, deltaY, dt)
+            scope.tapCandidate = null
+            clearLongPress(scope)
           } else {
             scope.touchGesture.velY = 0
           }

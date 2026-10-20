@@ -17,10 +17,10 @@ const LONG_PRESS_MS = 500
 const LONG_PRESS_SLOP = 10
 
 /** The travel that disqualifies a tap, in pixels; the mouse drag path holds itself to the same. */
-export const TAP_SLOP = 24
+export const TAP_SLOP = 18
 
 /** The longest press still counted as a tap, in milliseconds. */
-const TAP_MAX_MS = 700
+const TAP_MAX_MS = 350
 
 // ============================================================
 // LATCHING TOUCH DISPATCHER (document-level)
@@ -163,6 +163,10 @@ function onDocumentTouchStart(scope: TerminalDocumentScope, e: TouchEvent) {
   if (inSurface) {
     scope.touchDispatch.mode = 'surface'
     scope.touchDispatch.touchId = t.identifier
+    if (scope.touchGesture.momentumId !== null) {
+      // Touching during momentum scroll brakes the scroll; do not treat as a tap or long press.
+      return
+    }
     scope.tapCandidate = { x: t.clientX, y: t.clientY, t: Date.now(), identifier: t.identifier }
     armLongPress(scope, t)
   }
