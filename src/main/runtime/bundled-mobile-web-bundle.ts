@@ -38,8 +38,13 @@ export function getBundledMobileWebBundleRoot(): string | undefined {
     appPath.includes('win-unpacked') || !environment.isPackaged()
       ? join(appPath, '..', '..', '..', '..', 'out', 'mobile-web')
       : undefined
+  const unpackedAsarBundle =
+    appPath.endsWith('.asar') || appPath.includes('app.asar')
+      ? join(appPath, '..', 'app.asar.unpacked', 'out', 'mobile-web')
+      : undefined
   const roots = [
     repoBundle,
+    unpackedAsarBundle,
     join(appPath, 'out', 'mobile-web'),
     // Why: unpacked electron-vite entrypoints set appPath to out/main, next to the bundle.
     join(appPath, '..', 'mobile-web')
