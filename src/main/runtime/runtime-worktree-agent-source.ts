@@ -4,6 +4,7 @@ import type {
   ParsedAgentStatusPayload
 } from '../../shared/agent-status-types'
 import type { AgentChildWorkView } from '../../shared/agent-status-child-work-view'
+import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
 import type { AgentMainAgentStatus } from '../../shared/main-agent-status'
 
 export type RuntimeWorktreeAgentSource = Pick<AgentStatusIpcPayload, 'subagents'> & {
@@ -26,4 +27,5 @@ export type RuntimeWorktreeAgentSource = Pick<AgentStatusIpcPayload, 'subagents'
   updatedAt: number
   /** Projected by the structured session host; `owned` rows stay fresh past the staleness window. */
   structuredHost?: StructuredHostStatus
+  providerSession?: AgentProviderSessionMetadata
 }

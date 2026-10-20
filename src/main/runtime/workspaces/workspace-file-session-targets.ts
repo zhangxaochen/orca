@@ -1,7 +1,7 @@
 import type { OrcaRuntimeWithScheduleMobileSessionTabsChanged } from '../session-tabs/session-tabs-change-publication'
 import type { OrcaRuntimeWithResolveBrowserNetworkExecutionHostForWorktree } from '../terminal/launch/terminal-workspace-scope'
 import type { OrcaRuntimeWithTransitionGraphReloadToTerminalState } from '../session-graph/session-graph-authority'
-import { RuntimeHeadlessTabGroups } from '../session-tabs/headless-tab-group-moves'
+import { RuntimeWorkspaceSessionCustomTitles } from './workspace-session-custom-titles'
 import type {
   BrowserTabInfo,
   RuntimeMarkdownReadTabResult,
@@ -19,8 +19,8 @@ import {
 import { getLocalProjectWorktreeGitOptions } from '../../project-runtime-git-options'
 import { resolveWorktreeHostRouting } from '../worktree-launch-host-repo'
 import { isFloatingWorkspaceSelector } from '../../../shared/floating-workspace-worktree'
-
-export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends RuntimeHeadlessTabGroups {
+import { getLatestLeafTitle } from '../runtime-worktree-status-projection'
+export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends RuntimeWorkspaceSessionCustomTitles {
   protected abstract getListedBrowserTabsByPageId(worktreeId: string): Map<string, BrowserTabInfo>
   protected abstract resolveMobileMarkdownWorktreeId(
     ...args: Parameters<
@@ -56,21 +56,63 @@ export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends Runtim
     tabId: string,
     title: string | null
   ): void {
-    const session = this.getWorkspaceSessionForWorktree(worktreeId)
-    if (!session || !this.store?.setWorkspaceSession) {
-      return
-    }
-    const tabs = session.tabsByWorktree[worktreeId]
-    if (!tabs?.some((tab) => tab.id === tabId)) {
-      return
-    }
-    this.setWorkspaceSessionForWorktree(worktreeId, {
-      ...session,
-      tabsByWorktree: {
-        ...session.tabsByWorktree,
-        [worktreeId]: tabs.map((tab) => (tab.id === tabId ? { ...tab, customTitle: title } : tab))
+    const normalizedTitle = title?.trim() || null
+    let fallbackTitle: string | null = null
+    if (normalizedTitle === null) {
+      for (const leaf of this.leaves.values()) {
+        if (leaf.tabId === tabId) {
+          const pty = leaf.ptyId ? this.ptysById.get(leaf.ptyId) : undefined
+          fallbackTitle =
+            getLatestLeafTitle(this.getLeafDisplayRecord(leaf), null) ?? pty?.title ?? null
+          break
+        }
       }
-    })
+    }
+    const inMemoryTab = this.tabs.get(tabId)
+    if (inMemoryTab) {
+      inMemoryTab.customTitle = normalizedTitle
+      inMemoryTab.title = normalizedTitle ?? fallbackTitle ?? 'Terminal'
+    }
+    const snapshot = this.mobileSessionTabsByWorktree.get(worktreeId)
+    if (snapshot) {
+      snapshot.tabs = snapshot.tabs.map((tab) => {
+        if (tab.type === 'terminal' && tab.parentTabId === tabId) {
+          return {
+            ...tab,
+            customTitle: normalizedTitle,
+            title: normalizedTitle ?? fallbackTitle ?? 'Terminal'
+          }
+        }
+        return tab
+      })
+    }
+    const session = this.getWorkspaceSessionForWorktree(worktreeId)
+    if (session && this.store?.setWorkspaceSession) {
+      const tabs = session.tabsByWorktree[worktreeId]
+      if (tabs?.some((tab) => tab.id === tabId)) {
+        this.setWorkspaceSessionForWorktree(worktreeId, {
+          ...session,
+          tabsByWorktree: {
+            ...session.tabsByWorktree,
+            [worktreeId]: tabs.map((tab) =>
+              tab.id === tabId
+                ? {
+                    ...tab,
+                    customTitle: normalizedTitle,
+                    ...(normalizedTitle === null && fallbackTitle !== null
+                      ? { title: fallbackTitle }
+                      : {})
+                  }
+                : tab
+            )
+          }
+        })
+      }
+    }
+    const sessionId = this.resolveSessionIdForTab(tabId)
+    if (sessionId) {
+      this.setSessionCustomTitle(sessionId, normalizedTitle)
+    }
   }
 
   protected normalizeMobileSessionTabOrder(

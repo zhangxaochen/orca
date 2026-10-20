@@ -57,6 +57,8 @@ export type RuntimePtyWorktreeRecord = RuntimeTerminalTailState & {
   wslDistro: string | null
   tabId: string | null
   paneKey: string | null
+  /** Provider conversation id for this PTY, so a rename can be stored under the session alias. */
+  providerSessionId?: string | null
   /**
    * `graphSequence` when `paneKey` was last written. A surface recorded since the last graph
    * statement has not yet been offered one that could contradict it — see
@@ -96,6 +98,8 @@ export type RuntimePtyWorktreeRecord = RuntimeTerminalTailState & {
   managementTitle: string | null
   managementTitleAt: number | null
   controllerTitle: string | null
+  /** Set only by a user rename. Absent or null leaves the live OSC title in charge. */
+  customTitle?: string | null
   title: string | null
   titleUpdatedAt: number | null
   lastOutputAt: number | null

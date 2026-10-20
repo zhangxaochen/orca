@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { View, Text, ScrollView, Pressable } from 'react-native'
 import { File, FileText, Globe, Plus } from 'lucide-react-native'
 import { triggerMediumImpact } from '../platform/haptics'
@@ -12,6 +12,8 @@ import { QuickCommandsTabButton } from './QuickCommandsTabButton'
 import { styles } from './mobile-session-styles'
 import { useKeyboardPersistingTaps } from '../platform/keyboard-persisting-taps'
 import type { MobileSessionController } from './use-mobile-session-controller'
+
+export const SESSION_TAB_DOUBLE_TAP_MS = 300
 
 export function MobileSessionTabStrip({
   controller,
@@ -40,9 +42,23 @@ export function MobileSessionTabStrip({
     scrollActiveTabIntoView,
     switchSessionTab,
     openSessionTabActionSheetAfterKeyboardDismiss,
+    setRenameTarget,
+    activeHandleRef,
     visibleTabs
   } = controller
   const tabBarKeepsKeyboard = useKeyboardPersistingTaps('handled')
+  const lastTabTapRef = useRef<{ id: string; time: number } | null>(null)
+  const onPromptRenameTerminal = (tab: (typeof visibleTabs)[number]) => {
+    if (tab.type !== 'terminal' || typeof tab.terminal !== 'string') {
+      return
+    }
+    triggerMediumImpact()
+    setRenameTarget({
+      handle: tab.terminal,
+      title: tab.title,
+      isActive: tab.terminal === activeHandleRef.current
+    })
+  }
   const attachTabStrip = useCallback(
     (view: ScrollView | null) => {
       if (view) {
@@ -99,7 +115,23 @@ export function MobileSessionTabStrip({
                 scrollActiveTabIntoView(t.id, false)
               }
             }}
-            onPress={() => switchSessionTab(t)}
+            onPress={() => {
+              // Why: the first tap still switches at once; a second tap on that terminal renames it.
+              const now = Date.now()
+              const lastTap = lastTabTapRef.current
+              const isDoubleTap =
+                lastTap?.id === t.id && now - lastTap.time < SESSION_TAB_DOUBLE_TAP_MS
+              if (isDoubleTap && t.type === 'terminal' && typeof t.terminal === 'string') {
+                lastTabTapRef.current = null
+                onPromptRenameTerminal(t)
+                return
+              }
+              lastTabTapRef.current = { id: t.id, time: now }
+              switchSessionTab(t)
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel={getMobileSessionTabTitle(t)}
+            accessibilityState={{ selected: t.id === activeSessionTabId }}
             onLongPress={() => {
               triggerMediumImpact()
               openSessionTabActionSheetAfterKeyboardDismiss(t)
