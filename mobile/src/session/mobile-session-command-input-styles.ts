@@ -199,7 +199,7 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
     color: colors.textPrimary,
     borderRadius: radii.input,
     paddingLeft: 6,
-    paddingRight: 2,
+    paddingRight: 6,
     paddingTop: spacing.xs + 1,
     paddingBottom: spacing.xs + 1,
     fontSize: 14,

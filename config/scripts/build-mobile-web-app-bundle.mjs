@@ -153,8 +153,8 @@ export const MOBILE_WEB_APP_NATIVE_PARITY_STYLE =
   ':where(body){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}' +
   ':where(input,textarea,[contenteditable]){-webkit-user-select:text;user-select:text;' +
   '-webkit-touch-callout:default}' +
-  ':where(textarea){scrollbar-width:none;resize:none}' +
-  ':where(textarea)::-webkit-scrollbar{display:none;width:0;height:0}</style>'
+  'textarea,input,[contenteditable]{scrollbar-width:none!important;-ms-overflow-style:none!important;resize:none!important}' +
+  'textarea::-webkit-scrollbar,input::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}</style>'
 
 const PAGE_ASYNC_STORAGE_MODULE = join(
   mobileDir,
