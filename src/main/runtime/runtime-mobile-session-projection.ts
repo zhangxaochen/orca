@@ -21,10 +21,7 @@ import {
   finalizeRuntimeMobileSessionTabsResult
 } from './runtime-mobile-session-result-finalization'
 import type { RuntimeMobileSessionProjectionHost } from './runtime-mobile-session-projection-contract'
-import {
-  resolveManualTerminalTitle,
-  resolveSessionBackedManualTerminalTitle
-} from './manual-terminal-title'
+import { resolveManualTerminalTitle } from './manual-terminal-title'
 import {
   getLatestAgentCandidateTitle,
   getLeafDisplayRecord,
@@ -185,8 +182,12 @@ export function projectRuntimeMobileSessionTabs(
     const liveTitle = trackerOnlyTitle ?? leafTitle ?? ptyTitle ?? syncedTab?.title ?? tab.title
     // Why: agents repaint their title constantly, so a user's rename must outrank it.
     const manualTitle = resolveManualTerminalTitle(liveLeafPty ?? pty, syncedTab, tab)
-    const title =
-      manualTitle ?? normalizeCompatibleAgentTitleForOwner(liveTitle, ownerAgent, ownerOptions)
+    const normalizedLiveTitle = normalizeCompatibleAgentTitleForOwner(
+      liveTitle,
+      ownerAgent,
+      ownerOptions
+    )
+    const title = manualTitle ?? normalizedLiveTitle
     const liveTitleEvidence = leafTitle ?? ptyTitle
     // Why: renderer status can precede hook session identity, leaving native chat with no transcript address.
     const rendererStatusAgent =
@@ -292,22 +293,20 @@ export function projectRuntimeMobileSessionTabs(
     const clientAgentStatus: { agentStatus?: AgentStatusEntry } = projectedStatusEntry
       ? { agentStatus: clientStatusFields as AgentStatusEntry }
       : {}
-    const effectiveManualTitle = resolveSessionBackedManualTerminalTitle({
-      manualTitle,
-      tabCustomTitle: tab.customTitle,
-      syncedTabCustomTitle: syncedTab?.customTitle,
-      providerSessionIds: [
-        (liveLeafPty ?? pty)?.providerSessionId,
-        projectedStatusEntry?.providerSession?.id ?? hookProviderSession?.id,
-        retainedAgentStatus?.payload.providerSession?.id ?? syncedTab?.aiVaultTitle?.sessionId
-      ],
-      getSessionCustomTitle: host.getSessionCustomTitle
-    })
     tabs.push(
       buildProjectedMobileTerminalClientTab({
         tab,
         title,
-        effectiveManualTitle,
+        normalizedLiveTitle,
+        liveTitleEvidence,
+        manualTitle,
+        syncedTabCustomTitle: syncedTab?.customTitle,
+        providerSessionIds: [
+          (liveLeafPty ?? pty)?.providerSessionId,
+          projectedStatusEntry?.providerSession?.id ?? hookProviderSession?.id,
+          retainedAgentStatus?.providerSession?.id ?? syncedTab?.aiVaultTitle?.sessionId
+        ],
+        getSessionCustomTitle: host.getSessionCustomTitle,
         incarnationId: terminalPty?.incarnationId,
         launchAgent,
         clientAgentStatus,

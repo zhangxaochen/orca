@@ -233,6 +233,7 @@ export abstract class OrcaRuntimeWithRunCreateMobileSessionTerminal extends Orca
         ...(opts.resumeProviderSession?.id
           ? { providerSessionId: opts.resumeProviderSession.id }
           : {}),
+        ...(startupCommand.launchAgent ? { launchAgent: startupCommand.launchAgent } : {}),
         ...(startupCommand.command ? { startupCommand: startupCommand.command } : {}),
         ...(opts.viewMode ? { viewMode: opts.viewMode } : {})
       })
