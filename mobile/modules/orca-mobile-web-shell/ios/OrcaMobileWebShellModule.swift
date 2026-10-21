@@ -27,6 +27,10 @@ public class OrcaMobileWebShellModule: Module {
       OnViewDidUpdateProps { (view: OrcaMobileWebShellView) in
         view.propsDidUpdate()
       }
+
+      OnViewDestroys { (view: OrcaMobileWebShellView) in
+        view.destroyWebView()
+      }
     }
   }
 }

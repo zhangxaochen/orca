@@ -32,24 +32,31 @@ export const mobileSessionFrameStyles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs
   },
-  // Each 36pt visual reserves 4pt per side for its 44pt touch area.
-  headerButton: {
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs
+  },
+  backButtonPressed: {
+    backgroundColor: colors.bgRaised
+  },
+  filesButton: {
     width: 36,
     height: 36,
     borderRadius: radii.button,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: spacing.xs
+    marginLeft: spacing.xs
   },
-  headerButtonPressed: {
+  filesButtonPressed: {
     backgroundColor: colors.bgRaised
   },
   // Selected state for the active docked-panel icon on wide layouts (R2).
-  headerButtonActive: {
+  filesButtonActive: {
     backgroundColor: colors.bgRaised
-  },
-  headerButtonDisabled: {
-    opacity: 0.45
   },
   sessionTitleBlock: {
     flex: 1,
@@ -151,8 +158,19 @@ export const mobileSessionFrameStyles = StyleSheet.create({
   tabTextActive: {
     color: colors.textPrimary
   },
+  newTerminalButton: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent'
+  },
   newTerminalButtonPressed: {
     backgroundColor: colors.bgRaised
+  },
+  newTerminalButtonDisabled: {
+    opacity: 0.45
   },
   // Divider between the + new-terminal button and the Quick Commands launcher,
   // matching the tab strip's borderSubtle separators.

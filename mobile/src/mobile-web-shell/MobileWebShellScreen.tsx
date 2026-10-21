@@ -282,7 +282,7 @@ export function MobileWebShellScreen({
     onNavigate: (href: string) => {
       // Wide, this host's route is the area-owning session below: back to it, or in place of this
       // one from a cold deep link, never a second on top. `dismissTo` takes the href's params.
-      if (isWideLayout && isHostRouteOf(href, hostId)) {
+      if (href === '/' || (isWideLayout && isHostRouteOf(href, hostId))) {
         router.dismissTo(href)
         return
       }
