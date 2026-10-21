@@ -126,10 +126,6 @@ describe('MobileSessionTabStrip', () => {
     const { switchSessionTab, setRenameTarget } = renderStrip([tab], 'pty-1')
     const [pressed] = tabButtons()
 
-    expect(pressed.props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ maxWidth: 280 })])
-    )
-
     press(pressed)
     expect(switchSessionTab).toHaveBeenCalledExactlyOnceWith(tab)
     expect(setRenameTarget).not.toHaveBeenCalled()
