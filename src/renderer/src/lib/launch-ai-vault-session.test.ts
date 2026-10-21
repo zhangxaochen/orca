@@ -166,6 +166,7 @@ describe('launchAiVaultSessionInNewTab', () => {
       worktreeId: 'wt-1',
       targetGroupId: 'group-1',
       command: "codex resume 'session-1'",
+      customTitle: 'My Renamed Session',
       env: { CODEX_PROFILE: 'runtime' },
       envToDelete: ['CODEX_HOME', 'ORCA_CODEX_HOME'],
       launchConfig: {
@@ -184,6 +185,7 @@ describe('launchAiVaultSessionInNewTab', () => {
       agentSessionKind: 'resume',
       launchAgent: 'codex',
       command: "codex resume 'session-1'",
+      customTitle: 'My Renamed Session',
       env: { CODEX_PROFILE: 'runtime' },
       envToDelete: ['CODEX_HOME', 'ORCA_CODEX_HOME'],
       launchConfig: {

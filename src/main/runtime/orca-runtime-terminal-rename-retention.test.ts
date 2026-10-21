@@ -190,6 +190,44 @@ describe('terminal rename before renderer graph hydration', () => {
     expect(runtime['ptysById'].get('resume-pty')?.customTitle).toBe('Kept name')
     expect(runtime['ptysById'].get('resume-pty')?.providerSessionId).toBe('sess-kept')
   })
+
+  it('restores customTitle on a closed renamed session reopened via createMobileSessionTerminal', async () => {
+    const session = makeWorkspaceSessionWithHeadlessTerminal({
+      sessionCustomTitles: { 'sess-reopen-mobile': 'Reopened Mobile Name' }
+    })
+    session.tabsByWorktree[TEST_WORKTREE_ID] = []
+    const { runtimeStore, getSession } = makeRuntimeStoreWithWorkspaceSession(session)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The fixture store implements RuntimeStore; its mock typing drops callable signatures.
+    const runtime = new OrcaRuntimeService(runtimeStore as RuntimeStore)
+    runtime.setPtyController({
+      spawn: vi.fn(async () => ({ id: 'mobile-reopen-pty' })),
+      write: () => true,
+      kill: () => true,
+      getForegroundProcess: async () => null
+    })
+    runtime.syncWindowGraph(0, { tabs: [], leaves: [] })
+
+    const created = await runtime.createMobileSessionTerminal(`id:${TEST_WORKTREE_ID}`, {
+      launchAgent: 'claude',
+      resumeProviderSession: { key: 'session_id', id: 'sess-reopen-mobile' },
+      title: 'Reopened Mobile Name',
+      activate: false,
+      select: true,
+      navigation: 'caller'
+    })
+
+    expect(created.tab.title).toBe('Reopened Mobile Name')
+    expect(created.tab.customTitle).toBe('Reopened Mobile Name')
+    expect(getSession().tabsByWorktree[TEST_WORKTREE_ID][0]?.customTitle).toBe(
+      'Reopened Mobile Name'
+    )
+    const listed = runtime['getMobileSessionTabsForWorktree'](TEST_WORKTREE_ID)
+    expect(listed.tabs[0]).toMatchObject({
+      type: 'terminal',
+      title: 'Reopened Mobile Name',
+      customTitle: 'Reopened Mobile Name'
+    })
+  })
 })
 
 function notifier(renameTerminal: RuntimeNotifier['renameTerminal']): RuntimeNotifier {

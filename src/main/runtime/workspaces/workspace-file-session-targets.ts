@@ -83,6 +83,13 @@ export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends Runtim
             title: normalizedTitle ?? fallbackTitle ?? 'Terminal'
           }
         }
+        if (tab.type === 'agent-session' && tab.id === tabId) {
+          return {
+            ...tab,
+            customTitle: normalizedTitle,
+            ...(normalizedTitle ? { title: normalizedTitle } : {})
+          }
+        }
         return tab
       })
     }

@@ -24,6 +24,7 @@ import {
   buildMaterializedHeadlessParentLayout,
   getHeadlessMobileSessionGroupId
 } from '../../mobile-session-layout-projection'
+import { resolveManualTerminalTitle } from '../../manual-terminal-title'
 
 const OWNED_MOBILE_DISPATCH_RECIPE_TTL_MS = 15 * 60_000
 
@@ -31,6 +32,7 @@ export type OwnedMobileTerminalCreateOptions = {
   command?: string
   shellOverride?: string
   cwd?: string
+  title?: string
   env?: Record<string, string>
   envToDelete?: string[]
   startupCommandDelivery?: WorktreeStartupLaunch['startupCommandDelivery']
@@ -123,6 +125,7 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
         command: opts.command,
         ...(opts.shellOverride ? { shellOverride: opts.shellOverride } : {}),
         cwd,
+        ...(opts.title ? { title: opts.title } : {}),
         env: opts.env,
         envToDelete: opts.envToDelete,
         ...(opts.launchConfig ? { launchConfig: opts.launchConfig } : {}),
@@ -135,15 +138,8 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
         ...(opts.viewMode ? { viewMode: opts.viewMode } : {}),
         ...(opts.targetGroupId ? { targetGroupId: opts.targetGroupId } : {}),
         startupCommandDelivery: opts.startupCommandDelivery,
-        ...(opts.identity
-          ? {
-              tabId: opts.identity.tabId,
-              leafId: opts.identity.leafId,
-              ...(stableSessionId ? { sessionId: stableSessionId } : {})
-            }
-          : stableSessionId
-            ? { sessionId: stableSessionId }
-            : {}),
+        ...(opts.identity ? { tabId: opts.identity.tabId, leafId: opts.identity.leafId } : {}),
+        ...(stableSessionId ? { sessionId: stableSessionId } : {}),
         ...(isNewSession ? { isNewSession: true } : {}),
         persistHostSessionBinding: true,
         // Why: this method publishes the authoritative snapshot below; skip the intermediate publish to avoid a wrong-group flash.
@@ -207,16 +203,21 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
     const existing = this.mobileSessionTabsByWorktree.get(worktreeId)
     const existingSurface =
       existing?.tabs.find(
-        (candidate): candidate is RuntimeMobileSessionTerminalTab =>
-          candidate.type === 'terminal' &&
-          candidate.parentTabId === parentTabId &&
-          candidate.leafId === leafId
+        (c): c is RuntimeMobileSessionTerminalTab =>
+          c.type === 'terminal' && c.parentTabId === parentTabId && c.leafId === leafId
       ) ?? null
     const parentLayout = buildMaterializedHeadlessParentLayout(
       leafId,
       livePty.pty.ptyId,
       existingSurface?.parentLayout
     )
+    const sessionTitle = opts.resumeProviderSession?.id
+      ? this.getSessionCustomTitle(opts.resumeProviderSession.id)
+      : null
+    const customTitle =
+      resolveManualTerminalTitle(livePty.pty, existingSurface, {
+        customTitle: opts.title ?? sessionTitle
+      }) ?? undefined
     const tab: RuntimeMobileSessionTerminalTab = {
       type: 'terminal',
       id: `${parentTabId}::${leafId}`,
@@ -224,7 +225,8 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
       leafId,
       ptyId: livePty.pty.ptyId,
       incarnationId: livePty.pty.incarnationId,
-      title: terminal.title ?? livePty.pty.title ?? 'Terminal',
+      title: customTitle ?? terminal.title ?? livePty.pty.title ?? 'Terminal',
+      ...(customTitle ? { customTitle } : {}),
       ...(cwd ? { startupCwd: cwd } : {}),
       ...(opts.launchAgent ? { launchAgent: opts.launchAgent } : {}),
       ...(opts.viewMode ? { viewMode: opts.viewMode } : {}),

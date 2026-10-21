@@ -172,16 +172,14 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
                 }
               : {}),
             ...(launchOpts.agentSessionCreateOperationId
-              ? {
-                  agentSessionCreateOperationId: launchOpts.agentSessionCreateOperationId
-                }
+              ? { agentSessionCreateOperationId: launchOpts.agentSessionCreateOperationId }
               : {}),
             ...dependencies.callerSpawnScope(launchOpts),
             ...(launchOpts.onPtySpawnCommitted
               ? { onPtySpawnCommitted: reportPtySpawnCommitted }
               : {}),
             ...(adoptedBeforeLaunch ? { adoptedStablePane: adoptedBeforeLaunch } : {}),
-            ...dependencies.newTabIn(launchOpts),
+            ...dependencies.newTabIn(launchOpts, (id) => this.getSessionCustomTitle(id)),
             ...(launchOpts.afterTabId ? { afterTabId: launchOpts.afterTabId } : {}),
             ...(launchOpts.sessionId ? { sessionId: launchOpts.sessionId } : {}),
             ...(!adoptedBeforeLaunch && launchOpts.isNewSession ? { isNewSession: true } : {}),
@@ -238,6 +236,9 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
             if (titled) {
               pty.titleUpdatedAt = this.nextTitleObservationSequence()
               this.setPtyManagementTitleFromObservedTitle(pty, titled, pty.titleUpdatedAt)
+              if (launchOpts.presentation !== 'background' || pty.providerSessionId) {
+                this.rememberManualTerminalTitle(tabId, titled)
+              }
             }
             pty.launchConfig = effectiveLaunchConfig
               ? dependencies.copySleepingAgentLaunchConfig(effectiveLaunchConfig)

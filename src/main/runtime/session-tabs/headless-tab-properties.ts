@@ -110,7 +110,8 @@ export abstract class RuntimeHeadlessTabProperties extends OrcaRuntimeWithCloseH
       return {
         ...tab,
         ...(props.title !== undefined ? { title: props.title } : {}),
-        ...(props.customTitle !== undefined && tab.type === 'terminal'
+        ...(props.customTitle !== undefined &&
+        (tab.type === 'terminal' || tab.type === 'agent-session')
           ? { customTitle: props.customTitle }
           : {}),
         ...(props.color !== undefined ? { color: props.color } : {}),

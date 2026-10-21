@@ -218,6 +218,8 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeConstructionServic
       paired: boolean
       selectIfNoActiveTab: boolean
       viewMode?: 'terminal' | 'chat'
+      customTitle?: string
+      providerSessionId?: string
       /** Resolved agent launch command, kept so a settle over a bare renderer
        *  PTY can still deliver the launch instead of succeeding silently (STA-3214). */
       startupCommand?: string

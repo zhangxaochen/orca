@@ -291,7 +291,7 @@ export abstract class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRu
     return { handle, tabId: leaf.tabId, title: normalizedTitle }
   }
 
-  private rememberManualTerminalTitle(tabId: string | null, title: string | null): void {
+  protected rememberManualTerminalTitle(tabId: string | null, title: string | null): void {
     if (!tabId) {
       return
     }

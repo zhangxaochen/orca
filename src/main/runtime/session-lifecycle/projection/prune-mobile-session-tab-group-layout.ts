@@ -80,10 +80,14 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     snapshot: RuntimeMobileSessionTabsSnapshot
   ): RuntimeMobileSessionTabsResult {
     const host = getStructuredAgentSessionHost()
-    snapshot = titleStructuredConversationTabs(snapshot, (sessionId) => {
-      const record = host?.deps?.store?.getRecord(sessionId)
-      return record?.location.workspaceId === snapshot.worktree ? record.conversationName : null
-    })
+    snapshot = titleStructuredConversationTabs(
+      snapshot,
+      (sessionId) => {
+        const record = host?.deps?.store?.getRecord(sessionId)
+        return record?.location.workspaceId === snapshot.worktree ? record.conversationName : null
+      },
+      (sessionId) => this.getSessionCustomTitle(sessionId)
+    )
     return projectRuntimeMobileSessionTabs(snapshot, this.getMobileSessionProjectionHost())
   }
 
@@ -94,7 +98,9 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     }
     const record = getStructuredAgentSessionHost()?.deps?.store?.getRecord(sessionId)
     const name = record?.location.workspaceId === workspaceId ? record.conversationName : null
-    const next = retitleStructuredConversationTab(snapshot, sessionId, name)
+    const next = retitleStructuredConversationTab(snapshot, sessionId, name, (id) =>
+      this.getSessionCustomTitle(id)
+    )
     if (next) {
       this.emitMobileSessionTabsSnapshot(this.storeMobileSessionSnapshot(workspaceId, next))
     }
@@ -115,6 +121,7 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
       getRetainedStatus: (paneKey, pty, tab, getRows) =>
         this.getFreshRetainedAgentStatusForMobileTab(paneKey, pty, tab, getRows),
       getTrackedTitle: (ptyId) => this.getUnpersistedTrackedTitleForPty(ptyId),
+      getSessionCustomTitle: (sessionId) => this.getSessionCustomTitle(sessionId),
       getTitleDisplayClear: (ptyId) => this.getPtyTitleDisplayClear(ptyId),
       issuePtyHandle: (pty) => this.issuePtyHandle(pty),
       recordPty: (ptyId, worktreeId, state) => this.recordPtyWorktree(ptyId, worktreeId, state),

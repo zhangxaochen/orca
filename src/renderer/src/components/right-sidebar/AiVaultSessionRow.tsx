@@ -124,6 +124,7 @@ export function VaultSessionRow({
         sessionId: session.sessionId,
         ...(session.structuredSession ? { structuredSession: session.structuredSession } : {}),
         title,
+        ...(session.customTitle !== undefined ? { customTitle: session.customTitle } : {}),
         command: resumeStartup.command,
         sessionFilePath: session.filePath,
         sessionExecutionHostId: session.executionHostId,

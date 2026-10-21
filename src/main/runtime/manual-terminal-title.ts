@@ -21,3 +21,27 @@ export function publishedCustomTitle(
   }
   return tabCustomTitle !== undefined ? { customTitle: tabCustomTitle } : {}
 }
+
+export function resolveSessionBackedManualTerminalTitle(args: {
+  manualTitle: string | null
+  tabCustomTitle: string | null | undefined
+  syncedTabCustomTitle: string | null | undefined
+  providerSessionIds: readonly (string | null | undefined)[]
+  getSessionCustomTitle?: (sessionId: string) => string | null
+}): string | null {
+  if (
+    args.manualTitle !== null ||
+    args.tabCustomTitle === null ||
+    args.syncedTabCustomTitle === null ||
+    !args.getSessionCustomTitle
+  ) {
+    return args.manualTitle
+  }
+  for (const sessionId of args.providerSessionIds) {
+    const title = sessionId ? args.getSessionCustomTitle(sessionId)?.trim() : null
+    if (title) {
+      return title
+    }
+  }
+  return null
+}

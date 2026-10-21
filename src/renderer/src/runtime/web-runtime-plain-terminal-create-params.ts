@@ -37,10 +37,12 @@ export async function buildPlainCreateTerminalParams(
     targetGroupId: args.targetGroupId,
     ...(await resolveCreateTerminalShellParams(environmentId, args)),
     cwd: args.cwd,
+    ...(args.customTitle ? { title: args.customTitle } : {}),
     ...(args.env ? { env: args.env } : {}),
     ...(args.envToDelete ? { envToDelete: args.envToDelete } : {}),
     startupCommandDelivery: args.startupCommandDelivery,
     ...(args.launchConfig ? { launchConfig: args.launchConfig } : {}),
+    ...(args.providerSession ? { resumeProviderSession: args.providerSession } : {}),
     ...(args.launchToken ? { launchToken: args.launchToken } : {}),
     ...(args.viewMode ? { viewMode: args.viewMode } : {}),
     // Why: old hosts understand activate:false; new hosts use select/navigation for caller-local focus.

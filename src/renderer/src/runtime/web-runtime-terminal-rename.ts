@@ -1,3 +1,4 @@
+import type { Tab } from '../../../shared/tab-types'
 import type { TerminalTab, TerminalLayoutSnapshot } from '../../../shared/terminal-tab-types'
 import { isWebTerminalSurfaceTabId } from '../../../shared/terminal-surface-id'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-result'
@@ -40,6 +41,7 @@ export function renameWebRuntimeTerminal(
 type RenameStoreState = {
   tabsByWorktree: Record<string, TerminalTab[] | undefined>
   terminalLayoutsByTabId: Record<string, TerminalLayoutSnapshot | undefined>
+  unifiedTabsByWorktree?: Record<string, Tab[] | undefined>
 }
 
 /** Any remote pane of the tab names it on the host; the active one is only the first choice. */
@@ -65,6 +67,15 @@ export function renameHostTerminalTab(
     .map(([worktreeId, tabs]) => ({ worktreeId, tab: tabs?.find((tab) => tab.id === tabId) }))
     .find((candidate) => candidate.tab)
   if (!entry?.tab) {
+    const unifiedEntry = Object.entries(state.unifiedTabsByWorktree ?? {})
+      .map(([worktreeId, tabs]) => ({
+        worktreeId,
+        tab: tabs?.find((tab) => tab.contentType === 'agent-session' && tab.id === tabId)
+      }))
+      .find((candidate) => candidate.tab)
+    if (unifiedEntry?.tab) {
+      setWebRuntimeTabProps({ worktreeId: unifiedEntry.worktreeId, tabId, customTitle: title })
+    }
     return
   }
   renameWebRuntimeTerminal(boundRemotePtyId(state, entry.tab), title)

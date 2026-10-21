@@ -293,6 +293,7 @@ export abstract class OrcaRuntimeWithCloseHeadlessMobileTerminalTab extends Orca
       args.customTitle === undefined ? undefined : args.customTitle?.trim() || null
     if (this.getAvailableAuthoritativeWindow()) {
       if (customTitle !== undefined) {
+        this.rememberTerminalSessionTitle(hostTabId, undefined, customTitle)
         this.notifier?.renameTerminal(hostTabId, customTitle)
       }
       return { updated: true }

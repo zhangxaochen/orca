@@ -73,6 +73,7 @@ export const SESSION_TAB_METHODS = [
         ...(params.env ? { env: params.env } : {}),
         ...(params.envToDelete ? { envToDelete: params.envToDelete } : {}),
         startupCommandDelivery: params.startupCommandDelivery,
+        ...(params.title ? { title: params.title } : {}),
         agent: params.agent,
         ...(params.agentPrompt !== undefined ? { agentPrompt: params.agentPrompt } : {}),
         ...(params.launchConfig ? { launchConfig: params.launchConfig } : {}),

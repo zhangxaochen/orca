@@ -20,6 +20,7 @@ export type CreateWebRuntimeSessionTerminalArgs = {
   afterTabId?: string
   targetGroupId?: string
   command?: string
+  customTitle?: string | null
   /** The Windows shell the terminal runs as, never typed into the host default shell. */
   shell?: string
   cwd?: string
