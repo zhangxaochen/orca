@@ -3,9 +3,11 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
+  clearRetainedNativeWebShellSlot,
   OrcaMobileWebShellView,
   parseMobileWebShellLoadState
 } from '../../modules/orca-mobile-web-shell/src'
+import { registerRetainedNativeWebShellClearer } from './retained-shell-session-store'
 import { HostRouteNoticeBanner } from '../components/HostRouteNoticeBanner'
 import { ProtocolBlockScreen } from '../components/ProtocolBlockScreen'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
@@ -45,6 +47,8 @@ import {
 import { ShellDownloadProgress } from './ShellDownloadProgress'
 import { pageSafeAreaInsets, usePublishedSafeAreaInsets } from './page-safe-area-insets'
 import { hostProfileUnreadableLine, pageFaultLine } from './shell-lifecycle-log'
+
+registerRetainedNativeWebShellClearer(clearRetainedNativeWebShellSlot)
 import { recordShellLifecycleLine } from './shell-lifecycle-line-recorder'
 
 function failureMessage(reason: MobileWebShellFailureCause): string {

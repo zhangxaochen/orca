@@ -114,16 +114,17 @@ export function useMobileWebShellSession(args: {
   const gatesRef = useRef(sessionGates)
   gatesRef.current = sessionGates
 
-  const sessionRef = useRef(
-    readRetainedShellSession({
-      hostId,
-      routePathname,
-      wide,
-      appNamesRoute,
-      client,
-      gates: sessionGates
-    }) ?? createMobileWebShellSession(routePathname, wide, appNamesRoute)
-  )
+  const [sessionRef] = useState(() => ({
+    current:
+      readRetainedShellSession({
+        hostId,
+        routePathname,
+        wide,
+        appNamesRoute,
+        client,
+        gates: sessionGates
+      }) ?? createMobileWebShellSession(routePathname, wide, appNamesRoute)
+  }))
   const [state, setState] = useState(sessionRef.current.state)
   const [pageReady, setPageReady] = useState(sessionRef.current.pageReady)
   const [pageFrame, setPageFrame] = useState(() => shellPageFrame(sessionRef.current))

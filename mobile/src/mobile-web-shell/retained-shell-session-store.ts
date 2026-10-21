@@ -15,6 +15,7 @@ export type RetainedBridgeHostBinding = {
   post: ((json: string) => Promise<void>) | null
   queuedOutboundFrames: string[]
   disposed: boolean
+  overflowed: boolean
 }
 
 type RetainedBridgeRecord = {
@@ -38,6 +39,11 @@ type RetainedShellSessionEntry = {
 
 let retainedEntry: RetainedShellSessionEntry | null = null
 let latestHostSnapshot: { hostId: string; snapshot: PageHostSnapshot } | null = null
+let clearNativeSlot: (() => void) | null = null
+
+export function registerRetainedNativeWebShellClearer(clearer: () => void): void {
+  clearNativeSlot = clearer
+}
 
 function disposeBridgeOf(entry: RetainedShellSessionEntry | null): void {
   if (entry?.bridge !== null && entry?.bridge !== undefined) {
@@ -54,6 +60,7 @@ export function evictRetainedShellSession(): void {
   retainedEntry = null
   latestHostSnapshot = null
   disposeBridgeOf(current)
+  clearNativeSlot?.()
 }
 
 export function evictRetainedShellSessionForHost(hostId: string): void {
@@ -197,7 +204,11 @@ export function takeRetainedBridgeHost(args: {
   ) {
     return null
   }
-  if (entry.bridge.sessionId !== args.sessionId || entry.bridge.buildId !== args.buildId) {
+  if (
+    entry.bridge.sessionId !== args.sessionId ||
+    entry.bridge.buildId !== args.buildId ||
+    entry.bridge.binding.overflowed
+  ) {
     disposeBridgeOf(entry)
     return null
   }
@@ -229,6 +240,7 @@ export function parkRetainedBridgeHost(args: {
   disposeBridgeOf(entry)
   args.binding.post = null
   args.binding.disposed = false
+  args.binding.overflowed = false
   entry.bridge = {
     sessionId: args.sessionId,
     buildId: args.buildId,
@@ -247,9 +259,13 @@ export function postOrQueueRetainedBridgeFrame(
   if (binding.post !== null) {
     return binding.post(json)
   }
-  if (!binding.disposed && binding.queuedOutboundFrames.length < MAX_PARKED_OUTBOUND_FRAMES) {
-    binding.queuedOutboundFrames.push(json)
-    return Promise.resolve()
+  if (!binding.disposed && !binding.overflowed) {
+    if (binding.queuedOutboundFrames.length < MAX_PARKED_OUTBOUND_FRAMES) {
+      binding.queuedOutboundFrames.push(json)
+      return Promise.resolve()
+    }
+    binding.overflowed = true
+    binding.queuedOutboundFrames.length = 0
   }
   return Promise.reject(onGone())
 }

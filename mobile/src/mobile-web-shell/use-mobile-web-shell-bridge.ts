@@ -239,7 +239,8 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
         clientId: clientIdRef.current,
         post: postToMounted,
         queuedOutboundFrames: [],
-        disposed: false
+        disposed: false,
+        overflowed: false
       }
       // The host outlives every render after this one, so each callback it holds reads the ref at
       // call time: a closure captured here would settle frames into a screen that has moved on, and

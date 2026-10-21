@@ -73,6 +73,33 @@ internal class OrcaMobileWebShellView(
     private val retainedPool = MobileWebShellSlotPool<RetainedMobileWebShellSlot> { slot ->
       disposeRetainedSlot(slot)
     }
+
+    fun clearRetainedSlot() {
+      retainedPool.clear()
+    }
+
+    private object ParkedWebViewClient : WebViewClient() {
+      override fun shouldInterceptRequest(
+        view: WebView,
+        request: WebResourceRequest
+      ): WebResourceResponse =
+        WebResourceResponse(
+          "text/plain",
+          "utf-8",
+          403,
+          "Forbidden",
+          emptyMap(),
+          ByteArrayInputStream(ByteArray(0))
+        )
+
+      override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+        true
+
+      override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        retainedPool.clear()
+        return true
+      }
+    }
   }
 
   private val onLoadState by EventDispatcher<Map<String, Any>>()
@@ -327,7 +354,7 @@ internal class OrcaMobileWebShellView(
     if (canRetain) {
       val channel = currentChannel ?: MobileWebShellBridgeChannel(null)
       channel.owner = null
-      view.webViewClient = WebViewClient()
+      view.webViewClient = ParkedWebViewClient
       view.onPause()
       (view.context as? MutableContextWrapper)?.baseContext = context.applicationContext
       detachWebViewFromParent(view)

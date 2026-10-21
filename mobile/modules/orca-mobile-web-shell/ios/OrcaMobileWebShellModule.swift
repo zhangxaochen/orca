@@ -4,6 +4,16 @@ public class OrcaMobileWebShellModule: Module {
   public func definition() -> ModuleDefinition {
     Name("OrcaMobileWebShell")
 
+    Function("clearRetainedSlot") {
+      if Thread.isMainThread {
+        OrcaMobileWebShellView.clearRetainedSlot()
+      } else {
+        DispatchQueue.main.async {
+          OrcaMobileWebShellView.clearRetainedSlot()
+        }
+      }
+    }
+
     View(OrcaMobileWebShellView.self) {
       Events("onLoadState", "onBridgeMessage", "onExternalNavigation")
 

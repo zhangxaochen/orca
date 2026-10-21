@@ -200,8 +200,35 @@ internal final class MobileWebShellBridgeMessageTooLargeException: GenericExcept
   }
 }
 
+private final class ParkedNavigationDelegate: NSObject, WKNavigationDelegate {
+  func webView(
+    _ webView: WKWebView,
+    decidePolicyFor navigationAction: WKNavigationAction,
+    decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+  ) {
+    decisionHandler(.cancel)
+  }
+
+  func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+    OrcaMobileWebShellView.evictRetained(ifWebView: webView)
+  }
+}
+
 final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate {
   private static var retainedSlot: RetainedMobileWebShellSlot?
+  private static let parkedDelegate = ParkedNavigationDelegate()
+
+  static func clearRetainedSlot() {
+    guard let slot = retainedSlot else { return }
+    retainedSlot = nil
+    teardownSlot(slot)
+  }
+
+  static func evictRetained(ifWebView target: WKWebView) {
+    guard let slot = retainedSlot, slot.webView === target else { return }
+    retainedSlot = nil
+    teardownSlot(slot)
+  }
 
   private static func takeMatchingOrEvict(_ props: MobileWebShellAppliedProps) -> RetainedMobileWebShellSlot? {
     guard let slot = retainedSlot else { return nil }
@@ -391,7 +418,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       let currentApplied = applied
     {
       bridgeReceiver.view = nil
-      view.navigationDelegate = nil
+      view.navigationDelegate = Self.parkedDelegate
       view.uiDelegate = nil
       view.removeFromSuperview()
       loadState.documentEnded()
