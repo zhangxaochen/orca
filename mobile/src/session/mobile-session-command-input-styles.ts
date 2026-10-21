@@ -184,9 +184,10 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: 2,
     minHeight: 44,
     paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
     backgroundColor: colors.bgPanel
@@ -205,11 +206,10 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
     fontSize: 14,
     fontFamily: typography.monoFamily,
     lineHeight: 20,
-    includeFontPadding: false,
-    marginRight: 4
+    includeFontPadding: false
   },
   liveInputBar: {
-    gap: spacing.sm
+    gap: 2
   },
 
   liveInputFocusTarget: {
@@ -256,8 +256,7 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 4
+    justifyContent: 'center'
   },
   dictationButtonActive: {
     backgroundColor: colors.bgPanel,

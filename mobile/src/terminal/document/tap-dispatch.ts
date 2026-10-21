@@ -126,6 +126,7 @@ function onDocumentTouchStart(scope: TerminalDocumentScope, e: TouchEvent) {
 
   if (touches.length === 2) {
     // pinch latch
+    e.preventDefault()
     if (scope.selMode === 'select') {
       notify(scope, { type: 'mobile-clip-cancel-by-pinch' })
       cancelSelect(scope)
@@ -150,6 +151,10 @@ function onDocumentTouchStart(scope: TerminalDocumentScope, e: TouchEvent) {
     // tap on menu pill — let the buttons' own handlers fire
     return
   }
+
+  // Why: prevent Chromium from synthesizing a default focus/mousedown change that blurs the
+  // active command input (collapsing the open soft keyboard) when touching or scrolling the TUI.
+  e.preventDefault()
 
   if (inSurface && scope.selMode === 'select') {
     // Why: tap-to-dismiss matches native iOS/Android — touching outside the
@@ -249,10 +254,7 @@ function onDocumentTouchEnd(scope: TerminalDocumentScope, e: TouchEvent) {
       scope.selMode !== 'select' &&
       Date.now() - scope.tapCandidate.t <= TAP_MAX_MS
     ) {
-      console.log('[TerminalGesture] Clean tap fired -> notifyTerminalSurfaceTap')
       notifyTerminalSurfaceTap(scope, scope.tapCandidate.x, scope.tapCandidate.y, true)
-    } else if (touches.length === 0 && scope.touchGesture.hasMoved) {
-      console.log('[TerminalGesture] Swipe gesture released -> tap SUPPRESSED')
     }
     clearLongPress(scope)
     scope.tapCandidate = null

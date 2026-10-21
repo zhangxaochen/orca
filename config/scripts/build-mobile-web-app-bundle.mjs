@@ -644,7 +644,7 @@ export async function buildMobileWebAppBundle({
     // answers 403, the path being in no manifest. Empty rather than an asset: a WebView document
     // has no tab for an icon, and the bundle's images are route assets named by their own bytes.
     '<link rel="icon" href="data:," />\n' +
-    `<title>Orca</title>\n${MOBILE_WEB_APP_ROOT_RESET}\n${MOBILE_WEB_APP_NATIVE_PARITY_STYLE}\n<style id="orca-scrollbars">${scrollbarStyle}</style>\n</head>\n<body>\n<div id="root"></div>\n` +
+    `<title>Orca</title>\n${MOBILE_WEB_APP_ROOT_RESET}\n<style id="orca-scrollbars">${scrollbarStyle}</style>\n${MOBILE_WEB_APP_NATIVE_PARITY_STYLE}\n</head>\n<body>\n<div id="root"></div>\n` +
     `<script type="module" src="/${scriptAsset.path}"></script>\n</body>\n</html>\n`
   const indexBytes = Buffer.from(html, 'utf8')
   const indexAsset = {

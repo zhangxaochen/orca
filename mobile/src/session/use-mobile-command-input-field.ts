@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Keyboard, type TextInput } from 'react-native'
+import type { TextInput } from 'react-native'
 
 import { hostOs } from '../platform/host-os'
+import { subscribeSoftKeyboard } from '../platform/keyboard-occlusion'
 
 /**
  * Android command field: blur when the keyboard hides, and remount when the buffer
@@ -45,11 +46,13 @@ export function useMobileCommandInputField({
     if (hostOs() !== 'android') {
       return
     }
-    const sub = Keyboard.addListener('keyboardDidHide', () => {
-      isFocusedRef.current = false
-      commandInputNodeRef.current?.blur()
-    })
-    return () => sub.remove()
+    return subscribeSoftKeyboard(
+      () => {},
+      () => {
+        isFocusedRef.current = false
+        commandInputNodeRef.current?.blur()
+      }
+    )
   }, [])
 
   // Why: On Android multiline, selecting text and clearing all input leaves Android's SelectionActionMode
