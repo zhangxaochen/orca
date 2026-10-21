@@ -4,6 +4,7 @@ import { setMigrationUnsupportedPtyListener } from '../agent-hooks/migration-uns
 import { getDashboardPopoutWindow } from '../window/dashboard-popout-window'
 import { stopSyntheticTitleSpinnerTimer } from './synthetic-title-runtime'
 import { mainProcessState as state } from './main-process-state'
+import { pickHostTurnEnd } from '../../shared/agent-status-types'
 
 export type MainWindowAgentStatusOptions = {
   window: BrowserWindow
@@ -42,6 +43,8 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
       evidenceObservedAt,
       stateStartedAt,
       turnStartedAt,
+      turnEndedAt,
+      turnEndDisposition,
       launchToken,
       providerSession,
       providerSessionOnly,
@@ -50,7 +53,9 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
       observation,
       isReplay,
       authorityRestartId,
-      structuredHost
+      structuredHost,
+      programStatus,
+      programStatusOnly
     }) => {
       retainLiveCustomTitleForProviderSession({
         providerSessionId: providerSession?.id,
@@ -99,17 +104,23 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
         ...(evidenceObservedAt !== undefined ? { evidenceObservedAt } : {}),
         stateStartedAt,
         ...(turnStartedAt !== undefined ? { turnStartedAt } : {}),
+        ...pickHostTurnEnd({ turnEndedAt, turnEndDisposition }),
         ...(providerSession ? { providerSession } : {}),
         ...(promptInteractionKey ? { promptInteractionKey } : {}),
         ...(restoredUnconfirmed ? { restoredUnconfirmed: true } : {}),
         ...(observation ? { observation } : {}),
         ...(orchestration ? { orchestration } : {}),
+        ...(programStatus ? { programStatus } : {}),
+        ...(programStatusOnly === true ? { programStatusOnly: true } : {}),
         // Why: reconnect replays re-send cached rows; the renderer must not treat them as fresh completions.
         ...(isReplay === true ? { isReplay: true } : {})
       }
       state.mainWindow?.webContents.send('agentStatus:set', statusEvent)
       getDashboardPopoutWindow()?.webContents.send('agentStatus:set', statusEvent)
-      options.onRecordAgentState(payload.agentType ?? 'unknown', payload.state)
+      // A facet-only republish (progress tick) is not a state the agent entered.
+      if (programStatusOnly !== true) {
+        options.onRecordAgentState(payload.agentType ?? 'unknown', payload.state)
+      }
     }
   )
   agentHookServer.setPaneStatusClearListener((clear) => {

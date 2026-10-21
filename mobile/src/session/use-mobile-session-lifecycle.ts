@@ -1,4 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { settleSessionPreferenceRead } from './session-preference-read'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { AppState, type AppStateStatus, Platform } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { loadHosts } from '../transport/host-store'
@@ -7,10 +8,12 @@ import {
   recoverActiveTerminalAfterForeground,
   shouldRecoverTerminalOnAppStateChange
 } from '../terminal/terminal-foreground-recovery'
-import { loadCustomKeys } from '../components/CustomKeyModal'
+import { loadCustomKeys } from '../terminal/terminal-custom-keys'
 import type { MobileSessionTabReconciliationModel } from './use-mobile-session-tab-reconciliation'
 
 export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationModel) {
+  const [customKeysLoaded, setCustomKeysLoaded] = useState(false)
+  const [accessoryLayoutLoaded, setAccessoryLayoutLoaded] = useState(false)
   const {
     hostId,
     connState,
@@ -47,54 +50,57 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
   }, [hostId])
 
   useEffect(() => {
-    void loadCustomKeys().then(setCustomKeys)
-  }, [])
-
-  useFocusEffect(
-    useCallback(() => {
-      let stale = false
-      void loadTerminalAccessoryLayout().then((layout) => {
-        if (!stale) {
-          setShortcutLayout(layout)
-          setVisibleBuiltInIds(layout.visibleBuiltInIds)
-        }
-      })
-      void loadCustomKeys().then((keys) => {
-        if (!stale) {
+    let active = true
+    void settleSessionPreferenceRead(loadCustomKeys()).then((keys) => {
+      if (active) {
+        if (keys) {
           setCustomKeys(keys)
         }
-      })
-      return () => {
-        stale = true
-      }
-    }, [])
-  )
-
-  useEffect(() => {
-    let mounted = true
-    const refresh = () => {
-      void loadTerminalAccessoryLayout().then((layout) => {
-        if (mounted) {
-          setShortcutLayout(layout)
-          setVisibleBuiltInIds(layout.visibleBuiltInIds)
-        }
-      })
-      void loadCustomKeys().then((keys) => {
-        if (mounted) {
-          setCustomKeys(keys)
-        }
-      })
-    }
-    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') {
-        refresh()
+        setCustomKeysLoaded(true)
       }
     })
     return () => {
-      mounted = false
-      sub.remove()
+      active = false
     }
   }, [])
+
+  const layoutReadRevisionRef = useRef(0)
+  const refreshAccessoryLayout = useCallback(() => {
+    const revision = ++layoutReadRevisionRef.current
+    void settleSessionPreferenceRead(loadTerminalAccessoryLayout()).then((layout) => {
+      if (layoutReadRevisionRef.current === revision) {
+        if (layout) {
+          setShortcutLayout(layout)
+          setVisibleBuiltInIds(layout.visibleBuiltInIds)
+        }
+        setAccessoryLayoutLoaded(true)
+      }
+    })
+    void settleSessionPreferenceRead(loadCustomKeys()).then((keys) => {
+      if (layoutReadRevisionRef.current === revision && keys) {
+        setCustomKeys(keys)
+      }
+    })
+    return () => {
+      if (layoutReadRevisionRef.current === revision) {
+        layoutReadRevisionRef.current += 1
+      }
+    }
+  }, [])
+
+  useFocusEffect(refreshAccessoryLayout)
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'active') {
+        refreshAccessoryLayout()
+      }
+    })
+    return () => {
+      layoutReadRevisionRef.current += 1
+      sub.remove()
+    }
+  }, [refreshAccessoryLayout])
 
   const pendingForegroundRecoveryRef = useRef(false)
   useEffect(() => {
@@ -149,6 +155,7 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
     })
   }, [connState, scheduleDelayedAction, subscribeToTerminal, unsubscribeTerminal])
   return {
+    accessoryPreferencesReady: customKeysLoaded && accessoryLayoutLoaded,
     pendingForegroundRecoveryRef
   }
 }

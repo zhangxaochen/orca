@@ -23,6 +23,7 @@ export function MobileSessionActiveContent({
     terminals,
     terminalTextScale,
     setTerminalTextScale,
+    terminalTextScaleRevisionRef,
     activeHandle,
     markdownDocs,
     fileDocs,
@@ -32,6 +33,7 @@ export function MobileSessionActiveContent({
     setCreateError,
     setShowCreateTabDrawer,
     dictationMode,
+    dictationEnabled,
     toastMessage,
     browserScreencastSupported,
     showToast,
@@ -206,6 +208,7 @@ export function MobileSessionActiveContent({
           textScale={terminalTextScale}
           onTextScaleChange={(scale) => {
             // Why: pinch-to-zoom reports a new preset; persist it so the size sticks across panes and launches.
+            terminalTextScaleRevisionRef.current += 1
             setTerminalTextScale(scale)
             void saveTerminalTextScale(scale)
           }}
@@ -230,7 +233,7 @@ export function MobileSessionActiveContent({
         onOpenFile={handleNativeChatFileTap}
         images={nativeChatImages}
         structuredComposer={nativeChatStructuredComposer}
-        onMicPress={handleDictationToggle}
+        onMicPress={dictationEnabled ? handleDictationToggle : undefined}
         micActive={dictation.isRecording}
         dictationMode={dictationMode}
         onMicPressIn={handleDictationPressIn}

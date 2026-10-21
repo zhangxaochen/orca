@@ -19,22 +19,16 @@ import {
   loadCustomKeys,
   removeCustomKey,
   saveCustomKeys,
-  updateStoredCustomKeys
-} from './custom-keys-storage'
+  updateStoredCustomKeys,
+  type CustomKey
+} from '../terminal/terminal-custom-keys'
 import {
   SHORTCUT_MODIFIERS,
   SPECIAL_KEY_BY_ID,
   SPECIAL_KEY_GROUPS
 } from './custom-key-picker-constants'
 
-export { loadCustomKeys, removeCustomKey, saveCustomKeys }
-
-export type CustomKey = {
-  id: string
-  label: string
-  bytes: string
-  enter: boolean
-}
+export { loadCustomKeys, removeCustomKey, saveCustomKeys, type CustomKey }
 
 type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
 
