@@ -88,7 +88,7 @@ const SHELL_ENVIRONMENT_TTL_MS = 10_000
  * background past the TTL. Windows keeps a loaded PowerShell profile for good (only a failed load
  * is retried) and lays the saved PATH, where installers add themselves, over it on every read.
  */
-async function hostShellEnvironment(): Promise<NodeJS.ProcessEnv> {
+export async function hostShellEnvironment(): Promise<NodeJS.ProcessEnv> {
   const windows = process.platform === 'win32'
   const env = await resolveLoginShellEnvironment({
     refreshAfterMs: SHELL_ENVIRONMENT_TTL_MS,
