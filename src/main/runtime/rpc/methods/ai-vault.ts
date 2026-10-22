@@ -132,16 +132,25 @@ export const AI_VAULT_METHODS = [
           (session.structuredSession
             ? runtime.getSessionCustomTitle?.(session.structuredSession.sessionId)
             : null)
-        if (!customTitle) {
-          return session
-        }
-        if (session.structuredSession) {
+        const openTab =
+          runtime.resolveOpenTabForSession?.(session.sessionId) ??
+          runtime.resolveOpenTabForSession?.(session.id) ??
+          runtime.resolveOpenTabForSession?.(agentSessionId) ??
+          runtime.resolveOpenTabForSession?.(bareSessionId) ??
+          (session.structuredSession
+            ? runtime.resolveOpenTabForSession?.(session.structuredSession.sessionId)
+            : null) ??
+          undefined
+        if (customTitle && session.structuredSession) {
           runtime.setSessionCustomTitle?.(session.structuredSession.sessionId, customTitle)
+        }
+        if (!customTitle && !openTab) {
+          return session
         }
         return {
           ...session,
-          title: customTitle,
-          customTitle
+          ...(customTitle ? { title: customTitle, customTitle } : {}),
+          ...(openTab ? { openTab } : {})
         }
       })
       return conditionalAiVaultListResult(

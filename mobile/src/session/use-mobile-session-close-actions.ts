@@ -90,6 +90,7 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
         await sessionTerminalClose.request(client, { terminal: target.handle })
       )
       if (response.accepted) {
+        clearMobileAiVaultMemoryCache()
         unsubscribeTerminal(target.handle)
         terminalRefs.current.delete(target.handle)
         clearTerminalLiveInputDefault(target.handle)
@@ -132,6 +133,7 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
         })
       )
       if (response.accepted) {
+        clearMobileAiVaultMemoryCache()
         if (tab.type === 'markdown') {
           setMarkdownDocs((prev) => {
             const doc = prev.get(tab.id)

@@ -1,4 +1,6 @@
 import type { AiVaultSession } from '../../../src/shared/ai-vault-types'
+import { clearMobileAiVaultMemoryCache } from '../agent-history/mobile-ai-vault-session-cache'
+import { requestLocalSessionTabFollow } from './mobile-session-tab-activation'
 import {
   buildAiVaultResumeCommand,
   buildAiVaultResumeShellCommand,
@@ -218,6 +220,8 @@ export async function resumeAiVaultSessionInTerminal(
     'Failed to create terminal'
   )
   if (launchAtCreate) {
+    requestLocalSessionTabFollow(worktreeId)
+    clearMobileAiVaultMemoryCache()
     return terminalTab
   }
   assertCurrentOwner?.()
@@ -238,12 +242,20 @@ export async function resumeAiVaultSessionInTerminal(
   if (!accepted) {
     throw new Error('Terminal input is locked')
   }
+  requestLocalSessionTabFollow(worktreeId)
+  clearMobileAiVaultMemoryCache()
   return terminalTab
 }
 
 export type MobileAiVaultResumeMutationRegistry = {
   claim(sessionId: string): string
   releaseOnSuccess(sessionId: string): void
+}
+
+export function createMobileAiVaultResumeMutationId(sessionId: string): string {
+  const sessionPart = sessionId.replace(/[^a-zA-Z0-9_.:-]/g, '_').slice(0, 64) || 'session'
+  const randomPart = Math.random().toString(36).slice(2, 10)
+  return `ai-vault-resume:${sessionPart}:${Date.now().toString(36)}:${randomPart}`
 }
 
 // Why: a retry after a failed/interrupted resume must reuse the same
