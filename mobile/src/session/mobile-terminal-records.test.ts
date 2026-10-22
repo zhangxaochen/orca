@@ -6,6 +6,7 @@ import {
   mergeTerminalRecordsByCurrentOrder,
   mobileSessionTabsEqual,
   mobileTerminalThemesEqual,
+  terminalRecordsEqual,
   type MobileTerminalSessionTab,
   type TerminalRecord
 } from './mobile-terminal-records'
@@ -65,6 +66,48 @@ describe('mobile terminal records', () => {
     expect(mergeTerminalRecordsByCurrentOrder(snapshot, known)).toEqual([
       { handle: 'pty-1', title: 'Current title', terminalTheme: darkTheme, isActive: true }
     ])
+  })
+
+  it('keeps the host pane identity when a session-tab snapshot omits it', () => {
+    const known: TerminalRecord[] = [
+      { handle: 'pty-1', title: 'Old title', isActive: false, agentIdentity: 'cursor' }
+    ]
+    const snapshot: TerminalRecord[] = [{ handle: 'pty-1', title: 'Current title', isActive: true }]
+
+    expect(mergeTerminalRecordsByCurrentOrder(snapshot, known)).toEqual([
+      { handle: 'pty-1', title: 'Current title', isActive: true, agentIdentity: 'cursor' }
+    ])
+  })
+
+  it('lets an authoritative inventory replace or clear an earlier host identity', () => {
+    const known: TerminalRecord[] = [
+      { handle: 'pty-1', title: 'Terminal', isActive: true, agentIdentity: 'cursor' }
+    ]
+    for (const agentIdentity of ['claude', undefined]) {
+      const listed: TerminalRecord[] = [
+        { handle: 'pty-1', title: 'Terminal', isActive: true, agentIdentity }
+      ]
+      expect(mergeTerminalListWithKnownRecords(listed, known, [])[0]?.agentIdentity).toBe(
+        agentIdentity
+      )
+    }
+  })
+
+  it('treats a host pane identity change as a terminal record change', () => {
+    const record: TerminalRecord = { handle: 'pty-1', title: 'Terminal', isActive: true }
+
+    expect(
+      terminalRecordsEqual(
+        [{ ...record, agentIdentity: 'claude' }],
+        [{ ...record, agentIdentity: 'cursor' }]
+      )
+    ).toBe(false)
+    expect(
+      terminalRecordsEqual(
+        [{ ...record, agentIdentity: 'cursor' }],
+        [{ ...record, agentIdentity: 'cursor' }]
+      )
+    ).toBe(true)
   })
 
   it('keeps session-tab terminal themes when terminal.list omits them', () => {
@@ -194,6 +237,27 @@ describe('mobile terminal records', () => {
 
     expect(mobileSessionTabsEqual([base], [{ ...base }])).toBe(true)
     expect(mobileSessionTabsEqual([base], [{ ...base, sessionId: 'session-2' }])).toBe(false)
+    // A status-only frame must still reach the tab strip's dot.
+    expect(
+      mobileSessionTabsEqual([base], [{ ...base, chatStatus: { state: 'working', updatedAt: 1 } }])
+    ).toBe(false)
+  })
+
+  it('treats terminal launchAgent and customTitle changes as session-tab changes', () => {
+    const base: MobileTerminalSessionTab = {
+      type: 'terminal',
+      id: 'term-1::leaf-1',
+      parentTabId: 'term-1',
+      leafId: 'leaf-1',
+      title: 'My Renamed Session',
+      customTitle: 'My Renamed Session',
+      status: 'ready',
+      terminal: 'pty-1',
+      isActive: true
+    }
+
+    expect(mobileSessionTabsEqual([base], [{ ...base, launchAgent: 'claude' }])).toBe(false)
+    expect(mobileSessionTabsEqual([base], [{ ...base, customTitle: 'Updated Title' }])).toBe(false)
   })
 
   const record = (over: Partial<TerminalRecord> & { handle: string }): TerminalRecord => ({

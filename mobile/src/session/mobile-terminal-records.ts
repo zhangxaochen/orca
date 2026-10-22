@@ -1,5 +1,6 @@
 import type { MobileTerminalTheme } from '../terminal/terminal-webview-contract'
 import type { AgentStatusEntry } from '../../../src/shared/agent-status-types'
+import type { TuiAgent } from '../../../src/shared/tui-agent'
 
 export type TerminalRecord = {
   handle: string
@@ -10,16 +11,20 @@ export type TerminalRecord = {
   connected?: boolean
   /** From `terminal.list`; a live PTY with no leaf, so it never appears as a tab. */
   orphaned?: boolean
+  /** From `terminal.list`; the host's own pane identity, which tab snapshots never carry. */
+  agentIdentity?: string
 }
 
 export type MobileTerminalSessionTab = {
   type: 'terminal'
   id: string
   title: string
+  customTitle?: string | null
   parentTabId?: string
   leafId?: string
   status?: 'pending-handle' | 'ready'
   terminal: string | null
+  launchAgent?: TuiAgent | null
   agentStatus?: AgentStatusEntry | null
   /** Host-provided launch context still parked as an unsent TUI-input draft. */
   launchDraft?: string
@@ -68,6 +73,7 @@ type MobileSessionTabLike =
       title?: string
       sessionId?: string
       agent?: string
+      chatStatus?: unknown
       isActive?: boolean
     }
 
@@ -123,10 +129,12 @@ function mobileSessionTabEqual(
     case 'terminal':
       return (
         b.type === 'terminal' &&
+        a.customTitle === b.customTitle &&
         a.parentTabId === b.parentTabId &&
         a.leafId === b.leafId &&
         a.status === b.status &&
         a.terminal === b.terminal &&
+        a.launchAgent === b.launchAgent &&
         // A frame whose only delta is the launch draft appearing or retracting
         // still has to reach the chat composer.
         a.launchDraft === b.launchDraft &&
@@ -161,21 +169,27 @@ function mobileSessionTabEqual(
         a.canGoForward === b.canGoForward
       )
     case 'agent-session':
-      return b.type === 'agent-session' && a.sessionId === b.sessionId && a.agent === b.agent
+      return (
+        b.type === 'agent-session' &&
+        a.sessionId === b.sessionId &&
+        a.agent === b.agent &&
+        JSON.stringify(a.chatStatus ?? null) === JSON.stringify(b.chatStatus ?? null)
+      )
   }
 }
 
 // Reconcile a partial session snapshot against the last known record for the
 // same terminal. The snapshot owns live fields (title, activity); the known
 // theme only survives when the snapshot omits it, since lightweight snapshots
-// can drop it.
+// can drop it. The host pane identity survives the same way.
 function mergeTerminalSnapshotWithKnownRecord(
   snapshot: TerminalRecord,
   known: TerminalRecord
 ): TerminalRecord {
   return {
     ...snapshot,
-    terminalTheme: snapshot.terminalTheme ?? known.terminalTheme
+    terminalTheme: snapshot.terminalTheme ?? known.terminalTheme,
+    agentIdentity: snapshot.agentIdentity ?? known.agentIdentity
   }
 }
 
@@ -273,7 +287,8 @@ export function terminalRecordsEqual(
         terminal.handle === b[index]?.handle &&
         terminal.title === b[index]?.title &&
         mobileTerminalThemesEqual(terminal.terminalTheme, b[index]?.terminalTheme) &&
-        terminal.isActive === b[index]?.isActive
+        terminal.isActive === b[index]?.isActive &&
+        terminal.agentIdentity === b[index]?.agentIdentity
     )
   )
 }
