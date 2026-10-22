@@ -22,7 +22,8 @@ import { getActiveTabIdForHandle } from './mobile-session-route-helpers'
 import { resolveActiveSessionTab } from './active-session-tab'
 import {
   activateMobileSessionTab,
-  consumeLocalSessionTabFollow
+  consumeLocalSessionTabFollow,
+  consumePendingCrossWorktreeTabTarget
 } from './mobile-session-tab-activation'
 import { releaseTerminalCreateLock } from './terminal-create-lock'
 import type { MobileSessionTab, SessionTabsResult } from './mobile-session-route-types'
@@ -144,6 +145,23 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
             navigation: 'caller',
             intent: 'user'
           }).catch(() => {})
+        }
+      }
+      const crossWorktreeTarget =
+        nextTabs.length > 0 ? consumePendingCrossWorktreeTabTarget(result.worktree) : null
+      if (crossWorktreeTarget) {
+        const targetTab = nextTabs.find(
+          (tab) =>
+            tab.id === crossWorktreeTarget.tabId ||
+            (tab.type === 'terminal' &&
+              Boolean(crossWorktreeTarget.terminalHandle) &&
+              tab.terminal === crossWorktreeTarget.terminalHandle)
+        )
+        if (targetTab) {
+          pendingSelectionRef.current =
+            targetTab.type === 'terminal' && typeof targetTab.terminal === 'string'
+              ? { kind: 'terminal', handle: targetTab.terminal, tabId: targetTab.id }
+              : { kind: 'tab', tabId: targetTab.id }
         }
       }
       const pendingActiveSessionTabId = pendingSelectionTabId(pendingSelectionRef.current)

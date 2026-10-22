@@ -96,6 +96,7 @@ export function useMobileSessionScreenState(scope: MobileSessionFoundationModel)
   const [createTabAgentOptions, setCreateTabAgentOptions] = useState<MobileNewTabAgentOption[]>([])
   const [showCreateBrowserModal, setShowCreateBrowserModal] = useState(false)
   const [showHeaderMoreActions, setShowHeaderMoreActions] = useState(false)
+  const [showRecentSessionCards, setShowRecentSessionCards] = useState(false)
   const sessionTabActionTargets = useMobileSessionTabActionTargets()
   const [discardMarkdownTarget, setDiscardMarkdownTarget] = useState<Extract<
     MobileSessionTab,
@@ -216,6 +217,8 @@ export function useMobileSessionScreenState(scope: MobileSessionFoundationModel)
     setShowCreateBrowserModal,
     showHeaderMoreActions,
     setShowHeaderMoreActions,
+    showRecentSessionCards,
+    setShowRecentSessionCards,
     ...sessionTabActionTargets,
     discardMarkdownTarget,
     setDiscardMarkdownTarget,

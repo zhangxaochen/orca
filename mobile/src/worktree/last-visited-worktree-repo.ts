@@ -1,4 +1,8 @@
-import { persistMirrored } from '../storage/mirrored-storage-keys'
+import {
+  persistMirrored,
+  readMirroredKeyOrStore,
+  readMirroredStorage
+} from '../storage/mirrored-storage-keys'
 import { getRepoIdFromMobileWorktreeId } from '../session/mobile-session-route-helpers'
 
 export const LAST_VISITED_WORKTREE_STORAGE_KEY = 'orca:last-visited-worktree'
@@ -48,6 +52,25 @@ export function readLastVisitedWorktreeRepoId(raw: string | null, hostId: string
   return repoId || null
 }
 
+function extractRecentCards(raw: string | null | undefined): unknown[] | undefined {
+  if (typeof raw !== 'string') {
+    return undefined
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (
+      !isRecord(parsed) ||
+      !Array.isArray(parsed.recentCards) ||
+      parsed.recentCards.length === 0
+    ) {
+      return undefined
+    }
+    return parsed.recentCards
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * The one writer of this key, so the hybrid shell's mirror sees it as it is written.
  *
@@ -60,5 +83,30 @@ export function writeLastVisitedWorktree(record: LastVisitedWorktreeRecord): voi
   // own closure, so the store behind it may be the bridge's adapter, which refuses a key this
   // route was never given. Nothing is owed a caller that cannot act on one, so the refusal is the
   // adapter's log rather than a rejection here.
-  void persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, JSON.stringify(record)).catch(() => {})
+  // Why: a cold mount has no mirror yet, so recent cards are read back from the store before the
+  // visit overwrites the key.
+  const mirroredRaw = readMirroredStorage([LAST_VISITED_WORKTREE_STORAGE_KEY])[
+    LAST_VISITED_WORKTREE_STORAGE_KEY
+  ]
+  if (mirroredRaw !== undefined) {
+    const recentCards = extractRecentCards(mirroredRaw)
+    const payload = recentCards
+      ? { hostId: record.hostId, worktreeId: record.worktreeId, recentCards }
+      : { hostId: record.hostId, worktreeId: record.worktreeId }
+    void persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, JSON.stringify(payload)).catch(() => {})
+    return
+  }
+  void readMirroredKeyOrStore(LAST_VISITED_WORKTREE_STORAGE_KEY)
+    .catch(() => null)
+    .then((storedRaw) => {
+      const latestMirrored = readMirroredStorage([LAST_VISITED_WORKTREE_STORAGE_KEY])[
+        LAST_VISITED_WORKTREE_STORAGE_KEY
+      ]
+      const recentCards = extractRecentCards(latestMirrored ?? storedRaw)
+      const payload = recentCards
+        ? { hostId: record.hostId, worktreeId: record.worktreeId, recentCards }
+        : { hostId: record.hostId, worktreeId: record.worktreeId }
+      return persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, JSON.stringify(payload))
+    })
+    .catch(() => {})
 }

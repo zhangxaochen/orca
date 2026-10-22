@@ -3,8 +3,16 @@ import { useSoftKeyboard } from '../platform/keyboard-occlusion'
 import { useTerminalViewportRefit } from '../terminal/terminal-viewport-refit'
 import { removeCustomKey, type CustomKey } from '../terminal/terminal-custom-keys'
 import { writeLastVisitedWorktree } from '../worktree/last-visited-worktree-repo'
+import {
+  buildRecentSessionCardFromTab,
+  hydrateRecentSessionCards,
+  reconcileRecentSessionCardsForWorktree,
+  recordRecentSessionCardVisit
+} from './recent-session-cards'
 import { resolveTabStripScrollOffset } from './tab-strip-scroll'
 import type { MobileSessionLifecycleModel } from './use-mobile-session-lifecycle'
+
+const EMPTY_SESSION_TABS: MobileSessionLifecycleModel['sessionTabs'] = []
 
 /**
  * Exactly the fields this hook reads, so the whole lifecycle model still fits and a test can build
@@ -37,12 +45,15 @@ export type MobileSessionKeyboardScope = Pick<
   | 'viewportMeasuredRef'
   | 'viewportRef'
   | 'worktreeId'
->
+> &
+  Partial<Pick<MobileSessionLifecycleModel, 'sessionTabs' | 'worktreeName'>>
 
 export function useMobileSessionKeyboardState(scope: MobileSessionKeyboardScope) {
   const {
     hostId,
     worktreeId,
+    worktreeName,
+    sessionTabs = EMPTY_SESSION_TABS,
     router,
     connState,
     terminals,
@@ -132,6 +143,38 @@ export function useMobileSessionKeyboardState(scope: MobileSessionKeyboardScope)
       writeLastVisitedWorktree({ hostId, worktreeId })
     }
   }, [hostId, worktreeId])
+
+  useEffect(() => {
+    void hydrateRecentSessionCards().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!hostId || !worktreeId) {
+      return
+    }
+    if (sessionTabs.length > 0) {
+      reconcileRecentSessionCardsForWorktree({
+        hostId,
+        worktreeId,
+        liveTabs: sessionTabs
+      })
+    }
+    if (!activeSessionTabId) {
+      return
+    }
+    const activeTab = sessionTabs.find((tab) => tab.id === activeSessionTabId)
+    if (!activeTab) {
+      return
+    }
+    recordRecentSessionCardVisit(
+      buildRecentSessionCardFromTab({
+        hostId,
+        worktreeId,
+        worktreeName: worktreeName || '',
+        tab: activeTab
+      })
+    )
+  }, [activeSessionTabId, hostId, sessionTabs, worktreeId, worktreeName])
 
   const handleDeleteCustomKey = useCallback(async (key: CustomKey) => {
     try {
