@@ -52,22 +52,33 @@ export function readLastVisitedWorktreeRepoId(raw: string | null, hostId: string
   return repoId || null
 }
 
-function extractRecentCards(raw: string | null | undefined): unknown[] | undefined {
+function extractRecentCardsExtras(raw: string | null | undefined): {
+  recentCards?: unknown[]
+  recentCardsMaxDisplay?: number
+} {
   if (typeof raw !== 'string') {
-    return undefined
+    return {}
   }
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (
-      !isRecord(parsed) ||
-      !Array.isArray(parsed.recentCards) ||
-      parsed.recentCards.length === 0
-    ) {
-      return undefined
+    if (!isRecord(parsed)) {
+      return {}
     }
-    return parsed.recentCards
+    const recentCards =
+      Array.isArray(parsed.recentCards) && parsed.recentCards.length > 0
+        ? parsed.recentCards
+        : undefined
+    const recentCardsMaxDisplay =
+      typeof parsed.recentCardsMaxDisplay === 'number' &&
+      Number.isFinite(parsed.recentCardsMaxDisplay)
+        ? parsed.recentCardsMaxDisplay
+        : undefined
+    return {
+      ...(recentCards ? { recentCards } : {}),
+      ...(recentCardsMaxDisplay !== undefined ? { recentCardsMaxDisplay } : {})
+    }
   } catch {
-    return undefined
+    return {}
   }
 }
 
@@ -89,10 +100,11 @@ export function writeLastVisitedWorktree(record: LastVisitedWorktreeRecord): voi
     LAST_VISITED_WORKTREE_STORAGE_KEY
   ]
   if (mirroredRaw !== undefined) {
-    const recentCards = extractRecentCards(mirroredRaw)
-    const payload = recentCards
-      ? { hostId: record.hostId, worktreeId: record.worktreeId, recentCards }
-      : { hostId: record.hostId, worktreeId: record.worktreeId }
+    const payload = {
+      hostId: record.hostId,
+      worktreeId: record.worktreeId,
+      ...extractRecentCardsExtras(mirroredRaw)
+    }
     void persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, JSON.stringify(payload)).catch(() => {})
     return
   }
@@ -102,10 +114,11 @@ export function writeLastVisitedWorktree(record: LastVisitedWorktreeRecord): voi
       const latestMirrored = readMirroredStorage([LAST_VISITED_WORKTREE_STORAGE_KEY])[
         LAST_VISITED_WORKTREE_STORAGE_KEY
       ]
-      const recentCards = extractRecentCards(latestMirrored ?? storedRaw)
-      const payload = recentCards
-        ? { hostId: record.hostId, worktreeId: record.worktreeId, recentCards }
-        : { hostId: record.hostId, worktreeId: record.worktreeId }
+      const payload = {
+        hostId: record.hostId,
+        worktreeId: record.worktreeId,
+        ...extractRecentCardsExtras(latestMirrored ?? storedRaw)
+      }
       return persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, JSON.stringify(payload))
     })
     .catch(() => {})

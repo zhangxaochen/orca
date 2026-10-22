@@ -10,10 +10,12 @@ import {
 } from './mobile-session-tab-activation'
 import {
   MAX_RECENT_SESSION_CARDS_DISPLAY,
+  MAX_RECENT_SESSION_CARDS_LIMIT,
   MAX_RECENT_SESSION_CARDS_STORED,
   RECENT_SESSION_CARDS_STORAGE_KEY,
   buildRecentSessionCardFromTab,
   clearRecentSessionCardsForTests,
+  getRecentSessionCardsMaxDisplaySync,
   getVisibleRecentSessionCards,
   hydrateRecentSessionCards,
   parseRecentSessionCards,
@@ -21,6 +23,7 @@ import {
   reconcileRecentSessionCardsForWorktree,
   recordRecentSessionCardVisit,
   removeRecentSessionCard,
+  setRecentSessionCardsMaxDisplay,
   type RecentSessionCardRecord
 } from './recent-session-cards'
 
@@ -117,7 +120,7 @@ describe('recordRecentSessionCardVisit', () => {
     expect(recordRecentSessionCardVisit(card({ tabId: '' }))).toHaveLength(1)
   })
 
-  it('keeps at most the stored cap per host and 24 cards in total', () => {
+  it('keeps at most the stored cap per host and 40 cards in total', () => {
     for (let index = 0; index < MAX_RECENT_SESSION_CARDS_STORED + 1; index += 1) {
       recordRecentSessionCardVisit(card({ tabId: `a-${index}`, lastVisitedAt: index }))
     }
@@ -134,10 +137,14 @@ describe('recordRecentSessionCardVisit', () => {
     )
 
     const stored = readAllRecentSessionCardsSync()
-    expect(stored).toHaveLength(24)
+    expect(stored).toHaveLength(40)
     expect(stored[0]?.tabId).toBe('c-0')
-    expect(stored.filter((item) => item.hostId === 'host-1')).toHaveLength(11)
-    expect(stored.filter((item) => item.hostId === 'host-2')).toHaveLength(12)
+    expect(stored.filter((item) => item.hostId === 'host-1')).toHaveLength(
+      MAX_RECENT_SESSION_CARDS_STORED - 1
+    )
+    expect(stored.filter((item) => item.hostId === 'host-2')).toHaveLength(
+      MAX_RECENT_SESSION_CARDS_STORED
+    )
   })
 })
 
@@ -156,6 +163,32 @@ describe('getVisibleRecentSessionCards', () => {
 
     expect(visible).toHaveLength(MAX_RECENT_SESSION_CARDS_DISPLAY)
     expect(visible[0]?.tabId).toBe(currentTabId)
+  })
+
+  it('allows increasing and persisting the display limit beyond the default 7', async () => {
+    for (let index = 0; index < 12; index += 1) {
+      recordRecentSessionCardVisit(card({ tabId: `tab-${index}`, lastVisitedAt: index }))
+    }
+
+    expect(getRecentSessionCardsMaxDisplaySync()).toBe(7)
+    expect(setRecentSessionCardsMaxDisplay(10)).toBe(10)
+    expect(getRecentSessionCardsMaxDisplaySync()).toBe(10)
+    expect(
+      getVisibleRecentSessionCards({
+        hostId: 'host-1',
+        currentWorktreeId: 'wt-1',
+        currentTabId: 'tab-11'
+      })
+    ).toHaveLength(10)
+    expect(setRecentSessionCardsMaxDisplay(99)).toBe(MAX_RECENT_SESSION_CARDS_LIMIT)
+
+    setRecentSessionCardsMaxDisplay(11)
+    await settleWrites()
+    writeLastVisitedWorktree({ hostId: 'host-1', worktreeId: 'wt-1' })
+    await settleWrites()
+    clearRecentSessionCardsForTests()
+
+    expect(getRecentSessionCardsMaxDisplaySync()).toBe(11)
   })
 
   it('drops archived or missing worktrees and refreshes the live name', () => {

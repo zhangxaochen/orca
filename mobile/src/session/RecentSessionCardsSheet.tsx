@@ -1,12 +1,23 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
-import { File, FileText, Globe, LocateFixed, SquareTerminal } from 'lucide-react-native'
+import {
+  File,
+  FileText,
+  Globe,
+  LocateFixed,
+  Minus,
+  Plus,
+  SquareTerminal
+} from 'lucide-react-native'
 import { MobileAgentIcon } from '../components/MobileAgentIcon'
 import { BottomDrawer } from '../components/BottomDrawer'
 import { useNow } from '../hooks/use-now'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { formatTimeAgo } from '../worktree/agent-row-display'
 import {
-  MAX_RECENT_SESSION_CARDS_DISPLAY,
+  getRecentSessionCardsMaxDisplaySync,
+  MAX_RECENT_SESSION_CARDS_LIMIT,
+  MIN_RECENT_SESSION_CARDS_DISPLAY,
+  setRecentSessionCardsMaxDisplay,
   type RecentSessionCardRecord
 } from './recent-session-cards'
 import { getWorktreeLabel } from './worktree-label'
@@ -16,6 +27,8 @@ export type RecentSessionCardsSectionProps = {
   jumpingCardKey: string | null
   currentWorktreeId?: string
   currentTabId?: string | null
+  maxDisplay?: number
+  onChangeMaxDisplay?: (next: number) => void
   onSelectCard: (card: RecentSessionCardRecord) => void
 }
 
@@ -76,14 +89,55 @@ export function RecentSessionCardsSection({
   jumpingCardKey,
   currentWorktreeId,
   currentTabId,
+  maxDisplay,
+  onChangeMaxDisplay,
   onSelectCard
 }: RecentSessionCardsSectionProps) {
   const now = useNow(30_000)
-  const visibleCards = cards.slice(0, MAX_RECENT_SESSION_CARDS_DISPLAY)
+  const effectiveMaxDisplay = maxDisplay ?? getRecentSessionCardsMaxDisplaySync()
+  const handleUpdateMaxDisplay = onChangeMaxDisplay ?? setRecentSessionCardsMaxDisplay
+  const canDecrease = effectiveMaxDisplay > MIN_RECENT_SESSION_CARDS_DISPLAY
+  const canIncrease = effectiveMaxDisplay < MAX_RECENT_SESSION_CARDS_LIMIT
+  const visibleCards = cards.slice(0, effectiveMaxDisplay)
   return (
     <View style={styles.section}>
       <View style={styles.header}>
         <Text style={styles.title}>Recently Used</Text>
+        <View style={styles.limitStepper}>
+          <Pressable
+            testID="recent-cards-limit-decrease"
+            accessibilityRole="button"
+            accessibilityLabel="Decrease recent cards limit"
+            disabled={!canDecrease}
+            hitSlop={6}
+            onPress={() => handleUpdateMaxDisplay(effectiveMaxDisplay - 1)}
+            style={({ pressed }) => [
+              styles.limitStepButton,
+              !canDecrease && styles.limitStepButtonDisabled,
+              pressed && canDecrease && styles.limitStepButtonPressed
+            ]}
+          >
+            <Minus size={12} color={colors.textSecondary} />
+          </Pressable>
+          <Text testID="recent-cards-limit-value" style={styles.limitValueText}>
+            {effectiveMaxDisplay}
+          </Text>
+          <Pressable
+            testID="recent-cards-limit-increase"
+            accessibilityRole="button"
+            accessibilityLabel="Increase recent cards limit"
+            disabled={!canIncrease}
+            hitSlop={6}
+            onPress={() => handleUpdateMaxDisplay(effectiveMaxDisplay + 1)}
+            style={({ pressed }) => [
+              styles.limitStepButton,
+              !canIncrease && styles.limitStepButtonDisabled,
+              pressed && canIncrease && styles.limitStepButtonPressed
+            ]}
+          >
+            <Plus size={12} color={colors.textSecondary} />
+          </Pressable>
+        </View>
       </View>
       <View style={styles.panel}>
         {visibleCards.length === 0 ? (
@@ -169,6 +223,8 @@ export function RecentSessionCardsSheet({
   jumpingCardKey,
   currentWorktreeId,
   currentTabId,
+  maxDisplay,
+  onChangeMaxDisplay,
   onSelectCard,
   onClose
 }: RecentSessionCardsSheetProps) {
@@ -179,6 +235,8 @@ export function RecentSessionCardsSheet({
         jumpingCardKey={jumpingCardKey}
         currentWorktreeId={currentWorktreeId}
         currentTabId={currentTabId}
+        maxDisplay={maxDisplay}
+        onChangeMaxDisplay={onChangeMaxDisplay}
         onSelectCard={onSelectCard}
       />
     </BottomDrawer>
@@ -190,6 +248,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.xs,
     paddingBottom: spacing.sm
   },
@@ -197,6 +258,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: colors.textMuted
+  },
+  limitStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.bgPanel,
+    borderRadius: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 2
+  },
+  limitStepButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  limitStepButtonPressed: {
+    backgroundColor: colors.bgRaised
+  },
+  limitStepButtonDisabled: {
+    opacity: 0.35
+  },
+  limitValueText: {
+    minWidth: 18,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center'
   },
   panel: {
     backgroundColor: colors.bgPanel,

@@ -29,6 +29,8 @@ vi.mock('lucide-react-native', () => ({
   ListChecks: 'ListChecks',
   ArrowUpRight: 'ArrowUpRight',
   LocateFixed: 'LocateFixed',
+  Minus: 'Minus',
+  Plus: 'Plus',
   SquareTerminal: 'SquareTerminal',
   Trash2: 'Trash2'
 }))
@@ -242,13 +244,16 @@ describe('MobileSessionHeaderMoreActionsSheet', () => {
 })
 
 describe('RecentSessionCardsSheet', () => {
-  it('shows the card title and workspace, and selects that card', () => {
+  it('shows the card title and workspace, selects that card, and adjusts maxDisplay', () => {
     const onSelectCard = vi.fn()
+    const onChangeMaxDisplay = vi.fn()
     const tree = mount(
       createElement(RecentSessionCardsSheet, {
         visible: true,
         cards: [notes],
         jumpingCardKey: null,
+        maxDisplay: 7,
+        onChangeMaxDisplay,
         onSelectCard,
         onClose: () => {}
       })
@@ -257,8 +262,13 @@ describe('RecentSessionCardsSheet', () => {
     expect(labels).toContain('Ship notes')
     expect(labels).toContain('Orca')
     expect(labels).toContain('5m')
+    expect(textOf(tree.root.findByProps({ testID: 'recent-cards-limit-value' }))).toBe('7')
     act(() => {
-      tree.root.findByType(Pressable).props.onPress()
+      tree.root.findByProps({ testID: 'recent-cards-limit-increase' }).props.onPress()
+    })
+    expect(onChangeMaxDisplay).toHaveBeenCalledWith(8)
+    act(() => {
+      tree.root.findByProps({ testID: 'recent-session-card-wt-1-tab-1' }).props.onPress()
     })
     expect(onSelectCard).toHaveBeenCalledExactlyOnceWith(notes)
   })
