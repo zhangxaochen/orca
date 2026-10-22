@@ -11,6 +11,16 @@ function clampCommandInputHeight(height: number): number {
   return Math.min(Math.max(height, MIN_COMMAND_INPUT_HEIGHT), MAX_COMMAND_INPUT_HEIGHT)
 }
 
+function isTextEntryElementFocused(): boolean {
+  if (typeof document === 'undefined' || typeof HTMLElement === 'undefined') {
+    return false
+  }
+  const active = document.activeElement
+  return (
+    active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+  )
+}
+
 /** Web `<textarea>` defaults to 2 rows when `numberOfLines` is omitted. */
 function measureWebTextareaHeight(node: unknown): number | undefined {
   if (typeof HTMLTextAreaElement === 'undefined' || !(node instanceof HTMLTextAreaElement)) {
@@ -29,10 +39,12 @@ function measureWebTextareaHeight(node: unknown): number | undefined {
  */
 export function useMobileCommandInputField({
   bindCommandField,
-  input
+  input,
+  shouldFocusOnMount = false
 }: {
   bindCommandField: (node: TextInput | null) => void
   input: string
+  shouldFocusOnMount?: boolean
 }): {
   commandFieldRef: (node: TextInput | null) => void
   emptyResetEpoch: number
@@ -43,9 +55,11 @@ export function useMobileCommandInputField({
 } {
   const commandInputNodeRef = useRef<TextInput | null>(null)
   const isFocusedRef = useRef(false)
+  const shouldFocusOnMountRef = useRef(shouldFocusOnMount)
   const prevInputRef = useRef(input)
   const [emptyResetEpoch, setEmptyResetEpoch] = useState(0)
   const [contentHeight, setContentHeight] = useState(MIN_COMMAND_INPUT_HEIGHT)
+  shouldFocusOnMountRef.current = shouldFocusOnMount
 
   const commandFieldRef = useCallback(
     (node: TextInput | null) => {
@@ -54,7 +68,12 @@ export function useMobileCommandInputField({
       if (typeof HTMLTextAreaElement !== 'undefined' && node instanceof HTMLTextAreaElement) {
         node.rows = 1
       }
-      if (node && isFocusedRef.current) {
+      // Why: attach runs before the browser drops focus from the still-mounted live input.
+      if (
+        node &&
+        (isFocusedRef.current || shouldFocusOnMountRef.current || isTextEntryElementFocused())
+      ) {
+        isFocusedRef.current = true
         node.focus()
       }
     },

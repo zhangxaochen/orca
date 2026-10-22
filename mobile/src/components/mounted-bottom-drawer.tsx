@@ -43,6 +43,10 @@ export type MountedBottomDrawerProps = {
   dragContentToDismiss?: boolean
   contentScrollable?: boolean
   fillAvailable?: boolean
+  // Why: a content-sized prompt can open while the IME is already up, so no
+  // new onShow fires. Opt in to seed the current height; default stays off so
+  // outer sheets do not inherit a stale height after an inner dismiss.
+  seedKeyboard?: boolean
   // Why: outer sheets pinned under an inner fill picker stay laid out (size
   // preserved) but must not take touches, stack backdrops, or keyboard-lift.
   interactive?: boolean
@@ -59,6 +63,7 @@ export function MountedBottomDrawer({
   dragContentToDismiss = true,
   contentScrollable = true,
   fillAvailable = false,
+  seedKeyboard = false,
   interactive = true,
   zIndex = 1000,
   scrollResetKey = null
@@ -162,10 +167,10 @@ export function MountedBottomDrawer({
       }
     }
 
-    // Why: fill sheets dock to the true keyboard top; autoFocus can raise the
-    // keyboard before listeners attach. Seed only in fill mode so content-sized
-    // outer sheets do not inherit a stale metrics height after an inner dismiss.
-    if (fillAvailable) {
+    // Why: autoFocus can raise the keyboard before listeners attach, and an
+    // already-open IME fires no new onShow. Fill sheets always seed; a
+    // content-sized sheet seeds only when it opts in.
+    if (fillAvailable || seedKeyboard) {
       const existing = currentSoftKeyboardHeight()
       if (existing > 0) {
         applyKeyboardHeight(existing)
@@ -187,7 +192,7 @@ export function MountedBottomDrawer({
       keyboardOffset.value = 0
       setKeyboardInset(0)
     }
-  }, [visible, interactive, insets.bottom, fillAvailable])
+  }, [visible, interactive, insets.bottom, fillAvailable, seedKeyboard])
 
   const dismiss = useCallback(() => {
     // Why: restarting the hide animation cancels it, so onHidden never fires and the
