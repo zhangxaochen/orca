@@ -306,4 +306,52 @@ describe('TerminalShortcutSettings custom key editing', () => {
     expect(mocks.saveCustom.mock.calls[0]?.[0]).toEqual([])
     expect(renderer.root.findByType(hosts.CustomKeyModal).props.visible).toBe(false)
   })
+
+  it('commits an already-persisted modal save even while a background refresh is in flight', async () => {
+    const initialKey: CustomKey = {
+      id: 'custom-1',
+      label: 'Build',
+      bytes: 'pnpm build\r',
+      enter: true
+    }
+    const addedKey: CustomKey = {
+      id: 'custom-2',
+      label: 'Test',
+      bytes: 'pnpm test\r',
+      enter: true
+    }
+    const renderer = await renderReady(initialKey)
+    const addRow = renderer.root
+      .findAllByType(hosts.Pressable)
+      .find((node) =>
+        node
+          .findAllByType(hosts.Text)
+          .some((text) => text.props.children === 'Add Custom Shortcut…')
+      )
+    expect(addRow).toBeDefined()
+    act(() => {
+      addRow?.props.onPress()
+    })
+    const modal = renderer.root.findByType(hosts.CustomKeyModal)
+    expect(modal.props.visible).toBe(true)
+
+    const slowCustomLoad = createDeferred<CustomKey[]>()
+    mocks.loadCustomQueue.push(slowCustomLoad.promise)
+    act(() => {
+      mocks.focusEffectCb?.()
+    })
+    expect(renderer.root.findByType(hosts.CustomKeyModal).props.visible).toBe(true)
+
+    await act(async () => {
+      modal.props.onKeysChanged([initialKey, addedKey])
+      slowCustomLoad.resolve([initialKey])
+      await slowCustomLoad.promise
+      await Promise.resolve()
+    })
+    expect(mocks.saveLayout).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        rows: [expect.arrayContaining(['custom-1', 'custom-2'])]
+      })
+    )
+  })
 })

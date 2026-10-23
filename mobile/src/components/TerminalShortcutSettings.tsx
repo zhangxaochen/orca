@@ -146,7 +146,7 @@ export function TerminalShortcutSettings({
 
   const syncCustomKeys = useCallback(
     (keys: CustomKey[], persistKeys = true) => {
-      if (canEdit) {
+      if (canEdit || !persistKeys) {
         customKeysStore.commit(keys, persistKeys)
         const nextIds = keys.map((k) => k.id)
         layoutStore.commit(reconcileTerminalAccessoryLayoutCustomKeys(layoutStore.value, nextIds))
@@ -336,7 +336,7 @@ export function TerminalShortcutSettings({
       </View>
 
       <CustomKeyModal
-        visible={canEdit && showCustomKeyModal}
+        visible={showCustomKeyModal}
         editingKey={editingCustomKey}
         onClose={() => {
           setShowCustomKeyModal(false)
