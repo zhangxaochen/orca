@@ -4,6 +4,7 @@ import { useSoftKeyboard } from '../platform/keyboard-occlusion'
 import { useTerminalViewportRefit } from '../terminal/terminal-viewport-refit'
 import { removeCustomKey, type CustomKey } from '../terminal/terminal-custom-keys'
 import { writeLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
+import { sessionTabPaneKey } from './notification-pane-tab'
 import {
   buildRecentSessionCardFromTab,
   hydrateRecentSessionCards,
@@ -164,11 +165,18 @@ export function useMobileSessionKeyboardState(scope: MobileSessionKeyboardScope)
   }, [activeSessionTabId, scrollActiveTabIntoView])
 
   const executionHost = useWorkspaceExecutionHost()
+  const activeTab = scope.sessionTabs?.find((tab) => tab.id === activeSessionTabId)
+  const activePaneKey = sessionTabPaneKey(activeTab)
   useEffect(() => {
     if (hostId && worktreeId) {
-      void writeLastVisitedWorktree({ hostId, worktreeId, executionHost })
+      void writeLastVisitedWorktree({
+        hostId,
+        worktreeId,
+        executionHost,
+        ...(activePaneKey ? { paneKey: activePaneKey } : {})
+      })
     }
-  }, [hostId, worktreeId, executionHost])
+  }, [hostId, worktreeId, executionHost, activePaneKey])
 
   useEffect(() => {
     void hydrateRecentSessionCards().catch(() => {})
