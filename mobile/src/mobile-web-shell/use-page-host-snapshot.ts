@@ -18,6 +18,9 @@ import {
   readRetainedPageHostSnapshot,
   recordRetainedPageHostSnapshot
 } from './retained-shell-session-store'
+import { setInPageNotificationViewingWorkspace } from '../notifications/notification-viewing-policy'
+import { readLastVisitedWorktreeOnHost } from '../worktree/last-visited-worktree-by-host'
+import { LAST_VISITED_WORKTREE_STORAGE_KEY } from '../worktree/last-visited-worktree-repo'
 
 export type PageHostSnapshot = {
   host: BridgeInitHost
@@ -130,9 +133,25 @@ export function usePageHostSnapshot(
         return
       }
       writeMirroredStorage(key, value)
+      if (key === LAST_VISITED_WORKTREE_STORAGE_KEY && value !== null) {
+        const visited = readLastVisitedWorktreeOnHost(value, hostId)
+        if (visited) {
+          setInPageNotificationViewingWorkspace({
+            hostId,
+            worktreeId: visited.worktreeId,
+            ...(visited.executionHost ? { executionHost: visited.executionHost } : {})
+          })
+        }
+      }
     },
     [hostArea, hostId, routePathname]
   )
+
+  useEffect(() => {
+    return () => {
+      setInPageNotificationViewingWorkspace(null)
+    }
+  }, [hostId])
 
   const readWorkspaceKey = useCallback(
     async (key: string): Promise<string | null> => {
