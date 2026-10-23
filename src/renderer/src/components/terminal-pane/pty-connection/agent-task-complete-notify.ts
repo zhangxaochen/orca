@@ -95,6 +95,8 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
       if (!attentionSnapshotLeftUserInput()) {
         return false
       }
+      session.pendingTerminalBellNotification = false
+      session.clearTerminalBellNotificationTimer()
       session.clearPendingAgentTaskCompleteNotification()
       return true
     }
@@ -206,6 +208,8 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
       if (activeHookStatus) {
         session.preserveSuppressedTitleSideEffects(title, activeHookStatus)
       }
+      session.pendingTerminalBellNotification = false
+      session.clearTerminalBellNotificationTimer()
       return
     }
     // Why: only start the prompt-cache countdown for Claude agents — other

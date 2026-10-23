@@ -6,6 +6,7 @@ import { isClaudeIdleEdge } from '@/lib/agent-idle-edge'
 import type { AgentIdleEdgeMeta } from '../../../../shared/terminal-output-side-effects'
 import { resolveTerminalNotificationOwner } from '@/attention/notification-subject-owner'
 import type { NotificationWorkspaceOwner } from '../../../../shared/notification-source'
+import { isFreshNonDoneAgentStatus } from '../../../../shared/agent-status-types'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
 import { useAppStore } from '@/store'
 import { createTerminalGitHubPRLinkDetector } from '../../../../shared/terminal-github-pr-link-detector'
@@ -153,7 +154,14 @@ export function startParkedTerminalByteWatcher(
       }
     },
     onBell: (): void => {
-      useAppStore.getState().markTerminalBell({ worktreeId, tabId, paneKey })
+      const state = useAppStore.getState()
+      state.markTerminalBell({ worktreeId, tabId, paneKey })
+      if (
+        isAgentTaskCompleteOsNotificationEnabled(state) &&
+        isFreshNonDoneAgentStatus(state.agentStatusByPaneKey[paneKey])
+      ) {
+        return
+      }
       // Why: agents emit BEL in the same burst as working→idle, so delay only the OS notification to let the richer completion notification win.
       pendingBellNotification = true
       if (!hasPendingAgentTaskCompleteNotification()) {
