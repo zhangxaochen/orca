@@ -4,7 +4,7 @@ import {
   readMirroredStorage
 } from '../storage/mirrored-storage-keys'
 import { LAST_VISITED_WORKTREE_STORAGE_KEY } from '../worktree/last-visited-worktree-repo'
-import { withRecentCards } from '../worktree/last-visited-worktree-by-host'
+import { writeRecentCardsToLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import type { MobileSessionTab, MobileSessionTabType } from './mobile-session-route-types'
 import {
   getMobileSessionTabTitle,
@@ -217,14 +217,10 @@ function persistCards(next: Cards): Cards {
   notify()
   const dRaw = custom ? JSON.stringify({ recentCards: next, maxDisplay }) : JSON.stringify(next)
   void persistMirrored(RECENT_SESSION_CARDS_STORAGE_KEY, dRaw).catch(() => {})
-  const merged = withRecentCards(
-    readMirroredStorage(M_KEYS)[LAST_VISITED_WORKTREE_STORAGE_KEY] ?? null,
+  void writeRecentCardsToLastVisitedWorktree(
     next,
     custom ? { recentCardsMaxDisplay: maxDisplay } : undefined
   )
-  if (merged) {
-    void persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, merged).catch(() => {})
-  }
   return next
 }
 

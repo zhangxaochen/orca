@@ -215,3 +215,17 @@ export function writeLastVisitedWorktree(
     .catch(() => {})
   return writeChain
 }
+
+export function writeRecentCardsToLastVisitedWorktree(
+  cards: readonly unknown[],
+  extras?: { recentCardsMaxDisplay?: number }
+): Promise<void> {
+  writeChain = writeChain
+    .then(() => readMirroredKeyOrStore(LAST_VISITED_WORKTREE_STORAGE_KEY).catch(() => null))
+    .then((raw) => {
+      const merged = withRecentCards(raw, cards, extras)
+      return merged ? persistMirrored(LAST_VISITED_WORKTREE_STORAGE_KEY, merged) : undefined
+    })
+    .catch(() => {})
+  return writeChain
+}
