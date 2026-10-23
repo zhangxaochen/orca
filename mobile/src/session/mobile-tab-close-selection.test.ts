@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ListX } from 'lucide-react-native'
 import { selectBulkCloseTabs } from './mobile-tab-close-selection'
 import {
   createBulkCloseSheetActions,
@@ -8,10 +7,6 @@ import {
   runBulkCloseSessionTabs
 } from './mobile-bulk-close-sheet-actions'
 import type { MobileSessionTab } from './mobile-session-route-types'
-
-vi.mock('lucide-react-native', () => ({
-  ListX: 'ListX'
-}))
 
 const tab = (id: string, isDirty?: boolean, isPinned?: boolean) => ({
   id,
@@ -48,7 +43,7 @@ describe('createBulkCloseSheetActions and confirmation', () => {
     { type: 'terminal', id: 'tab-3', title: 'Tests', terminal: 'term-3', isActive: false }
   ]
 
-  it('separates Close Other Tabs visually from Close and routes through confirmation', () => {
+  it('keeps Close Other Tabs style and routes through confirmation', () => {
     const closeSessionTab = vi.fn(() => Promise.resolve())
     const onRequestConfirmBulkClose = vi.fn()
     const bulkActions = createBulkCloseSheetActions({
@@ -69,12 +64,9 @@ describe('createBulkCloseSheetActions and confirmation', () => {
     })
     expect(actions[1]).toMatchObject({
       label: 'Close Other Tabs',
-      icon: ListX,
-      hint: 'Keep only this tab · closes 2 other tabs',
-      separateGroup: true,
+      destructive: true,
       closeBeforePress: true
     })
-    expect(actions[1].destructive).toBeUndefined()
 
     actions[1].onPress()
     expect(closeSessionTab).not.toHaveBeenCalled()

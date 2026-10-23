@@ -3,7 +3,6 @@ import { act, create } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgentSpinner } from './AgentSpinner'
 import { AgentStateDot } from './AgentStateDot'
-import { WORKING_RING_FRAME_INTERVAL_MS } from './use-working-ring-rotation'
 import { colors } from '../theme/mobile-theme'
 
 const DESKTOP_WORKING_COLOR = '#eab308'
@@ -42,7 +41,6 @@ describe('mobile monitoring indicators', () => {
   let renderer: MonitoringTestRenderer | null = null
 
   beforeEach(() => {
-    vi.useFakeTimers()
     animationLoop.mockClear()
     animationTiming.mockClear()
     setValue.mockClear()
@@ -51,7 +49,6 @@ describe('mobile monitoring indicators', () => {
   afterEach(() => {
     act(() => renderer?.unmount())
     renderer = null
-    vi.useRealTimers()
   })
 
   it('renders a static Activity heartbeat for a monitoring agent', async () => {
@@ -63,11 +60,6 @@ describe('mobile monitoring indicators', () => {
       color: DESKTOP_WORKING_COLOR,
       size: 10
     })
-    setValue.mockClear()
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS * 4)
-    })
-    expect(setValue).not.toHaveBeenCalled()
     expect(animationTiming).not.toHaveBeenCalled()
     expect(animationLoop).not.toHaveBeenCalled()
   })
@@ -83,46 +75,11 @@ describe('mobile monitoring indicators', () => {
       color: DESKTOP_WORKING_COLOR,
       size: 12
     })
-    setValue.mockClear()
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS * 4)
-    })
-    expect(setValue).not.toHaveBeenCalled()
     expect(animationTiming).not.toHaveBeenCalled()
     expect(animationLoop).not.toHaveBeenCalled()
   })
 
-  it('steps the working spinner at 3 FPS in 90-degree increments without 60fps timing loops', async () => {
-    await act(async () => {
-      renderer = create(createElement(AgentSpinner, { status: 'working' }))
-    })
-
-    expect(animationTiming).not.toHaveBeenCalled()
-    expect(animationLoop).not.toHaveBeenCalled()
-    expect(setValue).toHaveBeenLastCalledWith(0)
-
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS)
-    })
-    expect(setValue).toHaveBeenLastCalledWith(0.25)
-
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS)
-    })
-    expect(setValue).toHaveBeenLastCalledWith(0.5)
-
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS)
-    })
-    expect(setValue).toHaveBeenLastCalledWith(0.75)
-
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS)
-    })
-    expect(setValue).toHaveBeenLastCalledWith(0)
-  })
-
-  it('shares a single 3 FPS ticker across multiple working rings and stops when unmounted', async () => {
+  it('renders a static yellow hollow circle for working indicators without continuous animation loops', async () => {
     await act(async () => {
       renderer = create(
         createElement('View', null, [
@@ -132,21 +89,25 @@ describe('mobile monitoring indicators', () => {
       )
     })
 
-    setValue.mockClear()
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS)
-    })
-    expect(setValue).toHaveBeenCalledTimes(2)
-    expect(setValue).toHaveBeenNthCalledWith(1, 0.25)
-    expect(setValue).toHaveBeenNthCalledWith(2, 0.25)
-
-    act(() => renderer?.unmount())
-    renderer = null
-    setValue.mockClear()
-    act(() => {
-      vi.advanceTimersByTime(WORKING_RING_FRAME_INTERVAL_MS * 4)
-    })
-    expect(setValue).not.toHaveBeenCalled()
+    expect(animationTiming).not.toHaveBeenCalled()
+    expect(animationLoop).not.toHaveBeenCalled()
+    const views = renderer?.root.findAllByType('View') ?? []
+    expect(
+      views.some(
+        (v) =>
+          Array.isArray(v.props.style) &&
+          v.props.style.some(
+            (s: Record<string, unknown>) => s?.borderColor === DESKTOP_WORKING_COLOR
+          )
+      )
+    ).toBe(true)
+    expect(
+      views.some(
+        (v) =>
+          !Array.isArray(v.props.style) &&
+          (v.props.style as Record<string, unknown>)?.borderColor === DESKTOP_WORKING_COLOR
+      )
+    ).toBe(true)
   })
 
   it.each([

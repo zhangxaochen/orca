@@ -32,7 +32,6 @@ vi.mock('lucide-react-native', () => ({
   Globe: 'Icon',
   ArrowUpRight: 'Icon',
   ListChecks: 'Icon',
-  ListX: 'Icon',
   LocateFixed: 'Icon',
   Minus: 'Icon',
   Plus: 'Icon',

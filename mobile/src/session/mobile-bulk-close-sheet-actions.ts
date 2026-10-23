@@ -1,4 +1,3 @@
-import { ListX } from 'lucide-react-native'
 import type { MarkdownDocState, MobileSessionTab } from './mobile-session-route-types'
 import type { ActionSheetAction } from '../components/ActionSheetModal'
 import { selectBulkCloseTabs } from './mobile-tab-close-selection'
@@ -86,18 +85,12 @@ export function createBulkCloseSheetActions(deps: BulkCloseSheetDeps) {
       return []
     }
     const closeCount = closable.length
-    const hint =
-      closeCount === 1
-        ? 'Keep only this tab · closes 1 other tab'
-        : `Keep only this tab · closes ${closeCount} other tabs`
     const requestConfirm = deps.onRequestConfirmBulkClose
     if (requestConfirm) {
       return [
         {
           label: 'Close Other Tabs',
-          icon: ListX,
-          hint,
-          separateGroup: true,
+          destructive: true,
           // Why: wait for the action sheet's native Modal to unmount before
           // presenting ConfirmModal (same dual-Modal race as Rename/Refresh, #10331).
           closeBeforePress: true,
@@ -110,9 +103,7 @@ export function createBulkCloseSheetActions(deps: BulkCloseSheetDeps) {
     return [
       {
         label: 'Close Other Tabs',
-        icon: ListX,
-        hint,
-        separateGroup: true,
+        destructive: true,
         onPress: () => {
           dismiss()
           void runBulkCloseSessionTabs(deps, anchor)
