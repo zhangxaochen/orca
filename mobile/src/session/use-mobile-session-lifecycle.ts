@@ -74,18 +74,15 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
     void settleSessionPreferenceRead(loadTerminalAccessoryLayout()).then((layout) => {
       if (layoutReadRevisionRef.current === revision) {
         if (layout) {
-          setShortcutLayout(layout)
+          setShortcutLayout?.(layout)
           setVisibleBuiltInIds(layout.visibleBuiltInIds)
         }
         setAccessoryLayoutLoaded(true)
       }
     })
     void settleSessionPreferenceRead(loadCustomKeys()).then((keys) => {
-      if (layoutReadRevisionRef.current === revision) {
-        if (keys) {
-          setCustomKeys(keys)
-        }
-        setCustomKeysLoaded(true)
+      if (layoutReadRevisionRef.current === revision && keys) {
+        setCustomKeys(keys)
       }
     })
     return () => {

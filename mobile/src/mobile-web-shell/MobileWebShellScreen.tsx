@@ -412,7 +412,7 @@ export function MobileWebShellScreen({
       <OrcaMobileWebShellView
         key={state.sessionId}
         ref={bridge.viewRef}
-        style={styles.shellView}
+        style={[styles.shellView, pageFrame === 'unpainted' && styles.unpaintedOverlay]}
         generationDirectory={state.generationDirectory}
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
@@ -455,13 +455,9 @@ export function MobileWebShellScreen({
 }
 
 const styles = StyleSheet.create({
-  shellRoot: {
-    flex: 1,
-    backgroundColor: colors.bgBase
-  },
-  shellView: {
-    flex: 1
-  },
+  shellRoot: { flex: 1, backgroundColor: colors.bgBase },
+  shellView: { flex: 1 },
+  unpaintedOverlay: { opacity: 0 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -487,14 +483,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radii.button
   },
-  retryLabel: {
-    fontSize: typography.bodySize,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  pressed: {
-    opacity: 0.7
-  },
+  retryLabel: { fontSize: typography.bodySize, fontWeight: '600', color: colors.textPrimary },
+  pressed: { opacity: 0.7 },
   devFacts: {
     position: 'absolute',
     left: spacing.sm,
@@ -504,8 +494,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.button,
     backgroundColor: colors.bgPanel
   },
-  devFactsText: {
-    fontSize: typography.metaSize,
-    color: colors.textMuted
-  }
+  devFactsText: { fontSize: typography.metaSize, color: colors.textMuted }
 })

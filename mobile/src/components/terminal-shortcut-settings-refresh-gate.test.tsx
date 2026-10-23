@@ -85,6 +85,11 @@ vi.mock('./CustomKeyModal', () => ({
   saveCustomKeys: (keys: CustomKey[]) => mocks.saveCustom(keys)
 }))
 
+vi.mock('../terminal/terminal-custom-keys', () => ({
+  loadCustomKeys: () => mocks.loadCustomQueue.shift() ?? Promise.resolve([]),
+  saveCustomKeys: (keys: CustomKey[]) => mocks.saveCustom(keys)
+}))
+
 vi.mock('../terminal/terminal-accessory-layout', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../terminal/terminal-accessory-layout')>()
   return {
