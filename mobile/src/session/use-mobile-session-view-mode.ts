@@ -1,6 +1,7 @@
 import { settleSessionPreferenceRead } from './session-preference-read'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
+import { subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 import {
   loadDefaultSessionView,
   readSessionViewOverridesPreference,
@@ -138,6 +139,21 @@ export function useMobileSessionViewMode(args: {
       }
     }, [])
   )
+
+  useEffect(() => {
+    let active = true
+    const unsubscribe = subscribeMirroredKey('orca:defaultSessionView', () => {
+      void loadDefaultSessionView().then((view) => {
+        if (active) {
+          setDefaultView(view)
+        }
+      })
+    })
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
 
   const isTabChatView = useCallback(
     (tabId: string): boolean => {

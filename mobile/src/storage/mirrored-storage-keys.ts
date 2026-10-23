@@ -62,9 +62,39 @@ export async function readMirroredKeyOrStore(key: string): Promise<string | null
   return held === undefined ? AsyncStorage.getItem(key) : held
 }
 
+type MirroredKeyListener = (value: string | null) => void
+const keyListeners = new Map<string, Set<MirroredKeyListener>>()
+
+/** Each noted write of `key`, including a page's write the app takes on its behalf. */
+export function subscribeMirroredKey(key: string, listener: MirroredKeyListener): () => void {
+  const forKey = keyListeners.get(key) ?? new Set<MirroredKeyListener>()
+  keyListeners.set(key, forKey)
+  forKey.add(listener)
+  return () => {
+    forKey.delete(listener)
+  }
+}
+
 function note(key: string, value: string | null): void {
   writeCount += 1
   mirror.set(key, value)
+  for (const listener of keyListeners.get(key) ?? []) {
+    listener(value)
+  }
+}
+
+function isSubscribableStorage(value: object): value is {
+  subscribe: (listener: (key: string, value: string | null) => void) => () => void
+} {
+  return 'subscribe' in value && typeof value.subscribe === 'function'
+}
+
+if (
+  typeof AsyncStorage === 'object' &&
+  AsyncStorage !== null &&
+  isSubscribableStorage(AsyncStorage)
+) {
+  AsyncStorage.subscribe(note)
 }
 
 /**

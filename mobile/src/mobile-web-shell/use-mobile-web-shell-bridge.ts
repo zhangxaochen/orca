@@ -1,8 +1,9 @@
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type {
   MobileWebShellBridgeMessagePayload,
   OrcaMobileWebShellViewHandle
 } from '../../modules/orca-mobile-web-shell/src'
+import { subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 import { useHostClient } from '../transport/host-client-hooks'
 import { createBridgeDiagnosticReporter } from './bridge-diagnostic-log'
 import { bridgeDiagnosticLine, frameWithoutHostLine } from './shell-bridge-log-lines'
@@ -18,7 +19,7 @@ import type { BridgeNativeVerb } from './bridge/bridge-native-verbs'
 import type { BridgeErrorCapture } from './bridge/bridge-error-capture'
 import type { MobileWebShellSessionState } from './mobile-web-shell-session-contract'
 import type { PageHostSnapshot } from './use-page-host-snapshot'
-import type { PageStorageForInit } from './page-storage-keys'
+import { pageStorageKeysForRoute, type PageStorageForInit } from './page-storage-keys'
 import {
   flushRetainedBridgeFrames,
   parkRetainedBridgeHost,
@@ -183,6 +184,7 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
   const clientRef = useRef(client)
   // The session a dropped frame was last logged for, so a page re-asking `ready` logs once.
   const droppedFrameLoggedRef = useRef<string | null>(null)
+  const writingFromPageRef = useRef(false)
   // Commit-phase and declared above the host's effect, so the host is built against what this
   // render passed: a native frame can land between a commit and a passive effect.
   //
@@ -276,7 +278,14 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
         onHaptic: (kind) => binding.args.onHaptic(kind),
         serveNativeVerb: (verb, params) => binding.args.serveNativeVerb(verb, params),
         readStorage: () => binding.args.readStorage(),
-        onStorageWrite: (key, value) => binding.args.onStorageWrite(key, value),
+        onStorageWrite: (key, value) => {
+          writingFromPageRef.current = true
+          try {
+            binding.args.onStorageWrite(key, value)
+          } finally {
+            writingFromPageRef.current = false
+          }
+        },
         onPageFault: (error) => binding.args.onPageFault(error),
         onRouteParamClear: (param, value) => binding.args.onRouteParamClear(param, value),
         onRouteRefused: (issue) => binding.args.onRouteRefused(issue),
@@ -316,6 +325,26 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       }
     }
   }, [buildId, client, hasSnapshot, sessionId])
+
+  useEffect(() => {
+    const keys = pageStorageKeysForRoute(args.hostId, args.route.pathname)
+    const unsubscribes = keys.map((key) =>
+      subscribeMirroredKey(key, () => {
+        if (writingFromPageRef.current) {
+          return
+        }
+        const mounted = hostRef.current
+        if (mounted !== null && mounted.sessionId === sessionId) {
+          mounted.host.publishStorage()
+        }
+      })
+    )
+    return () => {
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe()
+      }
+    }
+  }, [args.hostId, args.route.pathname, buildId, client, hasSnapshot, sessionId])
 
   return {
     bridgeEnabled: ready !== null,
