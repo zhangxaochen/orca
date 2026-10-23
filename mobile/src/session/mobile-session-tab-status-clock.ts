@@ -8,6 +8,7 @@ import {
 import type { RpcClient } from '../transport/rpc-client'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import type { MobileSessionTab } from './mobile-session-route-types'
+import { mobileSessionTabsEqual } from './mobile-terminal-records'
 
 type SessionTabStatusReceiptOptions = {
   cachedWorktrees?: readonly unknown[] | null
@@ -157,7 +158,8 @@ export function applySessionTabStatusReceipts(args: {
   worktreeId?: string | null
   client?: RpcClient | null
   probedKeys?: Set<string>
-  onReconciled?: (cachedWorktrees: readonly unknown[]) => void
+  sessionTabsRef?: { current: MobileSessionTab[] }
+  setSessionTabs?: (tabs: MobileSessionTab[]) => void
 }): MobileSessionTab[] {
   const cachedWorktrees = args.hostId
     ? (peekCachedWorktrees(args.hostId) ?? getCachedWorktrees(args.hostId))
@@ -180,11 +182,20 @@ export function applySessionTabStatusReceipts(args: {
       .request(args.client, { limit: 10_000 })
       .then((reply) => {
         const catalog = worktreeCatalogRead.interpret(reply)
-        if (!catalog.accepted || !Array.isArray(catalog.value.worktrees)) {
+        if (!catalog.accepted || !Array.isArray(catalog.value.worktrees) || !args.sessionTabsRef) {
           return
         }
         setCachedWorktrees(hostId, catalog.value.worktrees, { proven: true })
-        args.onReconciled?.(catalog.value.worktrees)
+        const refreshedTabs = withSessionTabStatusReceipts(
+          args.sessionTabsRef.current,
+          args.sessionTabsRef.current,
+          Date.now(),
+          { cachedWorktrees: catalog.value.worktrees, worktreeId: args.worktreeId }
+        )
+        if (!mobileSessionTabsEqual(args.sessionTabsRef.current, refreshedTabs)) {
+          args.sessionTabsRef.current = refreshedTabs
+          args.setSessionTabs?.(refreshedTabs)
+        }
       })
       .catch(() => {})
   }

@@ -26,6 +26,7 @@ export type MobileTerminalSessionTab = {
   terminal: string | null
   launchAgent?: TuiAgent | null
   agentStatus?: AgentStatusEntry | null
+  nativeChatIdentity?: unknown
   /** Host-provided launch context still parked as an unsent TUI-input draft. */
   launchDraft?: string
   launchDraftCreatedAt?: number
@@ -140,6 +141,8 @@ function mobileSessionTabEqual(
         a.launchDraft === b.launchDraft &&
         a.launchDraftCreatedAt === b.launchDraftCreatedAt &&
         JSON.stringify(a.agentStatus ?? null) === JSON.stringify(b.agentStatus ?? null) &&
+        JSON.stringify(a.nativeChatIdentity ?? null) ===
+          JSON.stringify(b.nativeChatIdentity ?? null) &&
         mobileTerminalThemesEqual(a.terminalTheme, b.terminalTheme)
       )
     case 'markdown':

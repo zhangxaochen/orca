@@ -26,10 +26,8 @@ import {
   consumePendingCrossWorktreeTabTarget
 } from './mobile-session-tab-activation'
 import { releaseTerminalCreateLock } from './terminal-create-lock'
-import {
-  applySessionTabStatusReceipts,
-  withSessionTabStatusReceipts
-} from './mobile-session-tab-status-clock'
+import { applySessionTabStatusReceipts } from './mobile-session-tab-status-clock'
+import { withRememberedNativeChatIdentity } from './mobile-native-chat-eligibility'
 import type { MobileSessionTab, SessionTabsResult } from './mobile-session-route-types'
 import type { MobileSessionTerminalListModel } from './use-mobile-session-terminal-list'
 
@@ -75,28 +73,20 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       }
       const applicationRevision = ++appliedSessionTabsRevisionRef.current
       const now = Date.now()
-      const targetWorktreeId = result.worktree || worktreeId
-      let nextTabs = applySessionTabStatusReceipts({
-        tabs: applyClosedTabTombstones(result.tabs, closedTabTombstonesRef.current, now),
-        previous: sessionTabsRef.current,
-        now,
-        hostId,
-        worktreeId: targetWorktreeId,
-        client: clientRef.current,
-        probedKeys: probedShellMaskedKeysRef.current,
-        onReconciled: (cachedWorktrees) => {
-          const refreshedTabs = withSessionTabStatusReceipts(
-            sessionTabsRef.current,
-            sessionTabsRef.current,
-            Date.now(),
-            { cachedWorktrees, worktreeId: targetWorktreeId }
-          )
-          if (!mobileSessionTabsEqual(sessionTabsRef.current, refreshedTabs)) {
-            sessionTabsRef.current = refreshedTabs
-            setSessionTabs(refreshedTabs)
-          }
-        }
-      })
+      let nextTabs = withRememberedNativeChatIdentity(
+        applySessionTabStatusReceipts({
+          tabs: applyClosedTabTombstones(result.tabs, closedTabTombstonesRef.current, now),
+          previous: sessionTabsRef.current,
+          now,
+          hostId,
+          worktreeId: result.worktree || worktreeId,
+          client: clientRef.current,
+          probedKeys: probedShellMaskedKeysRef.current,
+          sessionTabsRef,
+          setSessionTabs
+        }),
+        sessionTabsRef.current
+      )
       const presentTabIds = new Set(nextTabs.map((tab) => tab.id))
       const orphanedDraftTabs: MobileSessionTab[] = []
       const currentMarkdownDocs = markdownDocsRef.current
