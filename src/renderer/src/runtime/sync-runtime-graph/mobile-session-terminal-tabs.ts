@@ -84,7 +84,7 @@ export function buildMobileTerminalSurfaceTabs(
           inputs.generatedTitlesEnabled,
           leafTitle ?? terminal.title ?? 'Terminal'
         )
-      : (leafTitle ?? 'Terminal')
+      : leafTitle || terminal.customTitle?.trim() || 'Terminal'
     const agentStatusTitle = leafTitle ?? (tabWideFallbackSafe ? terminal.title : '') ?? ''
     const agentStatus =
       paneKey && !isClaudeManagementTitle(agentStatusTitle)
@@ -109,6 +109,12 @@ export function buildMobileTerminalSurfaceTabs(
       customTitle: terminal.customTitle?.trim() || null,
       ...(tabWideFallbackSafe && terminal.quickCommandLabel?.trim()
         ? { quickCommandLabel: terminal.quickCommandLabel.trim() }
+        : {}),
+      ...(tabWideFallbackSafe && terminal.aiVaultTitle?.title.trim()
+        ? { aiVaultTitle: terminal.aiVaultTitle }
+        : {}),
+      ...(tabWideFallbackSafe && inputs.generatedTitlesEnabled && terminal.generatedTitle?.trim()
+        ? { generatedTitle: terminal.generatedTitle.trim() }
         : {}),
       parentTabId: terminal.id,
       leafId,

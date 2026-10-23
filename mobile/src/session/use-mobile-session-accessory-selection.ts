@@ -154,6 +154,20 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
     [clipboard, showToast]
   )
 
+  const handleClipboardWrite = useCallback(
+    async (handle: string, text: string) => {
+      if (handle !== activeHandleRef.current) {
+        return
+      }
+      try {
+        await clipboard.writeText(text)
+      } catch {
+        showToast("Couldn't copy", 1500)
+      }
+    },
+    [activeHandleRef, clipboard, showToast]
+  )
+
   const handleSelectionEvicted = useCallback(
     (handle: string) => {
       if (handle !== activeHandleRef.current) {
@@ -226,6 +240,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
     handleSelectionMode,
     handleSelectionCopy,
     handleSelectionEvicted,
+    handleClipboardWrite,
     handleModesChanged,
     handleKeyboardAvoidanceMetrics,
     handleHaptic,

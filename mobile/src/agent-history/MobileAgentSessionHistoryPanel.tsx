@@ -7,10 +7,6 @@ import { colors } from '../theme/mobile-theme'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
-import {
-  readInitialMobileAgentHistoryWorktrees,
-  recordMobileAgentHistoryPanelWorktrees
-} from './mobile-agent-history-worktree-cache'
 import { getWorktreeLabel } from '../session/worktree-label'
 import {
   buildMobileAiVaultResumeLaunch,
@@ -47,7 +43,11 @@ export type MobileAgentSessionHistoryPanelProps = {
   origin?: string
 }
 
-export function MobileAgentSessionHistoryPanel({
+export function MobileAgentSessionHistoryPanel(props: MobileAgentSessionHistoryPanelProps) {
+  return <MobileAgentSessionHistoryPanelContent key={props.hostId} {...props} />
+}
+
+function MobileAgentSessionHistoryPanelContent({
   hostId,
   worktreeId,
   name = '',
@@ -63,19 +63,8 @@ export function MobileAgentSessionHistoryPanel({
     client,
     connState
   )
-  const [worktrees, setWorktrees] = useState<Worktree[]>(() =>
-    readInitialMobileAgentHistoryWorktrees(hostId)
-  )
-  const [worktreesLoaded, setWorktreesLoaded] = useState(
-    () => readInitialMobileAgentHistoryWorktrees(hostId).length > 0
-  )
-  // Why: useState seeds run once, so a mounted panel would keep the previous
-  // host's rows until worktree.ps returns and scope paths off the wrong host.
-  useEffect(() => {
-    const initial = readInitialMobileAgentHistoryWorktrees(hostId)
-    setWorktrees(initial)
-    setWorktreesLoaded(initial.length > 0)
-  }, [hostId])
+  const [worktrees, setWorktrees] = useState<Worktree[]>([])
+  const [worktreesLoaded, setWorktreesLoaded] = useState(false)
   const [query, setQuery] = useState('')
   const [resumingSessionId, setResumingSessionId] = useState<string | null>(null)
   const [resumeMessage, setResumeMessage] = useState<string | null>(null)
@@ -104,9 +93,7 @@ export function MobileAgentSessionHistoryPanel({
           // Why `?? []`: the member is salvaged, so an envelope the host answers without rows leaves it
           // absent, and `use-mobile-agent-history-state.ts:61` calls `.find` on it unguarded.
           // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the rows stay opaque in the reader because three screens project them differently; this panel reads only `path` off a row to seed `scopePaths`, and `matrix-aivault.history-screen-worktree.ps-1` records every partition of its own family rendering a list rather than a crash.
-          const list = (catalog.value.worktrees ?? []) as Worktree[]
-          recordMobileAgentHistoryPanelWorktrees(hostId, list)
-          setWorktrees(list)
+          setWorktrees((catalog.value.worktrees ?? []) as Worktree[])
         }
       } catch {
         // Why: worktree list is best-effort context; the session scan still runs
@@ -122,7 +109,7 @@ export function MobileAgentSessionHistoryPanel({
     return () => {
       cancelled = true
     }
-  }, [client, connState, hostId])
+  }, [client, connState])
 
   const {
     scope,
@@ -152,7 +139,8 @@ export function MobileAgentSessionHistoryPanel({
     setResumeMessage
   })
   const sessions = openTabActions.sessionsWithOpenTabs
-  const { closingSessionId, closedSessionIds, onJumpToOpenSession } = openTabActions
+  const { closingSessionId, closedSessionIds, fallbackOpenTabsPending, onJumpToOpenSession } =
+    openTabActions
   const sessionsById = useMemo(
     () => new Map(sessions.map((session) => [session.id, session])),
     [sessions]
@@ -180,8 +168,14 @@ export function MobileAgentSessionHistoryPanel({
   )
 
   const resumeActionStateBySessionId = useMemo(
-    () => buildMobileAgentHistoryResumeActionState(sessions, resumingSessionId, closingSessionId),
-    [closingSessionId, resumingSessionId, sessions]
+    () =>
+      buildMobileAgentHistoryResumeActionState(
+        sessions,
+        resumingSessionId,
+        closingSessionId,
+        fallbackOpenTabsPending
+      ),
+    [closingSessionId, fallbackOpenTabsPending, resumingSessionId, sessions]
   )
 
   const onResumeSession = useCallback(

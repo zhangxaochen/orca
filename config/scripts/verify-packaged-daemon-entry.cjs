@@ -63,26 +63,30 @@ function assertPackagedProcessHostExports(resourcesDir) {
 }
 
 function protocolVersionsInSource(source) {
-  const versions = []
+  const genericVersions = []
+  const daemonVersions = []
   for (const match of source.matchAll(/orca-terminal-host-v(\d+)/g)) {
-    versions.push(Number(match[1]))
+    daemonVersions.push(Number(match[1]))
   }
   for (const match of source.matchAll(/protocolVersion\s*:\s*(\d+)/g)) {
-    versions.push(Number(match[1]))
+    genericVersions.push(Number(match[1]))
   }
   for (const match of source.matchAll(/\bPROTOCOL_VERSION\s*=\s*(\d+)/g)) {
-    versions.push(Number(match[1]))
+    daemonVersions.push(Number(match[1]))
   }
   for (const match of source.matchAll(/orca-terminal-host-v\$\{([A-Za-z_$][\w$]*)\}/g)) {
     const name = match[1]
+    const escapedName = name.replaceAll('$', '\\$')
     const window = source.slice(Math.max(0, match.index - 220), match.index)
-    const defaults = [...window.matchAll(new RegExp(`\\b${name}\\s*=\\s*(\\d+)`, 'g'))]
+    const defaults = [
+      ...window.matchAll(new RegExp(`(?<![\\w$])${escapedName}\\s*=\\s*(\\d+)`, 'g'))
+    ]
     const found = defaults.at(-1)
     if (found) {
-      versions.push(Number(found[1]))
+      daemonVersions.push(Number(found[1]))
     }
   }
-  return versions
+  return { genericVersions, daemonVersions }
 }
 
 function unpackedDaemonJsFiles(resourcesDir) {
@@ -100,27 +104,66 @@ function unpackedDaemonJsFiles(resourcesDir) {
   return files
 }
 
-// Why: highest literal is the current generation; unrelated chunks also embed protocolVersion:1.
+function throwProtocolMismatch(versions) {
+  const found = [...new Set(versions)].sort((left, right) => left - right).join(', ')
+  throw new Error(
+    `[verify-packaged-daemon-entry] unpacked daemon protocol version mismatch: ` +
+      `found ${found}; expected ${daemonProtocolVersion}`
+  )
+}
+
+function packagedFileVersionsMatch(file) {
+  if (file.daemonEntry) {
+    return [...file.daemonVersions, ...file.genericVersions].every(
+      (version) => version === daemonProtocolVersion
+    )
+  }
+  return (
+    file.daemonVersions.every((version) => version === daemonProtocolVersion) &&
+    file.genericVersions.every((version) => version === daemonProtocolVersion || version === 1)
+  )
+}
+
+// Why: a current daemon marker in one file must not hide a stale protocolVersion in another.
+// Chunks may still carry MCP protocolVersion:1. The contract version must appear at least once.
+function assertReferencedProtocolVersions(files) {
+  const daemonVersions = []
+  const genericVersions = []
+  for (const file of files) {
+    daemonVersions.push(...file.daemonVersions)
+    genericVersions.push(...file.genericVersions)
+  }
+  if (daemonVersions.length === 0 && genericVersions.length === 0) {
+    throw new Error(
+      `[verify-packaged-daemon-entry] unpacked daemon protocol version missing; ` +
+        `expected ${daemonProtocolVersion}`
+    )
+  }
+  const found = [...daemonVersions, ...genericVersions]
+  if (
+    files.some((file) => !packagedFileVersionsMatch(file)) ||
+    !found.includes(daemonProtocolVersion)
+  ) {
+    throwProtocolMismatch(found)
+  }
+}
+
 function assertPackagedDaemonProtocolAndDeps(resourcesDir) {
   assertPackagedProcessHostExports(resourcesDir)
-  const versions = []
+  const entryPath = join(resourcesDir, 'app.asar.unpacked', 'out', 'main', 'daemon-entry.js')
+  const files = []
   for (const filePath of unpackedDaemonJsFiles(resourcesDir)) {
     if (!existsSync(filePath)) {
       continue
     }
-    versions.push(...protocolVersionsInSource(readFileSync(filePath, 'utf8')))
+    const found = protocolVersionsInSource(readFileSync(filePath, 'utf8'))
+    files.push({
+      daemonEntry: filePath === entryPath,
+      daemonVersions: found.daemonVersions,
+      genericVersions: found.genericVersions
+    })
   }
-  if (versions.length === 0) {
-    return
-  }
-  const highest = Math.max(...versions)
-  if (highest !== daemonProtocolVersion || !versions.includes(daemonProtocolVersion)) {
-    const found = [...new Set(versions)].sort((left, right) => left - right).join(', ')
-    throw new Error(
-      `[verify-packaged-daemon-entry] unpacked daemon protocol version mismatch: ` +
-        `found ${found}; expected ${daemonProtocolVersion}`
-    )
-  }
+  assertReferencedProtocolVersions(files)
 }
 
 // Why: v1.4.129-rc.1 shipped a terminal daemon that could not load (an electron

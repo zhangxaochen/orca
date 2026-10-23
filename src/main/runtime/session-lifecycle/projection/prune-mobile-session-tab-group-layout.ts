@@ -53,10 +53,10 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
   protected mergeMobileSessionTabGroups(
     worktreeId: string,
     groups: readonly RuntimeMobileSessionTabGroup[],
-    tabs: readonly RuntimeMobileSessionSnapshotTab[],
+    terminalTabs: readonly RuntimeMobileSessionTerminalTab[],
     activeTab: RuntimeMobileSessionTerminalTab | null
   ): RuntimeMobileSessionTabGroup[] {
-    return mergeMobileSessionTabGroups(worktreeId, groups, tabs, activeTab)
+    return mergeMobileSessionTabGroups(worktreeId, groups, terminalTabs, activeTab)
   }
 
   protected buildHeadlessMobileSessionTabGroups(
@@ -80,14 +80,10 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     snapshot: RuntimeMobileSessionTabsSnapshot
   ): RuntimeMobileSessionTabsResult {
     const host = getStructuredAgentSessionHost()
-    snapshot = titleStructuredConversationTabs(
-      snapshot,
-      (sessionId) => {
-        const record = host?.deps?.store?.getRecord(sessionId)
-        return record?.location.workspaceId === snapshot.worktree ? record.conversationName : null
-      },
-      (sessionId) => this.getSessionCustomTitle(sessionId)
-    )
+    snapshot = titleStructuredConversationTabs(snapshot, (sessionId) => {
+      const record = host?.deps?.store?.getRecord(sessionId)
+      return record?.location.workspaceId === snapshot.worktree ? record.conversationName : null
+    })
     return projectRuntimeMobileSessionTabs(snapshot, this.getMobileSessionProjectionHost())
   }
 
@@ -98,9 +94,7 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     }
     const record = getStructuredAgentSessionHost()?.deps?.store?.getRecord(sessionId)
     const name = record?.location.workspaceId === workspaceId ? record.conversationName : null
-    const next = retitleStructuredConversationTab(snapshot, sessionId, name, (id) =>
-      this.getSessionCustomTitle(id)
-    )
+    const next = retitleStructuredConversationTab(snapshot, sessionId, name)
     if (next) {
       this.emitMobileSessionTabsSnapshot(this.storeMobileSessionSnapshot(workspaceId, next))
     }
@@ -121,7 +115,6 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
       getRetainedStatus: (paneKey, pty, tab, getRows) =>
         this.getFreshRetainedAgentStatusForMobileTab(paneKey, pty, tab, getRows),
       getTrackedTitle: (ptyId) => this.getUnpersistedTrackedTitleForPty(ptyId),
-      getSessionCustomTitle: (sessionId) => this.getSessionCustomTitle(sessionId),
       getTitleDisplayClear: (ptyId) => this.getPtyTitleDisplayClear(ptyId),
       issuePtyHandle: (pty) => this.issuePtyHandle(pty),
       recordPty: (ptyId, worktreeId, state) => this.recordPtyWorktree(ptyId, worktreeId, state),

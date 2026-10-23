@@ -15,7 +15,6 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
     worktreeId,
     client,
     setTerminals,
-    terminals,
     terminalsRef,
     setSessionTabs,
     setFileDocs,
@@ -99,9 +98,9 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
         unsubscribeTerminal(target.handle)
         terminalRefs.current.delete(target.handle)
         clearTerminalLiveInputDefault(target.handle)
-        const next = terminals.filter((terminal) => terminal.handle !== target.handle)
-        setTerminals(next)
+        const next = terminalsRef.current.filter((terminal) => terminal.handle !== target.handle)
         terminalsRef.current = next
+        setTerminals(next)
         if (activeHandleRef.current === target.handle) {
           const replacement = next[0] ?? null
           activeHandleRef.current = replacement?.handle ?? null

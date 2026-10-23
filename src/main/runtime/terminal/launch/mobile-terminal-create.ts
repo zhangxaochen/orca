@@ -42,7 +42,6 @@ export abstract class OrcaRuntimeWithCreateMobileSessionTerminal extends OrcaRun
       env?: Record<string, string>
       envToDelete?: string[]
       startupCommandDelivery?: WorktreeStartupLaunch['startupCommandDelivery']
-      title?: string
       agent?: TuiAgent
       agentPrompt?: string
       launchConfig?: SleepingAgentLaunchConfig
@@ -122,15 +121,13 @@ export abstract class OrcaRuntimeWithCreateMobileSessionTerminal extends OrcaRun
       return
     }
     const pty = this.getLivePtyForHandle(created.tab.terminal)?.pty
-    if (pty && !pty.providerSessionId) {
-      pty.providerSessionId = opts.resumeProviderSession.id
-    }
+    const paneKey = this.paneOfPty(pty).paneKey
     // Why: an SSH pane's status rows belong to the relay on that host.
-    if (!pty?.paneKey || pty.connectionId) {
+    if (!pty || !paneKey || pty.connectionId) {
       return
     }
     seedResumeLaunchIdentity({
-      paneKey: pty.paneKey,
+      paneKey,
       launchAgent: opts.launchAgent,
       resumeProviderSession: opts.resumeProviderSession,
       worktreeId: pty.worktreeId,

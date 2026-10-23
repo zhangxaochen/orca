@@ -38,6 +38,7 @@ import {
   waitForPendingWorktreeRemoval
 } from '../../worktree-background-removal'
 import { interruptedLocalWorktreeRemovalJob } from '../runtime-interrupted-local-worktree-removal'
+import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../shared/layout-owner-switch'
 import { retryFailedRemovalUnlessRegistered } from '../../worktree-removal-leftover'
 import type { GitWorktreeInfo } from '../../../shared/worktree/types'
 import {
@@ -230,34 +231,43 @@ export abstract class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRu
   }
 
   async renameTerminal(handle: string, title: string | null): Promise<RuntimeTerminalRename> {
+    // Switch point: a terminal main owns is renamed in main's layout, with or without a window.
+    const mainRename = ORCA_LAYOUT_OWNER_IS_MAIN
+      ? await this.renameTerminalInMainLayout(handle, title)
+      : null
+    if (mainRename) {
+      return mainRename
+    }
     const normalizedTitle = title?.trim() || null
     const pty = this.getLivePtyForHandle(handle)
     if (pty) {
+      // Why: not pty.title — that is the process's own title evidence, and a name there reads as
+      // the shell taking the pane back (#20626).
       pty.pty.customTitle = normalizedTitle
-      pty.pty.title = normalizedTitle
-      // Why: a manual rename must outrank later agent OSC title updates (which
-      // win by timestamp), so stamp it as the freshest title.
-      pty.pty.titleUpdatedAt = Date.now()
+      pty.pty.manualTitle = normalizedTitle
+      const recordedTabId = (): string | null => this.paneOfPty(pty.pty).tabId
       this.touchMobileSessionSnapshotsForPty(pty.pty.ptyId)
-      const resolvedRealTabId =
-        pty.pty.tabId ?? this.resolveRealTabIdForPty(pty.pty.ptyId, pty.pty.worktreeId, handle)
-      if (resolvedRealTabId && !pty.pty.tabId) {
-        pty.pty.tabId = resolvedRealTabId
+      const layoutTabId =
+        recordedTabId() ??
+        pty.pty.tabId ??
+        this.resolveRealTabIdForPty(pty.pty.ptyId, pty.pty.worktreeId, handle)
+      if (!ORCA_LAYOUT_OWNER_IS_MAIN && layoutTabId && !pty.pty.tabId) {
+        pty.pty.tabId = layoutTabId
       }
-      const tabId = resolvedRealTabId ?? pty.record.tabId
+      const tabId = layoutTabId ?? pty.record.tabId
       this.rememberManualTerminalTitle(tabId, normalizedTitle)
       // Why: without a renderer the rename only lived on the live pty and was
       // lost on restart. Persist customTitle so a headless rebuild keeps it.
-      if (!this.notifier?.renameTerminal && resolvedRealTabId) {
-        this.persistHeadlessTerminalTitle(pty.pty.worktreeId, resolvedRealTabId, normalizedTitle)
+      if (!this.notifier?.renameTerminal && layoutTabId) {
+        this.persistHeadlessTerminalTitle(pty.pty.worktreeId, layoutTabId, normalizedTitle)
         // Why: paired desktops rank their own saved-session title above the live one, so the
         // name has to be published as manual or a resumed session hides it (#29975).
-        this.applyHeadlessSessionTabPropsToSnapshot(pty.pty.worktreeId, resolvedRealTabId, {
+        this.applyHeadlessSessionTabPropsToSnapshot(pty.pty.worktreeId, layoutTabId, {
           customTitle: normalizedTitle,
           // Why: a name set while the pane slept lives in the snapshot title; a reset must drop it.
           ...(normalizedTitle === null
             ? {
-                title: this.headlessTerminalFallbackTitle(pty.pty.worktreeId, resolvedRealTabId)
+                title: this.headlessTerminalFallbackTitle(pty.pty.worktreeId, layoutTabId)
               }
             : {})
         })
@@ -290,8 +300,7 @@ export abstract class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRu
     const boundPty = leaf.ptyId ? this.ptysById.get(leaf.ptyId) : null
     if (boundPty) {
       boundPty.customTitle = normalizedTitle
-      boundPty.title = normalizedTitle
-      boundPty.titleUpdatedAt = Date.now()
+      boundPty.manualTitle = normalizedTitle
       this.touchMobileSessionSnapshotsForPty(boundPty.ptyId)
     }
     this.rememberManualTerminalTitle(leaf.tabId, normalizedTitle)
@@ -318,6 +327,13 @@ export abstract class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRu
 
   /** Names one pane of a split; the tab's own name is untouched. */
   async setPaneTitle(handle: string, title: string | null): Promise<RuntimeTerminalSetPaneTitle> {
+    // Switch point: a pane main owns is named in main's layout, with or without a window.
+    const mainTitle = ORCA_LAYOUT_OWNER_IS_MAIN
+      ? await this.setPaneTitleInMainLayout(handle, title)
+      : null
+    if (mainTitle) {
+      return mainTitle
+    }
     const { leaf } = this.getLiveLeafForHandle(handle)
     if (!this.getAvailableAuthoritativeWindow() || !this.notifier?.setPaneTitle) {
       throw new Error('Pane titles require a running Orca desktop with set-pane-title support')

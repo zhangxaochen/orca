@@ -8,8 +8,8 @@ import { createIdempotentCallback } from '../../orca-runtime-report-pty-spawn-co
 import { recordPtySurface, spawnSurfaceClaimSequence } from '../../pty-recorded-surface-topology'
 import { agentLaunchTokenFor, withAgentLaunchToken } from '../../../agent-launch/agent-launch-token'
 import { migratedPaneRestoreHint } from '../../migrated-pane-restore-cwd'
-import { applyCreatedTerminalTitle } from '../../runtime-terminal-spawn-placement'
 import { paneSize, resolvePtyFirstSize } from '../../../ipc/pty/pty-first-size'
+import { applyCreatedTerminalTitle } from '../../runtime-terminal-spawn-placement'
 
 export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTerminalCreateDeduplication {
   protected abstract paneStartStatusArgs: dependencies.PaneStartArgsOf
@@ -115,10 +115,8 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
           throw new Error('client_disconnected')
         }
         try {
-          launchOpts.onPtySpawnDispatched?.({
-            launchConfig: effectiveLaunchConfig,
-            launchAgent: launchOpts.launchAgent
-          })
+          const { launchAgent } = launchOpts
+          launchOpts.onPtySpawnDispatched?.({ launchConfig: effectiveLaunchConfig, launchAgent })
           result = await dependencies.spawnInAdmittedPane(this.store, ptyController, {
             ...initialSize,
             cwd,
@@ -157,14 +155,16 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
                 }
               : {}),
             ...(launchOpts.agentSessionCreateOperationId
-              ? { agentSessionCreateOperationId: launchOpts.agentSessionCreateOperationId }
+              ? {
+                  agentSessionCreateOperationId: launchOpts.agentSessionCreateOperationId
+                }
               : {}),
             ...dependencies.callerSpawnScope(launchOpts),
             ...(launchOpts.onPtySpawnCommitted
               ? { onPtySpawnCommitted: reportPtySpawnCommitted }
               : {}),
             paneSpawnOperation: operation,
-            ...dependencies.newTabIn(launchOpts, (id) => this.getSessionCustomTitle(id)),
+            ...dependencies.newTabIn(launchOpts),
             ...(launchOpts.afterTabId ? { afterTabId: launchOpts.afterTabId } : {}),
             ...(launchOpts.sessionId ? { sessionId: launchOpts.sessionId } : {}),
             ...(launchOpts.isNewSession ? { isNewSession: true } : {}),
@@ -202,6 +202,7 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
           reportPtySpawnCommitted()
         }
         restoreHint.consume()
+        const savedStartupCwd = result.savedStartupCwd ?? cwd
         // Why here: refused before a handle, snapshot or reveal could pose the live PTY as new.
         const adoptedStablePane = dependencies.admitStablePaneAdoption(result, launchOpts)
         if (result.agentSessionEnsure) {
@@ -239,16 +240,19 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
         const pty = this.getOrCreatePtyWorktreeRecord(result.id)
         if (pty) {
           pty.runtimeSessionOwned = true
-          pty.providerSessionId =
-            launchOpts.resumeProviderSession?.id ?? launchOpts.sessionId ?? null
+          pty.providerSessionId = launchOpts.resumeProviderSession?.id ?? null
           if (!adoptedStablePane) {
-            const titled = applyCreatedTerminalTitle(pty, launchOpts.title, (sessionId) =>
-              this.getSessionCustomTitle(sessionId)
+            const titled = applyCreatedTerminalTitle(
+              pty,
+              presentation === 'background' && !pty.providerSessionId
+                ? undefined
+                : launchOpts.title,
+              (sessionId) => this.getSessionCustomTitle(sessionId)
             )
             if (titled) {
               pty.titleUpdatedAt = this.nextTitleObservationSequence()
               this.setPtyManagementTitleFromObservedTitle(pty, titled, pty.titleUpdatedAt)
-              if (launchOpts.presentation !== 'background' || pty.providerSessionId) {
+              if (presentation !== 'background' || pty.providerSessionId) {
                 this.rememberManualTerminalTitle(tabId, titled)
               }
             }
@@ -270,7 +274,7 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
             activate: presentation === 'focused',
             selectIfNoActiveTab: presentation !== 'background',
             ...(launchOpts.viewMode ? { viewMode: launchOpts.viewMode } : {}),
-            ...(cwd !== workspace.path ? { startupCwd: cwd } : {})
+            ...(savedStartupCwd !== workspace.path ? { startupCwd: savedStartupCwd } : {})
           })
         }
         const reveal = revealCreatedTerminal({
@@ -278,7 +282,7 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
           workspace,
           ptyId: result.id,
           handle,
-          cwd,
+          cwd: savedStartupCwd,
           launchOpts: pty?.customTitle ? { ...launchOpts, title: pty.customTitle } : launchOpts,
           effectiveLaunchConfig,
           launchToken,
@@ -288,8 +292,10 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
           leafId
         })
         const { surface, warning } = reveal instanceof Promise ? await reveal : reveal
+        const agentSessionDisposition = result.agentSessionEnsure?.disposition
         return {
           handle,
+          savedStartupCwd,
           tabId,
           paneKey,
           ptyId: result.id,
@@ -298,10 +304,9 @@ export abstract class OrcaRuntimeWithCreateTerminal extends OrcaRuntimeWithTermi
           ...this.getPtyExecutionHostMetadata(result.id),
           surface,
           ...(result.pid ? { processId: result.pid } : {}),
-          ...(result.agentSessionEnsure
-            ? { agentSessionDisposition: result.agentSessionEnsure.disposition }
-            : {}),
+          ...(result.agentSessionEnsure ? { agentSessionDisposition } : {}),
           ...(adoptedStablePane ? { isReattach: true as const } : {}),
+          ...(result.startupCwdFallback ? { startupCwdFallback: result.startupCwdFallback } : {}),
           ...(warning ? { warning } : {})
         }
       } finally {

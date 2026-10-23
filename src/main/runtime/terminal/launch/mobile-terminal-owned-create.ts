@@ -24,7 +24,6 @@ import {
   buildMaterializedHeadlessParentLayout,
   getHeadlessMobileSessionGroupId
 } from '../../mobile-session-layout-projection'
-import { resolveManualTerminalTitle } from '../../manual-terminal-title'
 
 const OWNED_MOBILE_DISPATCH_RECIPE_TTL_MS = 15 * 60_000
 
@@ -32,7 +31,6 @@ export type OwnedMobileTerminalCreateOptions = {
   command?: string
   shellOverride?: string
   cwd?: string
-  title?: string
   env?: Record<string, string>
   envToDelete?: string[]
   startupCommandDelivery?: WorktreeStartupLaunch['startupCommandDelivery']
@@ -50,6 +48,11 @@ export type OwnedMobileTerminalCreateOptions = {
   launchRuntime?: AgentLaunchRuntime
   signal?: AbortSignal
   refuseSleptWorktree?: boolean
+  resumesSleepingRecord?: true
+  /** See TerminalCreateOptions; a create that throws before it proves nothing spawned. */
+  onPtySpawnDispatched?: () => void
+  /** The PTY this create produced, reported before publication can fail. */
+  onPtyCreated?: (ptyId: string) => void
 }
 
 export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal extends OrcaRuntimeWithResolveMobileSessionTerminalCommand {
@@ -97,35 +100,31 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
         focus: false,
         ...(opts.presentation ? { presentation: opts.presentation } : {}),
         ...(opts.afterDesktopTabId ? { afterTabId: opts.afterDesktopTabId } : {}),
-        ...(mutationHandle
-          ? {
-              onPtySpawnDispatched: (launch) => {
-                if (!launch) {
-                  return
-                }
-                if (
-                  !this.ownedMobileDispatchRecipes.has(mutationHandle) &&
-                  this.ownedMobileDispatchRecipes.size >= 4096
-                ) {
-                  throw new Error('runtime_unavailable')
-                }
-                // Retain original dispatch evidence across an ambiguous response; retry payloads cannot replace it.
-                this.ownedMobileDispatchRecipes.set(mutationHandle, {
-                  connectionId: workspace.connectionId ?? null,
-                  recordedAt: Date.now(),
-                  ...(launch.launchConfig
-                    ? { launchConfig: copySleepingAgentLaunchConfig(launch.launchConfig) }
-                    : {}),
-                  ...(launch.launchAgent ? { launchAgent: launch.launchAgent } : {})
-                })
-              }
+        onPtySpawnDispatched: (launch) => {
+          if (mutationHandle && launch) {
+            if (
+              !this.ownedMobileDispatchRecipes.has(mutationHandle) &&
+              this.ownedMobileDispatchRecipes.size >= 4096
+            ) {
+              throw new Error('runtime_unavailable')
             }
-          : {}),
+            // Retain original dispatch evidence across an ambiguous response; retry payloads cannot replace it.
+            this.ownedMobileDispatchRecipes.set(mutationHandle, {
+              connectionId: workspace.connectionId ?? null,
+              recordedAt: Date.now(),
+              ...(launch.launchConfig
+                ? { launchConfig: copySleepingAgentLaunchConfig(launch.launchConfig) }
+                : {}),
+              ...(launch.launchAgent ? { launchAgent: launch.launchAgent } : {})
+            })
+          }
+          // Why after the recipe: its refusal above is still before dispatch.
+          opts.onPtySpawnDispatched?.()
+        },
         ...(preAllocatedHandle ? { preAllocatedHandle } : {}),
         command: opts.command,
         ...(opts.shellOverride ? { shellOverride: opts.shellOverride } : {}),
         cwd,
-        ...(opts.title ? { title: opts.title } : {}),
         env: opts.env,
         envToDelete: opts.envToDelete,
         ...(opts.launchConfig ? { launchConfig: opts.launchConfig } : {}),
@@ -138,14 +137,22 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
         ...(opts.viewMode ? { viewMode: opts.viewMode } : {}),
         ...(opts.targetGroupId ? { targetGroupId: opts.targetGroupId } : {}),
         startupCommandDelivery: opts.startupCommandDelivery,
-        ...(opts.identity ? { tabId: opts.identity.tabId, leafId: opts.identity.leafId } : {}),
-        ...(stableSessionId ? { sessionId: stableSessionId } : {}),
+        ...(opts.identity
+          ? {
+              tabId: opts.identity.tabId,
+              leafId: opts.identity.leafId,
+              ...(stableSessionId ? { sessionId: stableSessionId } : {})
+            }
+          : stableSessionId
+            ? { sessionId: stableSessionId }
+            : {}),
         ...(isNewSession ? { isNewSession: true } : {}),
         persistHostSessionBinding: true,
         // Why: this method publishes the authoritative snapshot below; skip the intermediate publish to avoid a wrong-group flash.
         deferMobileSessionPublish: true,
         signal: opts.signal,
-        ...(opts.refuseSleptWorktree ? { refuseSleptWorktree: true } : {})
+        ...(opts.refuseSleptWorktree ? { refuseSleptWorktree: true } : {}),
+        ...(opts.resumesSleepingRecord ? { resumesSleepingRecord: true } : {})
       })
     const terminal = opts.createMutation
       ? await this.dedupeTerminalCreate(
@@ -156,6 +163,9 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
           (_selector, handle) => create(handle)
         )
       : await create()
+    if (terminal.ptyId) {
+      opts.onPtyCreated?.(terminal.ptyId)
+    }
     const livePty = this.getLivePtyForHandle(terminal.handle)
     if (!livePty) {
       throw new Error('terminal_handle_stale')
@@ -198,26 +208,22 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
         terminalHandle: terminal.handle
       })
     }
-    const parentTabId = livePty.pty.tabId ?? `pty:${livePty.pty.ptyId}`
-    const leafId = parsePaneKey(livePty.pty.paneKey ?? '')?.leafId ?? randomUUID()
+    const recorded = this.paneOfPty(livePty.pty)
+    const parentTabId = recorded.tabId ?? `pty:${livePty.pty.ptyId}`
+    const leafId = parsePaneKey(recorded.paneKey ?? '')?.leafId ?? randomUUID()
     const existing = this.mobileSessionTabsByWorktree.get(worktreeId)
     const existingSurface =
       existing?.tabs.find(
-        (c): c is RuntimeMobileSessionTerminalTab =>
-          c.type === 'terminal' && c.parentTabId === parentTabId && c.leafId === leafId
+        (candidate): candidate is RuntimeMobileSessionTerminalTab =>
+          candidate.type === 'terminal' &&
+          candidate.parentTabId === parentTabId &&
+          candidate.leafId === leafId
       ) ?? null
     const parentLayout = buildMaterializedHeadlessParentLayout(
       leafId,
       livePty.pty.ptyId,
       existingSurface?.parentLayout
     )
-    const sessionTitle = opts.resumeProviderSession?.id
-      ? this.getSessionCustomTitle(opts.resumeProviderSession.id)
-      : null
-    const customTitle =
-      resolveManualTerminalTitle(livePty.pty, existingSurface, {
-        customTitle: opts.title ?? sessionTitle
-      }) ?? undefined
     const tab: RuntimeMobileSessionTerminalTab = {
       type: 'terminal',
       id: `${parentTabId}::${leafId}`,
@@ -225,9 +231,11 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
       leafId,
       ptyId: livePty.pty.ptyId,
       incarnationId: livePty.pty.incarnationId,
-      title: customTitle ?? terminal.title ?? livePty.pty.title ?? 'Terminal',
-      ...(customTitle ? { customTitle } : {}),
-      ...(cwd ? { startupCwd: cwd } : {}),
+      title: terminal.title ?? livePty.pty.title ?? 'Terminal',
+      // Omit only a proven root correction; an unverifiable fallback keeps its saved request.
+      ...((terminal.savedStartupCwd ?? cwd) && (terminal.savedStartupCwd ?? cwd) !== workspace.path
+        ? { startupCwd: terminal.savedStartupCwd ?? cwd }
+        : {}),
       ...(opts.launchAgent ? { launchAgent: opts.launchAgent } : {}),
       ...(opts.viewMode ? { viewMode: opts.viewMode } : {}),
       parentLayout,
@@ -303,7 +311,8 @@ export abstract class OrcaRuntimeWithCreateRuntimeOwnedMobileSessionTerminal ext
     return {
       tab: created,
       publicationEpoch: result.publicationEpoch,
-      snapshotVersion: result.snapshotVersion
+      snapshotVersion: result.snapshotVersion,
+      ...(terminal.startupCwdFallback ? { startupCwdFallback: 'workspace-root' as const } : {})
     }
   }
 }
