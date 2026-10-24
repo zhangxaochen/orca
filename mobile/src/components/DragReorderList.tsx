@@ -14,7 +14,7 @@ import Animated, {
   type AnimatedRef,
   type SharedValue
 } from 'react-native-reanimated'
-import { colors, spacing } from '../theme/mobile-theme'
+import { colors, spacing, springs } from '../theme/mobile-theme'
 import { triggerMediumImpact, triggerSelection } from '../platform/haptics'
 import {
   clampDragReorderIndex,
@@ -24,7 +24,6 @@ import {
   type DragReorderPositions
 } from './drag-reorder-positions'
 
-const ROW_SPRING = { damping: 28, stiffness: 350 }
 const LONG_PRESS_ACTIVATION_MS = 200
 // Why: joins row keys into a change-detection signature; NUL cannot occur in
 // a key, so the joined string is unambiguous.
@@ -222,10 +221,11 @@ export function DragReorderList<ItemT>({
 
   return (
     <View style={{ height: count * rowHeight }}>
-      {items.map((item) => (
+      {items.map((item, initialIndex) => (
         <DragReorderRow
           key={itemKey(item)}
           rowKey={itemKey(item)}
+          initialIndex={initialIndex}
           rowHeight={rowHeight}
           draggable={isItemDraggable ? isItemDraggable(item) : true}
           shared={shared}
@@ -244,6 +244,7 @@ export function DragReorderList<ItemT>({
 
 function DragReorderRow({
   rowKey,
+  initialIndex,
   rowHeight,
   draggable,
   shared,
@@ -255,6 +256,7 @@ function DragReorderRow({
   children
 }: {
   rowKey: string
+  initialIndex: number
   rowHeight: number
   draggable: boolean
   shared: DragSharedState
@@ -280,7 +282,7 @@ function DragReorderRow({
     .activateAfterLongPress(LONG_PRESS_ACTIVATION_MS)
     .shouldCancelWhenOutside(false)
     .onStart((event) => {
-      const index = positions.value[rowKey] ?? 0
+      const index = positions.value[rowKey] ?? initialIndex
       dragStartPositions.value = positions.value
       dragStartTop.value = index * rowHeight
       dragStartScrollY.value = scrollOffsetY.value
@@ -314,7 +316,7 @@ function DragReorderRow({
     })
 
   const rowStyle = useAnimatedStyle(() => {
-    const index = positions.value[rowKey] ?? 0
+    const index = positions.value[rowKey] ?? initialIndex
     if (activeKey.value === rowKey) {
       return {
         top: activeTop.value,
@@ -326,14 +328,14 @@ function DragReorderRow({
       }
     }
     return {
-      top: withSpring(index * rowHeight, ROW_SPRING),
+      top: withSpring(index * rowHeight, springs.listReorder),
       zIndex: 0,
       elevation: 0,
       shadowOpacity: 0,
       backgroundColor: colors.bgPanel,
       transform: [{ scale: 1 }]
     }
-  }, [positions, activeKey, activeTop, rowKey, rowHeight])
+  }, [positions, activeKey, activeTop, rowKey, initialIndex, rowHeight])
 
   return (
     <Animated.View style={[styles.row, { height: rowHeight }, rowStyle]}>
