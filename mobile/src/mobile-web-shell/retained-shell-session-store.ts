@@ -4,6 +4,7 @@ import type {
   MobileWebShellGates,
   MobileWebShellSession
 } from './mobile-web-shell-session-contract'
+import { step } from './mobile-web-shell-session-step'
 import { isHostRouteOf } from './page-route-policy'
 import type { MobileWebShellBridgeArgs } from './use-mobile-web-shell-bridge'
 import type { PageHostSnapshot } from './use-page-host-snapshot'
@@ -109,10 +110,7 @@ export function readRetainedShellSession(args: {
     evictRetainedShellSession()
     return null
   }
-  return {
-    ...entry.session,
-    gates: args.gates
-  }
+  return step(entry.session, { gates: args.gates }).session
 }
 
 export function recordSessionInRetainedStore(
@@ -159,15 +157,12 @@ export function recordRetainedShellSession(args: {
     existing.session = args.session
     return
   }
-  // A child route paints its own document and must leave the parked host page in the slot,
-  // unless its commit replaced the host's generation directory on disk.
-  if (
-    existing !== null &&
-    existing.hostId === args.hostId &&
-    isHostRouteOf(existing.routePathname, existing.hostId) &&
-    !isHostRouteOf(args.routePathname, args.hostId)
-  ) {
+  // Only the host root route owns the retained WebView slot; a child route paints its own
+  // document and only evicts the parked host page if its commit replaced the build on disk.
+  if (!isHostRouteOf(args.routePathname, args.hostId)) {
     if (
+      existing !== null &&
+      existing.hostId === args.hostId &&
       existing.session.state.kind === 'ready' &&
       existing.session.state.buildId !== args.session.state.buildId
     ) {

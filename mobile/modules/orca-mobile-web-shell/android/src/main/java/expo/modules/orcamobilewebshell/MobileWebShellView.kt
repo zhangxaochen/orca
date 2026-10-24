@@ -78,19 +78,14 @@ internal class OrcaMobileWebShellView(
       retainedPool.clear()
     }
 
-    private object ParkedWebViewClient : WebViewClient() {
+    private class ParkedWebViewClient(
+      private val served: MobileWebShellServed
+    ) : WebViewClient() {
       override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
       ): WebResourceResponse =
-        WebResourceResponse(
-          "text/plain",
-          "utf-8",
-          403,
-          "Forbidden",
-          emptyMap(),
-          ByteArrayInputStream(ByteArray(0))
-        )
+        serveMobileWebShellRequest(served, request) ?: refusedMobileWebShellResponse()
 
       override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
         true
@@ -100,6 +95,50 @@ internal class OrcaMobileWebShellView(
         return true
       }
     }
+
+    private fun buildRequestParts(
+      url: Uri,
+      method: String = "GET",
+      hasRangeHeader: Boolean = false
+    ): MobileWebShellRequestParts = MobileWebShellRequestParts(
+      method = method,
+      hasRangeHeader = hasRangeHeader,
+      scheme = url.scheme,
+      host = url.host,
+      port = url.port,
+      userInfo = url.userInfo,
+      query = url.query,
+      fragment = url.fragment,
+      encodedPath = url.encodedPath,
+      urlLength = url.toString().length
+    )
+
+    private fun serveMobileWebShellRequest(
+      current: MobileWebShellServed?,
+      request: WebResourceRequest
+    ): WebResourceResponse? {
+      val active = current ?: return null
+      val parts = buildRequestParts(
+        request.url,
+        method = request.method,
+        hasRangeHeader = request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }
+      )
+      val path = resolveMobileWebShellRequestPath(parts, active.originHost) ?: return null
+      val asset = active.generation.entries[path] ?: return null
+      val bytes = runCatching { asset.file.readBytes() }.getOrNull() ?: return null
+      val headers = mobileWebShellResponseHeaders(path, bytes.size)
+      val (mimeType, charset) = splitMobileWebShellContentType(asset.contentType)
+      return WebResourceResponse(mimeType, charset, 200, "OK", headers, ByteArrayInputStream(bytes))
+    }
+
+    private fun refusedMobileWebShellResponse(): WebResourceResponse = WebResourceResponse(
+      MOBILE_WEB_SHELL_REFUSAL_MIME_TYPE,
+      MOBILE_WEB_SHELL_REFUSAL_CHARSET,
+      MOBILE_WEB_SHELL_REFUSAL_STATUS,
+      MOBILE_WEB_SHELL_REFUSAL_REASON,
+      MOBILE_WEB_SHELL_REFUSAL_HEADERS,
+      ByteArrayInputStream(mobileWebShellRefusalBody())
+    )
   }
 
   private val onLoadState by EventDispatcher<Map<String, Any>>()
@@ -362,7 +401,7 @@ internal class OrcaMobileWebShellView(
     if (retainsSlot && canRetain) {
       val channel = currentChannel ?: MobileWebShellBridgeChannel(null)
       channel.owner = null
-      view.webViewClient = ParkedWebViewClient
+      view.webViewClient = ParkedWebViewClient(currentServed)
       view.onPause()
       (view.context as? MutableContextWrapper)?.baseContext = context.applicationContext
       detachWebViewFromParent(view)
@@ -494,42 +533,16 @@ internal class OrcaMobileWebShellView(
     url: Uri,
     method: String = "GET",
     hasRangeHeader: Boolean = false
-  ): MobileWebShellRequestParts = MobileWebShellRequestParts(
+  ): MobileWebShellRequestParts = buildRequestParts(
+    url = url,
     method = method,
-    hasRangeHeader = hasRangeHeader,
-    scheme = url.scheme,
-    host = url.host,
-    port = url.port,
-    userInfo = url.userInfo,
-    query = url.query,
-    fragment = url.fragment,
-    encodedPath = url.encodedPath,
-    urlLength = url.toString().length
+    hasRangeHeader = hasRangeHeader
   )
 
-  private fun serveRequest(request: WebResourceRequest): WebResourceResponse? {
-    val current = served ?: return null
-    val parts = requestParts(
-      request.url,
-      method = request.method,
-      hasRangeHeader = request.requestHeaders.keys.any { it.equals("Range", ignoreCase = true) }
-    )
-    val path = resolveMobileWebShellRequestPath(parts, current.originHost) ?: return null
-    val asset = current.generation.entries[path] ?: return null
-    val bytes = runCatching { asset.file.readBytes() }.getOrNull() ?: return null
-    val headers = mobileWebShellResponseHeaders(path, bytes.size)
-    val (mimeType, charset) = splitMobileWebShellContentType(asset.contentType)
-    return WebResourceResponse(mimeType, charset, 200, "OK", headers, ByteArrayInputStream(bytes))
-  }
+  private fun serveRequest(request: WebResourceRequest): WebResourceResponse? =
+    serveMobileWebShellRequest(served, request)
 
-  private fun refusedResponse(): WebResourceResponse = WebResourceResponse(
-    MOBILE_WEB_SHELL_REFUSAL_MIME_TYPE,
-    MOBILE_WEB_SHELL_REFUSAL_CHARSET,
-    MOBILE_WEB_SHELL_REFUSAL_STATUS,
-    MOBILE_WEB_SHELL_REFUSAL_REASON,
-    MOBILE_WEB_SHELL_REFUSAL_HEADERS,
-    ByteArrayInputStream(mobileWebShellRefusalBody())
-  )
+  private fun refusedResponse(): WebResourceResponse = refusedMobileWebShellResponse()
 
   private inner class ShellWebViewClient : WebViewClient() {
     /** Never null, so no request can fall through to the network. */

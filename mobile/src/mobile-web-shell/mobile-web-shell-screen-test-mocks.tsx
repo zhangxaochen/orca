@@ -157,7 +157,8 @@ export function screenModuleMocks(dependencies: ScreenDependencies) {
           }, [attach])
           return React.createElement('ShellViewProbe', props)
         },
-        parseMobileWebShellLoadState: parseMobileWebShellLoadState
+        parseMobileWebShellLoadState: parseMobileWebShellLoadState,
+        clearRetainedNativeWebShellSlot: () => {}
       }
     },
     // The wall's release offer: the native hook imports the update checker module.

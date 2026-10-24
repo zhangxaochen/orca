@@ -11,6 +11,7 @@ import {
 import {
   evictRetainedShellSession,
   parkRetainedBridgeHost,
+  readRetainedShellSession,
   recordRetainedShellSession,
   takeRetainedBridgeHost,
   type RetainedBridgeHostBinding
@@ -23,12 +24,12 @@ function paintedSession(): MobileWebShellSession {
 }
 
 function parkedHost(): BridgeHost {
-  // SAFETY: take and dispose only call dispose(); the rest of BridgeHost is unused here.
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: take and dispose only call dispose(); the rest of BridgeHost is unused here.
   return { dispose: vi.fn() } as BridgeHost
 }
 
 function binding(overflowed = false): RetainedBridgeHostBinding {
-  // SAFETY: park, take, and dispose never read binding.args.
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: park, take, and dispose never read binding.args.
   const args = {} as MobileWebShellBridgeArgs
   return {
     args,
@@ -208,6 +209,62 @@ describe('takeRetainedBridgeHost', () => {
       sessionId: 'session-2',
       buildId: 'newer-build-id'
     })
+    expect(updated.session.flow).toBe(loading.session.flow + 1)
+  })
+
+  it('preserves the flow floor when reading a retained session and never records non-host child routes', () => {
+    const client = {}
+    const cachedOpen = afterCacheRead(CACHED)
+    const initialFlow = cachedOpen.session.flow
+    const painted = run(
+      cachedOpen.session,
+      {
+        type: 'activated',
+        flow: initialFlow,
+        directory: CACHED.directory,
+        sessionId: 'session-1',
+        buildId: CACHED.buildId,
+        totalBytes: CACHED.totalBytes,
+        elapsedMs: 5
+      },
+      { type: 'document-started' },
+      { type: 'page-ready' },
+      { type: 'page-painted' }
+    ).session
+    recordRetainedShellSession({
+      hostId: 'host-1',
+      routePathname: painted.routePathname,
+      wide: painted.wide,
+      appNamesRoute: painted.appNamesRoute,
+      client,
+      session: painted
+    })
+
+    // Non-host child route for another host must never overwrite the retained entry.
+    recordRetainedShellSession({
+      hostId: 'host-2',
+      routePathname: '/h/host-2/accounts',
+      wide: painted.wide,
+      appNamesRoute: painted.appNamesRoute,
+      client,
+      session: painted
+    })
+    const restored = readRetainedShellSession({
+      hostId: 'host-1',
+      routePathname: painted.routePathname,
+      wide: painted.wide,
+      appNamesRoute: painted.appNamesRoute,
+      client,
+      gates: painted.gates
+    })
+    expect(restored).not.toBeNull()
+
+    const manifestAfterRestore = run(restored!, {
+      type: 'manifest-read',
+      flow: initialFlow,
+      manifest: { ...MANIFEST, buildId: 'newer-build-id' }
+    })
+    expect(manifestAfterRestore.effects).toEqual([{ kind: 'download' }])
   })
 
   it('resets open subscriptions on BridgeHost when a replacement document starts under the same session id', () => {
