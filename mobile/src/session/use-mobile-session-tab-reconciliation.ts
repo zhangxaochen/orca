@@ -121,13 +121,7 @@ export function useMobileSessionTabReconciliation(scope: MobileSessionMarkdownAc
     if (!client || !unreconciledShellMaskedStatusKey(sessionTabsRef.current, worktreeId)) {
       return
     }
-    refreshSessionTabWorktreeStatuses({
-      hostId,
-      worktreeId,
-      client,
-      sessionTabsRef,
-      setSessionTabs
-    })
+    refreshSessionTabWorktreeStatuses({ hostId, worktreeId, client, sessionTabsRef, setSessionTabs })
   }, [client, hostId, sessionTabsRef, setSessionTabs, worktreeId])
   const {
     fetchSessionTabs,
