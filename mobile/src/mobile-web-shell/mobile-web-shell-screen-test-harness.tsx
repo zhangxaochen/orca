@@ -65,6 +65,8 @@ export type ScreenDependencies = {
   backHandlers: Map<string, () => boolean>
   /** Every option patch the screen wrote onto its own place on the stack, in order. */
   setScreenOptions: Mock
+  /** Native retention slot clears the screen asks for after a host view leaves `ready`. */
+  clearRetainedNativeSlot: Mock
   /** Whether the session says the page is holding the device Back key. */
   backClaimed: boolean
   /** What `Platform.OS` answers, which picks the keyboard events. */
@@ -126,6 +128,7 @@ export function createScreenDependencies(): ScreenDependencies {
     keyboardListeners: new Map(),
     backHandlers: new Map(),
     setScreenOptions: vi.fn(),
+    clearRetainedNativeSlot: vi.fn(),
     backClaimed: false,
     platform: 'ios',
     reportPageBackClaim: vi.fn(),
@@ -167,6 +170,7 @@ export function resetScreenDependencies(dependencies: ScreenDependencies): void 
   dependencies.updateNotice = null
   dependencies.backHandlers.clear()
   dependencies.setScreenOptions.mockReset()
+  dependencies.clearRetainedNativeSlot.mockReset()
   dependencies.reportPageBackClaim.mockReset()
   dependencies.backClaimed = false
   dependencies.platform = 'ios'
