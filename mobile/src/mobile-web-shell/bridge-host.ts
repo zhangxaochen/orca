@@ -22,6 +22,10 @@ import { createBridgeNotifyForwarder } from './bridge-host-notify'
 import { createBridgeHostRoute } from './bridge-host-route'
 import type { BridgeSafeAreaInsets } from './bridge/bridge-safe-area-insets'
 import type { BridgeHostOptions } from './bridge-host-contract'
+import {
+  noteBridgeHostClientMessage,
+  noteBridgeHostServerPayload
+} from '../notifications/in-page-notification-navigation'
 
 // Re-exported so a caller reaches the host and what it reports through one module.
 export type { BridgeHostDiagnostic, BridgeHostOptions } from './bridge-host-contract'
@@ -133,6 +137,9 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
     onTerminalBacklog: (report) => {
       options.onDiagnostic?.({ kind: 'terminal-backlog', ...report })
     },
+    onPayload: (id, payload) => {
+      noteBridgeHostServerPayload(host.id, id, payload)
+    },
     terminalTimers: options.terminalTimers
   })
 
@@ -192,6 +199,9 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
   }
 
   function sendReply(id: string, payload: RpcResponse): void {
+    if (payload.ok) {
+      noteBridgeHostServerPayload(host.id, id, payload.result)
+    }
     const split = splitBridgeReply(id, payload)
     if (!split.ok) {
       sendError(id, new BridgeReplyUndeliverableError(split.refusal))
@@ -285,6 +295,7 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
       sendError(message.id, new BridgeCapExceededError('before-ready'))
       return
     }
+    noteBridgeHostClientMessage(host.id, message, () => client.getState() === 'connected')
     switch (message.type) {
       case 'request':
         requests.open(message)

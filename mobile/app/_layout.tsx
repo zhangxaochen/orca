@@ -61,14 +61,25 @@ export default function RootLayout() {
     lastHostIdRef.current = resolvedHostId
   }
   useEffect(() => {
-    if (pathname.includes('/session/') && resolvedHostId !== '' && resolvedWorktreeId !== '') {
+    const pathMatch = pathname.match(/^\/h\/([^/]+)(?:\/session\/(.+))?$/)
+    const effectiveHostId = resolvedHostId || (pathMatch?.[1] ?? '')
+    const effectiveWorktreeId = resolvedWorktreeId || (pathMatch?.[2] ?? '')
+    if (effectiveHostId !== '') {
+      lastHostIdRef.current = effectiveHostId
+    }
+    if (pathname.includes('/session/') && effectiveHostId !== '' && effectiveWorktreeId !== '') {
       setNotificationViewingWorkspace({
-        hostId: resolvedHostId,
-        worktreeId: resolvedWorktreeId,
+        hostId: effectiveHostId,
+        worktreeId: effectiveWorktreeId,
         ...(resolvedExecutionHost !== '' ? { executionHost: resolvedExecutionHost } : {})
       })
-    } else if (pathname.startsWith('/h/') && resolvedHostId !== '') {
-      setNotificationViewingWorkspace(null, { preserveInPageForHostId: resolvedHostId })
+    } else if (
+      pathname.startsWith('/h/') &&
+      (effectiveHostId !== '' || lastHostIdRef.current !== '')
+    ) {
+      setNotificationViewingWorkspace(null, {
+        preserveInPageForHostId: effectiveHostId || lastHostIdRef.current
+      })
     } else if (pathname === '/new-workspace' && lastHostIdRef.current !== '') {
       setNotificationViewingWorkspace(null, { preserveInPageForHostId: lastHostIdRef.current })
     } else {
