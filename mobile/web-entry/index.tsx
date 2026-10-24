@@ -133,7 +133,7 @@ bootstrapShellPage({
       session.host?.id ?? '',
       session.route?.pathname ?? '',
       session.storageOversize,
-      session.ownsHostArea || session.granted.includes('native.storage.read')
+      session.ownsHostArea || session.grants.native.includes('native.storage.read')
         ? async (key) =>
             storageReadResultSchema.parse(
               (await client.callNativeVerb('native.storage.read', { key })).result
