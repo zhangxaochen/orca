@@ -5,8 +5,7 @@ import {
   withoutPendingHandle,
   withoutPendingTabId
 } from './pending-session-selection'
-import { useCallback, useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
+import { useCallback, useRef } from 'react'
 import {
   getTerminalRecordsFromSessionTabs,
   mergeTerminalRecordsByCurrentOrder,
@@ -27,11 +26,7 @@ import {
   consumePendingCrossWorktreeTabTarget
 } from './mobile-session-tab-activation'
 import { releaseTerminalCreateLock } from './terminal-create-lock'
-import {
-  applySessionTabStatusReceipts,
-  refreshSessionTabWorktreeStatuses,
-  unreconciledShellMaskedStatusKey
-} from './mobile-session-tab-status-clock'
+import { applySessionTabStatusReceipts } from './mobile-session-tab-status-clock'
 import { withRememberedNativeChatIdentity } from './mobile-native-chat-eligibility'
 import type { MobileSessionTab, SessionTabsResult } from './mobile-session-route-types'
 import type { MobileSessionTerminalListModel } from './use-mobile-session-terminal-list'
@@ -64,34 +59,11 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
     unsubscribeTerminal,
     subscribeToTerminal,
     lastKnownTerminalCountRef,
-    client,
-    connState,
     clientRef,
     creatingTerminalRef,
     setCreating
   } = scope
   const probedShellMaskedKeysRef = useRef(new Set<string>())
-  useEffect(() => {
-    if (!hostId || !client || connState !== 'connected') {
-      return
-    }
-    const interval = setInterval(() => {
-      if (AppState.currentState !== 'active') {
-        return
-      }
-      if (!unreconciledShellMaskedStatusKey(sessionTabsRef.current, worktreeId)) {
-        return
-      }
-      refreshSessionTabWorktreeStatuses({
-        hostId,
-        worktreeId,
-        client,
-        sessionTabsRef,
-        setSessionTabs
-      })
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [client, connState, hostId, sessionTabsRef, setSessionTabs, worktreeId])
   const applySessionTabs = useCallback(
     (result: SessionTabsResult): SessionTabsApplyOutcome<MobileSessionTab> => {
       const diagnostics = terminalDiagnosticsRef.current

@@ -1,5 +1,5 @@
 import { withMirroredEvidenceReceipt } from '../../../src/shared/agent-status-freshness'
-import type { AgentStatusEntry } from '../../../src/shared/types'
+import type { AgentStatusEntry } from '../../../src/shared/agent-status-types'
 import {
   getCachedWorktrees,
   peekCachedWorktrees,
