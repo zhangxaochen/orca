@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft, RefreshCw } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
+import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { getWorktreeLabel } from '../session/worktree-label'
@@ -56,6 +57,7 @@ function MobileAgentSessionHistoryPanelContent({
   // Not `useRouter`: inside the shell's page this screen is one document standing in for one
   // screen, and the session it resumes into is a native route the shell has to open.
   const router = useWorkspaceRouteHandoff()
+  const currentExecutionHost = useWorkspaceExecutionHost()
   const { client, state: connState } = useWorkspaceClient(hostId)
   const claimResumeOwnership = useMobileResumeOperationOwnership(
     hostId,
@@ -204,21 +206,14 @@ function MobileAgentSessionHistoryPanelContent({
       setResumingSessionId(session.id)
       setResumeMessage(null)
       try {
-        const {
-          repos,
-          folderWorkspaces,
-          projectGroups,
-          settings,
-          worktrees: freshWorktrees
-        } = await loadMobileResumeMetadata(client)
+        const { repos, folderWorkspaces, projectGroups, settings, worktrees: freshWorktrees } =
+          await loadMobileResumeMetadata(client)
         assertCurrentOwner()
         const resumeWorktrees = freshWorktrees ?? worktrees
         const target = resolveMobileAiVaultSessionResumeTarget({
           session,
           activeWorktreeId: worktreeId,
-          // Why: resolve against live worktrees so a workspace deleted or
-          // archived since panel mount can't be picked; the mount-time list is
-          // only a fallback when the fresh fetch fails.
+          // Why: resolve against live worktrees so a workspace deleted or archived since panel mount can't be picked.
           worktrees: resumeWorktrees,
           repos,
           folderWorkspaces,
@@ -273,7 +268,16 @@ function MobileAgentSessionHistoryPanelContent({
           resumeWorktrees.find((item) => item.worktreeId === target.worktreeId)?.displayName,
           target.worktreeId
         )
-        openHistorySession(router, origin, hostId, worktreeId, target.worktreeId, resumedName)
+        openHistorySession(
+          router,
+          origin,
+          hostId,
+          worktreeId,
+          target.worktreeId,
+          resumedName,
+          target.targetExecutionHostId,
+          currentExecutionHost
+        )
       } catch (err) {
         triggerError()
         setResumeMessage(err instanceof Error ? err.message : 'Failed to resume session.')
@@ -286,6 +290,7 @@ function MobileAgentSessionHistoryPanelContent({
       client,
       connState,
       hostId,
+      currentExecutionHost,
       origin,
       resumeHost,
       hostTerminalWindowsShell,

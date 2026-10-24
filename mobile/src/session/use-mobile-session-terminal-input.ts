@@ -18,8 +18,8 @@ import {
   TERMINAL_GESTURE_INPUT_MAX_QUEUE_AGE_MS,
   TERMINAL_GESTURE_INPUT_REFILL_PER_SECOND
 } from './mobile-session-route-helpers'
-import type { Terminal, TerminalGestureInputQueue } from './mobile-session-route-types'
 import type { TerminalPointerInput } from '../terminal/terminal-webview-contract'
+import type { Terminal, TerminalGestureInputQueue } from './mobile-session-route-types'
 import type { MobileSessionFileActionsModel } from './use-mobile-session-file-actions'
 
 function hasIsFocused(node: unknown): node is { isFocused: () => boolean } {

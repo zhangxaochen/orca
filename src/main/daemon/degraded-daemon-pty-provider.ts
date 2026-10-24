@@ -114,10 +114,10 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
 
   // Unknown IDs cannot borrow listing authority from the fresh-spawn provider.
   providesAgentSessionOwnerListings = (ptyId: string): boolean =>
-    this.sessionProviders.get(ptyId)?.providesAgentSessionOwnerListings?.(ptyId) === true
+    this.ownerRecovery.getVerifiedRoute(ptyId)?.providesAgentSessionOwnerListings?.(ptyId) === true
 
   supportsFencedTermination = (id: string): boolean =>
-    this.sessionProviders.get(id)?.supportsFencedTermination?.(id) === true
+    this.ownerRecovery.getVerifiedRoute(id)?.supportsFencedTermination?.(id) === true
 
   killFenced = (request: PtyFencedTerminationRequest) =>
     terminateResolvedDaemonSession(request, () =>

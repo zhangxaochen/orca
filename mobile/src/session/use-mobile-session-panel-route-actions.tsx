@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH } from '../../../src/shared/runtime-types'
 import type { LayoutChangeEvent } from 'react-native'
 import { Bot } from 'lucide-react-native'
 import { readInitialMobileAgentHistoryWorktrees } from '../agent-history/mobile-agent-history-worktree-cache'
@@ -40,50 +41,30 @@ type RecentCardWorktree = {
 
 function recentCardWorktrees(rows: readonly unknown[] | undefined): RecentCardWorktree[] {
   return (rows ?? []).flatMap((row) =>
-    typeof row === 'object' &&
-    row !== null &&
-    'worktreeId' in row &&
-    typeof row.worktreeId === 'string' &&
-    row.worktreeId.length > 0
-      ? [
-          {
-            worktreeId: row.worktreeId,
-            displayName:
-              'displayName' in row && typeof row.displayName === 'string'
-                ? row.displayName
-                : undefined,
-            isArchived:
-              'isArchived' in row && typeof row.isArchived === 'boolean'
-                ? row.isArchived
-                : undefined
-          }
-        ]
+    typeof row === 'object' && row !== null && 'worktreeId' in row && typeof row.worktreeId === 'string' && row.worktreeId.length > 0
+      ? [{
+          worktreeId: row.worktreeId,
+          displayName: 'displayName' in row && typeof row.displayName === 'string' ? row.displayName : undefined,
+          isArchived: 'isArchived' in row && typeof row.isArchived === 'boolean' ? row.isArchived : undefined
+        }]
       : []
   )
 }
 
-function recentCardSnapshotTabs(value: unknown): { id: string; terminal?: string }[] | null {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    !('tabs' in value) ||
-    !Array.isArray(value.tabs)
-  ) {
+function isUnpublishedSnapshot(snapshot: unknown): boolean {
+  return typeof snapshot === 'object' && snapshot !== null && 'publicationEpoch' in snapshot && snapshot.publicationEpoch === UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH
+}
+
+function recentCardSnapshotTabs(value: unknown): { id: string; terminal?: string | null }[] | null {
+  if (typeof value !== 'object' || value === null || !('tabs' in value) || !Array.isArray(value.tabs)) {
     return null
   }
   return value.tabs.flatMap((item) =>
-    typeof item === 'object' &&
-    item !== null &&
-    'id' in item &&
-    typeof item.id === 'string' &&
-    item.id.length > 0
-      ? [
-          {
-            id: item.id,
-            terminal:
-              'terminal' in item && typeof item.terminal === 'string' ? item.terminal : undefined
-          }
-        ]
+    typeof item === 'object' && item !== null && 'id' in item && typeof item.id === 'string' && item.id.length > 0
+      ? [{
+          id: item.id,
+          terminal: 'terminal' in item && (typeof item.terminal === 'string' || item.terminal === null) ? item.terminal : undefined
+        }]
       : []
   )
 }
@@ -271,9 +252,10 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
       await Promise.allSettled(
         ids.map(async (targetId) => {
           const reply = await sessionTabsListRead.request(client, { worktree: `id:${targetId}` })
+          const snapshot = !cancelled && reply.ok ? sessionTabsListRead.interpret(reply) : null
           const liveTabs =
-            !cancelled && reply.ok
-              ? recentCardSnapshotTabs(sessionTabsListRead.interpret(reply))
+            snapshot !== null && !isUnpublishedSnapshot(snapshot)
+              ? recentCardSnapshotTabs(snapshot)
               : null
           if (liveTabs !== null) {
             reconcileRecentSessionCardsForWorktree({
@@ -353,7 +335,9 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
       })
       if (!response.ok) {
         setPendingCrossWorktreeTabTarget(null)
-        removeRecentSessionCard(hostId, card.worktreeId, card.tabId)
+        if (response.error.code === 'repo_not_found') {
+          removeRecentSessionCard(hostId, card.worktreeId, card.tabId)
+        }
         if (
           response.error.code === 'repo_not_found' ||
           response.error.code === 'selector_not_found'

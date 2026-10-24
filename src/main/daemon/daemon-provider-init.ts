@@ -38,7 +38,8 @@ import {
   DaemonSpawner,
   getDaemonPidPath,
   getDaemonSocketPath,
-  getDaemonTokenPath
+  getDaemonTokenPath,
+  type DaemonProcessHandle
 } from './daemon-spawner'
 import { tryInstallLegacyFallbackOnCurrentFailure } from './daemon-legacy-fallback-init'
 import { clearSeveredDaemon, installSeveredDaemonController } from './daemon-host-image-state'
@@ -46,6 +47,19 @@ import {
   createSeveredDaemonController,
   hasSeveredDaemonBeenReplaced
 } from './daemon-severed-restart'
+
+// A severed daemon can pass health checks; require a new incarnation before routing fresh terminals.
+function probeCurrentDaemonCanSpawn(
+  socketPath: string,
+  tokenPath: string,
+  runtimeDir: string,
+  quarantine: DaemonProcessHandle['quarantine']
+): () => Promise<boolean> {
+  return async () =>
+    (quarantine !== 'host-image-severed' ||
+      hasSeveredDaemonBeenReplaced(getDaemonPidPath(runtimeDir))) &&
+    (await checkDaemonHealth(socketPath, tokenPath)) === 'healthy'
+}
 
 // Use in-process timestamps: daemon init overlaps window loading and harness stderr can arrive late.
 function logDaemonMilestone(event: string, details: Record<string, unknown> = {}): void {
@@ -77,7 +91,7 @@ export async function initDaemonPtyProvider(
     )
   })
 
-  // Publish the spawner and adapter together after initialization succeeds; if current startup fails, install legacy fallback when an older daemon still holds sessions.
+  // Current startup failure still installs when a legacy daemon has sessions; otherwise propagate the error.
   let info: Awaited<ReturnType<DaemonSpawner['ensureRunning']>>
   try {
     info = await newSpawner.ensureRunning()
@@ -95,7 +109,13 @@ export async function initDaemonPtyProvider(
         runtimeDir,
         packagedAppVersion: newSpawner.staleDaemonRecycleVersion,
         historyPath: getHistoryDir()
-      })
+      }),
+      probeCurrentDaemonSpawn: probeCurrentDaemonCanSpawn(
+        getDaemonSocketPath(runtimeDir),
+        getDaemonTokenPath(runtimeDir),
+        runtimeDir,
+        newSpawner.getHandle()?.quarantine
+      )
     })
     return
   }
@@ -154,7 +174,13 @@ export async function initDaemonPtyProvider(
       signal,
       runtimeDir,
       newSpawner,
-      newAdapter
+      newAdapter,
+      probeCurrentDaemonSpawn: probeCurrentDaemonCanSpawn(
+        info.socketPath,
+        info.tokenPath,
+        runtimeDir,
+        quarantine
+      )
     })
     return
   }
@@ -173,11 +199,12 @@ export async function initDaemonPtyProvider(
             current: newAdapter,
             legacy: legacyAdapters,
             fallback: getLocalPtyProvider(),
-            // A severed daemon can pass health checks; require a new incarnation before routing fresh terminals.
-            probeCurrentDaemonSpawn: async () =>
-              (quarantine !== 'host-image-severed' ||
-                hasSeveredDaemonBeenReplaced(getDaemonPidPath(runtimeDir))) &&
-              (await checkDaemonHealth(info.socketPath, info.tokenPath)) === 'healthy'
+            probeCurrentDaemonSpawn: probeCurrentDaemonCanSpawn(
+              info.socketPath,
+              info.tokenPath,
+              runtimeDir,
+              quarantine
+            )
           })
         : legacyAdapters.length > 0 || isHoldingForNewerProtocolDaemon()
           ? new DaemonPtyRouter({

@@ -120,13 +120,28 @@ export function withRecentCards(
     if (!isRecord(parsed)) {
       return null
     }
-    const next: Record<string, unknown> = { ...parsed, recentCards: cards }
-    if (extras?.recentCardsMaxDisplay !== undefined) {
-      next.recentCardsMaxDisplay = extras.recentCardsMaxDisplay
-    } else {
-      delete next.recentCardsMaxDisplay
+    const trimmedCards = [...cards]
+    const build = () => {
+      const next: Record<string, unknown> = {
+        ...parsed,
+        ...(trimmedCards.length > 0 ? { recentCards: trimmedCards } : {})
+      }
+      if (trimmedCards.length === 0) {
+        delete next.recentCards
+      }
+      if (extras?.recentCardsMaxDisplay !== undefined) {
+        next.recentCardsMaxDisplay = extras.recentCardsMaxDisplay
+      } else {
+        delete next.recentCardsMaxDisplay
+      }
+      return JSON.stringify(next)
     }
-    return JSON.stringify(next)
+    let value = build()
+    while (trimmedCards.length > 0 && value.length > PAGE_STORAGE_MAX_VALUE_CHARS) {
+      trimmedCards.pop()
+      value = build()
+    }
+    return value
   } catch {
     return null
   }
@@ -135,7 +150,11 @@ export function withRecentCards(
 /** The stored value with `record` as the latest visit and its host's entry. */
 export function withLastVisitedWorktree(
   raw: string | null,
-  record: LastVisitedWorktreeRecord & { executionHost?: ExecutionHostId; paneKey?: string }
+  record: LastVisitedWorktreeRecord & {
+    executionHost?: ExecutionHostId
+    paneKey?: string
+    inSession?: boolean
+  }
 ): string {
   const byHost = readByHost(raw)
   const previous = readLastVisitedWorktreeRecord(raw)
@@ -144,14 +163,21 @@ export function withLastVisitedWorktree(
   }
   // Re-inserted so the map's order is oldest visit first, which is what the cap drops.
   byHost.delete(record.hostId)
-  byHost.set(record.hostId, visitOf(record.worktreeId, record.executionHost, record.paneKey))
+  byHost.set(
+    record.hostId,
+    visitOf(record.worktreeId, record.executionHost, record.paneKey, record.inSession)
+  )
   const recentFields = extractRecentCardFields(raw)
+  const trimmedCards = recentFields.recentCards ? [...recentFields.recentCards] : undefined
   const serialize = () =>
     JSON.stringify({
       hostId: record.hostId,
       worktreeId: record.worktreeId,
       byHost: Object.fromEntries(byHost),
-      ...recentFields
+      ...(trimmedCards && trimmedCards.length > 0 ? { recentCards: trimmedCards } : {}),
+      ...(recentFields.recentCardsMaxDisplay !== undefined
+        ? { recentCardsMaxDisplay: recentFields.recentCardsMaxDisplay }
+        : {})
     })
   let value = serialize()
   while (
@@ -163,6 +189,10 @@ export function withLastVisitedWorktree(
       break
     }
     byHost.delete(oldest)
+    value = serialize()
+  }
+  while (trimmedCards && trimmedCards.length > 0 && value.length > PAGE_STORAGE_MAX_VALUE_CHARS) {
+    trimmedCards.pop()
     value = serialize()
   }
   return value
@@ -185,9 +215,13 @@ export function subscribeLastVisitedWorktree(listener: Listener): () => void {
  * load-time copy of the key could overwrite newer visits to other hosts.
  */
 export function noteLastVisitedWorktree(
-  record: LastVisitedWorktreeRecord & { executionHost?: ExecutionHostId; paneKey?: string }
+  record: LastVisitedWorktreeRecord & {
+    executionHost?: ExecutionHostId
+    paneKey?: string
+    inSession?: boolean
+  }
 ): void {
-  const visited = visitOf(record.worktreeId, record.executionHost, record.paneKey)
+  const visited = visitOf(record.worktreeId, record.executionHost, record.paneKey, record.inSession)
   for (const listener of listeners) {
     listener(record.hostId, visited)
   }
@@ -202,7 +236,11 @@ let writeChain: Promise<void> = Promise.resolve()
  * straight to the store would reach the page one `init` later.
  */
 export function writeLastVisitedWorktree(
-  record: LastVisitedWorktreeRecord & { executionHost?: ExecutionHostId; paneKey?: string }
+  record: LastVisitedWorktreeRecord & {
+    executionHost?: ExecutionHostId
+    paneKey?: string
+    inSession?: boolean
+  }
 ): Promise<void> {
   noteLastVisitedWorktree(record)
   // Through the path that notes on an accepted write (ruling 35); the page's adapter may refuse,
