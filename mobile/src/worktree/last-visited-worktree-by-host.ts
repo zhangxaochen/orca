@@ -18,7 +18,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function visitOf(
   worktreeId: string,
   executionHost: string | undefined,
-  paneKey?: string
+  paneKey?: string,
+  inSession?: boolean
 ): LastVisitedWorktreeOnHost {
   const server = routeExecutionHostOf(executionHost)
   const normalizedPaneKey =
@@ -26,7 +27,8 @@ function visitOf(
   return {
     worktreeId,
     ...(server ? { executionHost: server } : {}),
-    ...(normalizedPaneKey ? { paneKey: normalizedPaneKey } : {})
+    ...(normalizedPaneKey ? { paneKey: normalizedPaneKey } : {}),
+    ...(typeof inSession === 'boolean' ? { inSession } : {})
   }
 }
 
@@ -37,7 +39,8 @@ function readEntry(value: unknown): LastVisitedWorktreeOnHost | null {
   return visitOf(
     value.worktreeId,
     typeof value.executionHost === 'string' ? value.executionHost : undefined,
-    typeof value.paneKey === 'string' ? value.paneKey : undefined
+    typeof value.paneKey === 'string' ? value.paneKey : undefined,
+    typeof value.inSession === 'boolean' ? value.inSession : undefined
   )
 }
 

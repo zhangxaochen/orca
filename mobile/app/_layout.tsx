@@ -56,12 +56,12 @@ export default function RootLayout() {
   const resolvedHostId = firstParam(hostId)
   const resolvedWorktreeId = firstParam(worktreeId)
   const resolvedExecutionHost = firstParam(executionHost)
+  const lastHostIdRef = useRef<string>('')
+  if (resolvedHostId !== '') {
+    lastHostIdRef.current = resolvedHostId
+  }
   useEffect(() => {
-    if (
-      pathname.includes('/session/') &&
-      resolvedHostId !== '' &&
-      resolvedWorktreeId !== ''
-    ) {
+    if (pathname.includes('/session/') && resolvedHostId !== '' && resolvedWorktreeId !== '') {
       setNotificationViewingWorkspace({
         hostId: resolvedHostId,
         worktreeId: resolvedWorktreeId,
@@ -69,10 +69,11 @@ export default function RootLayout() {
       })
     } else if (pathname.startsWith('/h/') && resolvedHostId !== '') {
       setNotificationViewingWorkspace(null, { preserveInPageForHostId: resolvedHostId })
+    } else if (pathname === '/new-workspace' && lastHostIdRef.current !== '') {
+      setNotificationViewingWorkspace(null, { preserveInPageForHostId: lastHostIdRef.current })
     } else {
       setNotificationViewingWorkspace(null)
     }
-    return () => setNotificationViewingWorkspace(null)
   }, [pathname, resolvedHostId, resolvedWorktreeId, resolvedExecutionHost])
   const openNotificationRoute = useOpenNotificationRoute()
   const handledNotificationIdsRef = useRef<Set<string>>(new Set())
