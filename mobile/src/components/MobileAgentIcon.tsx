@@ -29,9 +29,7 @@ function PiIcon({ size = 16 }: { size?: number }) {
 function OmpIcon({ size = 16 }: { size?: number }) {
   // SVG sourced from omp.sh's transparent homepage mark. Why: react-native-svg
   // does not support the homepage's CSS oklch stops, so use its favicon hex stops.
-  // Instance-unique ID prevents a hidden route's defs from shadowing this fill on web.
-  const rawId = useId()
-  const gradientId = `ompMarkGradient-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const gradientId = `ompMarkGradient-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
       <Defs>
@@ -58,8 +56,6 @@ function AiderIcon({ size = 16 }: { size?: number }) {
 }
 
 function BundledIcon({ source, size = 16 }: { source: ImageSourcePropType; size?: number }) {
-  // Why: react-native-web re-probes every mounted <Image> with no-store and clears backgroundImage
-  // on probe failure even when the decoded asset is already in memory; defaultSource keeps it shown.
   return (
     <Image
       source={source}

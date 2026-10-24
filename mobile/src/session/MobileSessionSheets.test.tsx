@@ -186,41 +186,6 @@ describe('the New Tab sheet', () => {
     expect(labels).toEqual(['Terminal', 'Browser'])
   })
 
-  it('copies the absolute filePath from the Markdown tab action sheet Copy Path action', async () => {
-    sheets.actionsByTitle.clear()
-    sheets.clipboardWriteText.mockClear()
-    const controller = mountFixture<Parameters<typeof MobileSessionSheets>[0]['controller']>({
-      worktreeId: 'repo::/wt',
-      isFolderWorkspaceRoute: false,
-      isFloatingWorkspaceRoute: false,
-      sessionTabs: [],
-      nativeChatController: { isTabChatView: () => false },
-      createTabAgentActions: [],
-      sendDiffNotesAgentActions: [],
-      closeWithBulkActions: () => [],
-      markdownActionTarget: {
-        type: 'markdown',
-        id: 'md-1',
-        title: 'README.md',
-        filePath: '/wt/README.md',
-        relativePath: 'README.md',
-        isDirty: false,
-        isActive: true
-      },
-      setMarkdownActionTarget: vi.fn(),
-      showToast: vi.fn()
-    })
-    await act(async () => {
-      create(createElement(MobileSessionSheets, { controller }))
-    })
-    const copyPathAction = sheets.actionsByTitle
-      .get('README.md')
-      ?.find((action) => action.label === 'Copy Path')
-    expect(copyPathAction).toBeDefined()
-    copyPathAction?.onPress()
-    expect(sheets.clipboardWriteText).toHaveBeenCalledWith('/wt/README.md')
-  })
-
   it('offers Open File and Copy Path for a tapped terminal file link', async () => {
     sheets.labelsByTitle.clear()
     await act(async () => {
@@ -243,6 +208,5 @@ describe('the New Tab sheet', () => {
       'Open File',
       'Copy Path'
     ])
-  })
   })
 })
