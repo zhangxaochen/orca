@@ -263,14 +263,14 @@ function resolveRawSessionTabDotState(
 
 function resolveTabDoneStamp(tab: {
   type?: MobileSessionTab['type']
-  agentStatus?: (AgentStatusEntry & { restoredUnconfirmed?: boolean; stateStartedAt?: number | null }) | null
+  agentStatus?: (AgentStatusEntry & { restoredUnconfirmed?: boolean }) | null
   chatStatus?: Extract<MobileSessionTab, { type: 'agent-session' }>['chatStatus'] | null
 }): number | undefined {
   if (tab.type === 'terminal' && tab.agentStatus) {
-    return tab.agentStatus.stateStartedAt ?? tab.agentStatus.updatedAt
+    return tab.agentStatus.updatedAt
   }
   if (tab.type === 'agent-session' && tab.chatStatus) {
-    return tab.chatStatus.stateStartedAt ?? tab.chatStatus.updatedAt
+    return tab.chatStatus.updatedAt
   }
   return undefined
 }
