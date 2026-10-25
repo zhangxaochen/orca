@@ -5,6 +5,7 @@ import { useTerminalViewportRefit } from '../terminal/terminal-viewport-refit'
 import { removeCustomKey, type CustomKey } from '../terminal/terminal-custom-keys'
 import { writeLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import { sessionTabPaneKey } from './notification-pane-tab'
+import { getMobileTerminalTabHostAgentIdentity } from './mobile-terminal-tab-agent'
 import {
   buildRecentSessionCardFromTab,
   hydrateRecentSessionCards,
@@ -245,10 +246,11 @@ export function useMobileSessionKeyboardState(scope: MobileSessionKeyboardScope)
         hostId,
         worktreeId,
         worktreeName: worktreeName || '',
-        tab: activeTab
+        tab: activeTab,
+        hostAgentIdentity: getMobileTerminalTabHostAgentIdentity(activeTab, terminals)
       })
     )
-  }, [activeSessionTabId, hostId, sessionTabs, worktreeId, worktreeName])
+  }, [activeSessionTabId, hostId, sessionTabs, terminals, worktreeId, worktreeName])
 
   const handleDeleteCustomKey = useCallback(async (key: CustomKey) => {
     try {

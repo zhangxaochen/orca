@@ -6,6 +6,7 @@ import { isCachedActiveDocumentRetap } from './mobile-session-active-document-re
 import { activateMobileSessionTab } from './mobile-session-tab-activation'
 import { activatedAtWorkspaceRoot } from './session-write-reply-schema'
 import type { MobileSessionTab } from './mobile-session-route-types'
+import { getMobileTerminalTabHostAgentIdentity } from './mobile-terminal-tab-agent'
 import { buildRecentSessionCardFromTab, recordRecentSessionCardVisit } from './recent-session-cards'
 import type { MobileSessionKeyboardStateModel } from './use-mobile-session-keyboard-state'
 
@@ -14,6 +15,7 @@ function rememberRecentSessionCard(args: {
   worktreeId: string | undefined
   worktreeName: string | undefined
   tab: MobileSessionTab
+  terminals?: MobileSessionKeyboardStateModel['terminals']
 }): void {
   if (!args.hostId || !args.worktreeId) {
     return
@@ -23,7 +25,8 @@ function rememberRecentSessionCard(args: {
       hostId: args.hostId,
       worktreeId: args.worktreeId,
       worktreeName: args.worktreeName || '',
-      tab: args.tab
+      tab: args.tab,
+      hostAgentIdentity: getMobileTerminalTabHostAgentIdentity(args.tab, args.terminals)
     })
   )
 }
@@ -35,6 +38,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
     worktreeName,
     client,
     sessionTabs,
+    terminals,
     defaultTerminalHandlesToLiveInput,
     setActiveHandle,
     setActiveSessionTabId,
@@ -94,7 +98,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       }
       subscribeToTerminal(handle)
       if (matchingTab) {
-        rememberRecentSessionCard({ hostId, worktreeId, worktreeName, tab: matchingTab })
+        rememberRecentSessionCard({ hostId, worktreeId, worktreeName, tab: matchingTab, terminals })
       }
       if (client) {
         if (matchingTab) {
@@ -117,6 +121,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       reportActivation,
       sessionTabs,
       subscribeToTerminal,
+      terminals,
       unsubscribeTerminal,
       worktreeId,
       worktreeName
@@ -128,7 +133,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       if (isCachedActiveDocumentRetap(tab, activeSessionTabId, { markdownDocs, fileDocs })) {
         return
       }
-      rememberRecentSessionCard({ hostId, worktreeId, worktreeName, tab })
+      rememberRecentSessionCard({ hostId, worktreeId, worktreeName, tab, terminals })
       if (tab.type === 'terminal') {
         if (typeof tab.terminal === 'string') {
           switchTab(tab.terminal)
@@ -220,6 +225,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       readMarkdownTab,
       reportActivation,
       switchTab,
+      terminals,
       unsubscribeTerminal,
       worktreeId,
       worktreeName
