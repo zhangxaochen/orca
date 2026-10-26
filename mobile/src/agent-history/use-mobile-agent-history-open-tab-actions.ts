@@ -9,7 +9,6 @@ import {
 } from '../session/mobile-session-tab-activation'
 import { sessionTabClose } from '../session/mobile-session-write-operations'
 import type { AiVaultSession, AiVaultSessionOpenTab } from '../../../src/shared/ai-vault-types'
-import { clearMobileAiVaultMemoryCache } from './mobile-ai-vault-session-cache'
 import { openHistorySession } from './worktree-navigation-actions'
 
 type OpenTabClient = Parameters<typeof activateMobileSessionTab>[0] &
@@ -300,7 +299,6 @@ export function useMobileAgentHistoryOpenTabActions(input: {
         )
         if (response.accepted) {
           setClosedSessionIds((prev) => new Set(prev).add(session.id))
-          clearMobileAiVaultMemoryCache()
           triggerSuccess()
           void onRefresh()
         } else {

@@ -1,5 +1,4 @@
 import type { AiVaultSession } from '../../../src/shared/ai-vault-types'
-import { clearMobileAiVaultMemoryCache } from '../agent-history/mobile-ai-vault-session-cache'
 import { requestLocalSessionTabFollow } from './mobile-session-tab-activation'
 import {
   buildAiVaultResumeCommand,
@@ -219,7 +218,6 @@ export async function resumeAiVaultSessionInTerminal(
   )
   if (launchAtCreate) {
     requestLocalSessionTabFollow(worktreeId)
-    clearMobileAiVaultMemoryCache()
     return terminalTab
   }
   assertCurrentOwner?.()
@@ -241,7 +239,6 @@ export async function resumeAiVaultSessionInTerminal(
     throw new Error('Terminal input is locked')
   }
   requestLocalSessionTabFollow(worktreeId)
-  clearMobileAiVaultMemoryCache()
   return terminalTab
 }
 

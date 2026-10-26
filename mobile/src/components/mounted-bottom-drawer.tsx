@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
   Extrapolation
 } from 'react-native-reanimated'
-import { spacing, springs } from '../theme/mobile-theme'
+import { spacing } from '../theme/mobile-theme'
 import { resolveBottomDrawerFillHeight } from './bottom-drawer-fill-height'
 import { resolveBottomDrawerKeyboardInset } from './bottom-drawer-keyboard-inset'
 import { BOTTOM_DRAWER_HIDE_DURATION_MS } from './bottom-drawer-constants'
@@ -27,6 +27,7 @@ import { currentSoftKeyboardHeight, subscribeSoftKeyboard } from '../platform/ke
 import { hostOs } from '../platform/host-os'
 
 const DISMISS_THRESHOLD = 80
+const SPRING_CONFIG = { damping: 28, stiffness: 400 }
 // Why: negative translateY (pulling up) is damped with a rubber-band factor
 // so the drawer resists upward dragging — a subtle polish touch that signals
 // the drawer cannot expand further.
@@ -227,7 +228,7 @@ export function MountedBottomDrawer({
           runOnJS(onClose)()
         })
       } else {
-        translateY.value = withSpring(0, springs.drawer)
+        translateY.value = withSpring(0, SPRING_CONFIG)
       }
     })
   const contentPanGesture = Gesture.Pan()
@@ -243,7 +244,7 @@ export function MountedBottomDrawer({
         contentDragCanDismiss.value = false
         contentDragStartY.value = 0
         if (translateY.value !== 0) {
-          translateY.value = withSpring(0, springs.drawer)
+          translateY.value = withSpring(0, SPRING_CONFIG)
         }
         return
       }
@@ -275,7 +276,7 @@ export function MountedBottomDrawer({
           runOnJS(onClose)()
         })
       } else {
-        translateY.value = withSpring(0, springs.drawer)
+        translateY.value = withSpring(0, SPRING_CONFIG)
       }
     })
 
