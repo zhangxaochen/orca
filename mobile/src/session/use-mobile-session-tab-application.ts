@@ -5,7 +5,7 @@ import {
   withoutPendingHandle,
   withoutPendingTabId
 } from './pending-session-selection'
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import {
   getTerminalRecordsFromSessionTabs,
   mergeTerminalRecordsByCurrentOrder,
@@ -26,15 +26,13 @@ import {
   consumePendingCrossWorktreeTabTarget
 } from './mobile-session-tab-activation'
 import { releaseTerminalCreateLock } from './terminal-create-lock'
-import { applySessionTabStatusReceipts } from './mobile-session-tab-status-clock'
+import { withSessionTabStatusReceipts } from './mobile-session-tab-status-clock'
 import { withRememberedNativeChatIdentity } from './mobile-native-chat-eligibility'
 import type { MobileSessionTab, SessionTabsResult } from './mobile-session-route-types'
 import type { MobileSessionTerminalListModel } from './use-mobile-session-terminal-list'
 
 export function useMobileSessionTabApplication(scope: MobileSessionTerminalListModel) {
   const {
-    hostId,
-    worktreeId,
     setTerminals,
     terminalsRef,
     setSessionTabs,
@@ -63,7 +61,6 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
     creatingTerminalRef,
     setCreating
   } = scope
-  const probedShellMaskedKeysRef = useRef(new Set<string>())
   const applySessionTabs = useCallback(
     (result: SessionTabsResult): SessionTabsApplyOutcome<MobileSessionTab> => {
       const diagnostics = terminalDiagnosticsRef.current
@@ -74,17 +71,11 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       const applicationRevision = ++appliedSessionTabsRevisionRef.current
       const now = Date.now()
       let nextTabs = withRememberedNativeChatIdentity(
-        applySessionTabStatusReceipts({
-          tabs: applyClosedTabTombstones(result.tabs, closedTabTombstonesRef.current, now),
-          previous: sessionTabsRef.current,
-          now,
-          hostId,
-          worktreeId: result.worktree || worktreeId,
-          client: clientRef.current,
-          probedKeys: probedShellMaskedKeysRef.current,
-          sessionTabsRef,
-          setSessionTabs
-        }),
+        withSessionTabStatusReceipts(
+          applyClosedTabTombstones(result.tabs, closedTabTombstonesRef.current, now),
+          sessionTabsRef.current,
+          now
+        ),
         sessionTabsRef.current
       )
       const presentTabIds = new Set(nextTabs.map((tab) => tab.id))
@@ -185,7 +176,7 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       const resolved = resolveActiveSessionTab(nextTabs, {
         pendingActiveSessionTabId,
         selectedSessionTabId: selectedSessionTabIdRef.current,
-        navigationIntent: followsHost ? 'follow' : result.navigationIntent
+        navigationIntent: result.navigationIntent
       })
       let active = resolved.activeTab
       let selectionSource: string = resolved.selectionSource
@@ -282,4 +273,3 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
 
 export type MobileSessionTabApplicationModel = MobileSessionTerminalListModel &
   ReturnType<typeof useMobileSessionTabApplication>
-

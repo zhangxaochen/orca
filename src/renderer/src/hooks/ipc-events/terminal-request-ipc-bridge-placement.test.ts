@@ -114,7 +114,6 @@ describe("a host's focused terminal create into a requested group", () => {
     request({
       requestId: 'request-resume-no-cmd',
       worktreeId: WT,
-      presentation: 'focused',
       title: 'Renamed Claude',
       launchAgent: 'claude',
       launchConfig: {

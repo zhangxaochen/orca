@@ -67,7 +67,10 @@ export function sessionTabPaneKey(tab: MobileSessionTab | undefined): string | u
     return tabId && leafId ? `${tabId}:${leafId}` : `terminal:${tab.id}`
   }
   if (tab.type === 'agent-session') {
-    return structuredAgentSessionPaneKey(structuredAgentSessionTabId(tab.sessionId), tab.sessionId)
+    return structuredAgentSessionPaneKey(
+      structuredAgentSessionTabId(tab.sessionId),
+      tab.sessionId
+    )
   }
   return `${tab.type}:${tab.id}`
 }

@@ -1,6 +1,5 @@
 import type { MobileTerminalTheme } from '../terminal/terminal-webview-contract'
 import type { AgentStatusEntry } from '../../../src/shared/agent-status-types'
-import type { TuiAgent } from '../../../src/shared/tui-agent'
 import type { BrowserLoadError } from '../../../src/shared/browser-workspace-types'
 import { browserLoadErrorsEqual } from '../../../src/shared/browser-load-failure'
 
@@ -21,12 +20,10 @@ export type MobileTerminalSessionTab = {
   type: 'terminal'
   id: string
   title: string
-  customTitle?: string | null
   parentTabId?: string
   leafId?: string
   status?: 'pending-handle' | 'ready'
   terminal: string | null
-  launchAgent?: TuiAgent | null
   agentStatus?: AgentStatusEntry | null
   nativeChatIdentity?: unknown
   /** Host-provided launch context still parked as an unsent TUI-input draft. */
@@ -133,12 +130,10 @@ function mobileSessionTabEqual(
     case 'terminal':
       return (
         b.type === 'terminal' &&
-        a.customTitle === b.customTitle &&
         a.parentTabId === b.parentTabId &&
         a.leafId === b.leafId &&
         a.status === b.status &&
         a.terminal === b.terminal &&
-        a.launchAgent === b.launchAgent &&
         // A frame whose only delta is the launch draft appearing or retracting
         // still has to reach the chat composer.
         a.launchDraft === b.launchDraft &&

@@ -44,7 +44,6 @@ export function createBellDetector(): BellDetector {
         }
       }
 
-      let foundBell = false
       for (let i = 0; i < data.length; i += 1) {
         const char = data[i]
 
@@ -91,7 +90,7 @@ export function createBellDetector(): BellDetector {
             // A bare ESC is not a valid introducer for any sequence that
             // consumes a following BEL. Treat the BEL as a real terminal
             // bell rather than silently swallowing it with the orphan ESC.
-            foundBell = true
+            return true
           }
           continue
         }
@@ -102,11 +101,11 @@ export function createBellDetector(): BellDetector {
         }
 
         if (char === '\x07') {
-          foundBell = true
+          return true
         }
       }
 
-      return foundBell
+      return false
     },
     reset(): void {
       pendingEscape = false

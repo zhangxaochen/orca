@@ -13,7 +13,6 @@ export type AiVaultSessionDragPayload = {
   sessionId: string
   structuredSession?: { sessionId: string; workspaceId: string }
   title: string
-  customTitle?: string | null
   command: string
   // Why: drop targets must know where the session file lives (host vs local
   // WSL) to reject SSH panes that cannot reach it.
@@ -97,9 +96,6 @@ function isSerializedPayload(value: unknown): value is SerializedAiVaultSessionD
     isNonEmptyString(payload.sessionId) &&
     (payload.structuredSession === undefined || isStructuredSession(payload.structuredSession)) &&
     isNonEmptyString(payload.title) &&
-    (payload.customTitle === undefined ||
-      payload.customTitle === null ||
-      typeof payload.customTitle === 'string') &&
     (payload.structuredSession
       ? typeof payload.command === 'string'
       : isNonEmptyString(payload.command)) &&
@@ -181,7 +177,6 @@ export function readAiVaultSessionDragData(
       sessionId,
       structuredSession,
       title,
-      customTitle,
       command,
       sessionFilePath,
       sessionExecutionHostId,
@@ -197,7 +192,6 @@ export function readAiVaultSessionDragData(
       sessionId,
       ...(structuredSession ? { structuredSession } : {}),
       title,
-      ...(customTitle !== undefined ? { customTitle } : {}),
       command,
       ...(sessionFilePath ? { sessionFilePath } : {}),
       ...(sessionExecutionHostId ? { sessionExecutionHostId } : {}),

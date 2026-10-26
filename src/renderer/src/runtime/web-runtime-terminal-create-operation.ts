@@ -175,12 +175,10 @@ export async function createWebRuntimeSessionTerminalResult(
               targetGroupId: args.targetGroupId,
               command: args.command,
               cwd: args.cwd,
-              ...(args.customTitle ? { title: args.customTitle } : {}),
               ...(args.env ? { env: args.env } : {}),
               ...(args.envToDelete ? { envToDelete: args.envToDelete } : {}),
               startupCommandDelivery: args.startupCommandDelivery,
               ...(args.launchConfig ? { launchConfig: args.launchConfig } : {}),
-              ...(args.providerSession ? { resumeProviderSession: args.providerSession } : {}),
               ...(args.launchToken ? { launchToken: args.launchToken } : {}),
               ...(args.agent ? { agent: args.agent } : {}),
               ...(args.launchAgent ? { launchAgent: args.launchAgent } : {}),
@@ -243,18 +241,6 @@ export async function createWebRuntimeSessionTerminalResult(
         hostTabId: webTerminalPlacementParentTabId(createdTabId),
         groupId: args.targetGroupId
       })
-    }
-    const customTitle = args.customTitle?.trim()
-    if (customTitle && createdTabId) {
-      await callEnvironment({
-        method: 'session.tabs.setTabProps',
-        params: {
-          worktree: toRuntimeWorktreeSelector(args.worktreeId),
-          tabId: createdTabId,
-          customTitle
-        },
-        timeoutMs: 15_000
-      }).catch(() => {})
     }
     if (args.activate !== false && createdTabId && matchesWebSessionIntentOwner(intentOwner)) {
       // Why: record focus intent so the reconcile follows the snapshot's active

@@ -36,22 +36,14 @@ export function createTerminalTabAppearanceActions(
         Object.values(currentState.tabsByWorktree)
           .flat()
           .find((t) => t.id === tabId)?.aiVaultTitle?.sessionId ??
-        collectAgentPaneConversations(currentState, (agent): agent is AgentType =>
-          Boolean(agent)
+        collectAgentPaneConversations(
+          currentState,
+          (agent): agent is AgentType => Boolean(agent)
         ).find((c) => c.tabId === tabId)?.providerSession.id
       if (sessionId) {
-        const owningWorktreeId =
-          item?.worktreeId ??
-          Object.entries(currentState.tabsByWorktree).find(([, tabs]) =>
-            tabs?.some((t) => t.id === tabId)
-          )?.[0] ??
-          null
-        const runtimeEnvironmentId =
-          resolveTerminalWorktreeRoute(currentState, owningWorktreeId)?.runtimeEnvironmentId ?? null
-        const target = runtimeEnvironmentId
-          ? ({ kind: 'environment', environmentId: runtimeEnvironmentId } as const)
-          : ({ kind: 'local' } as const)
-        callRuntimeRpc(target, 'aiVault.renameSession', { sessionId, title }).catch(() => {})
+        callRuntimeRpc({ kind: 'local' }, 'aiVault.renameSession', { sessionId, title }).catch(
+          () => {}
+        )
       }
     },
     setTabColor: (tabId, color, opts) => {

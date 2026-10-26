@@ -48,10 +48,7 @@ export function useKeyboardPersistingTaps(mode: KeyboardPersistingTaps) {
   return useCallback(
     (node: unknown) => {
       releaseRef.current?.()
-      releaseRef.current =
-        typeof HTMLElement !== 'undefined' && node instanceof HTMLElement
-          ? keepTextFocusThroughTaps(node, mode)
-          : null
+      releaseRef.current = node instanceof HTMLElement ? keepTextFocusThroughTaps(node, mode) : null
     },
     [mode]
   )

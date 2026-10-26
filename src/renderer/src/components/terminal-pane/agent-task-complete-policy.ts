@@ -51,11 +51,8 @@ export function canDispatchAgentNotificationAfterGrace(
   // Why: hook-backed goal/mission loops can report `done` between milestones.
   // User-input states may notify as soon as detail arrives, but `done` waits
   // for the max quiet window so resumed work can cancel the pending banner.
-  if (!hasAgentNotificationDetail(entry)) {
-    return false
-  }
-  if (entry?.state === 'waiting' || entry?.state === 'blocked') {
-    return true
-  }
-  return entry?.state === 'done' && options.allowDoneDetailAfterGrace === true
+  return (
+    hasAgentNotificationDetail(entry) &&
+    (entry?.state !== 'done' || options.allowDoneDetailAfterGrace === true)
+  )
 }

@@ -47,7 +47,6 @@ describe('Session History session drag data', () => {
       agent: 'claude',
       sessionId: 'session-1',
       title: 'Fix terminal split',
-      customTitle: 'My Custom Split Name',
       command: "cd '/repo' && claude --resume session-1",
       sessionFilePath: '/Users/ada/.claude/projects/-repo/session-1.jsonl',
       codexHome: '/Users/ada/Library/Application Support/orca/codex-runtime-home/home',

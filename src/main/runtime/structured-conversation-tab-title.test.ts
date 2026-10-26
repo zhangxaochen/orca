@@ -45,24 +45,4 @@ describe('structured conversation tab title', () => {
       title: 'Claude Chat'
     })
   })
-
-  it('prefers persisted customTitle over conversationName when projecting or retitling', () => {
-    const projected = titleStructuredConversationTabs(
-      snapshot,
-      () => 'auth/login',
-      (id) => (id === 'session-1' ? 'Custom Alias' : null)
-    )
-    expect(projected.tabs[0]).toMatchObject({
-      title: 'Custom Alias',
-      customTitle: 'Custom Alias',
-      sessionId: 'session-1'
-    })
-    const retitled = retitleStructuredConversationTab(snapshot, 'session-1', 'auth/login', (id) =>
-      id === 'session-1' ? 'Custom Alias' : null
-    )
-    expect(retitled?.tabs[0]).toMatchObject({
-      title: 'Custom Alias',
-      customTitle: 'Custom Alias'
-    })
-  })
 })

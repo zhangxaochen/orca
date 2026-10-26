@@ -151,8 +151,7 @@ export function operationModuleLoader(
       cache.set(file, result)
       return result
     }
-    const normalizedFile = file.replaceAll('\\', '/')
-    if (mutation && normalizedFile.endsWith(mutation.file.replaceAll('\\', '/'))) {
+    if (mutation && file.endsWith(mutation.file)) {
       // Counting occurrences, not replace calls: `replace` would silently take only the first.
       const occurrences = source.split(mutation.before).length - 1
       if (occurrences !== 1) {
@@ -163,8 +162,7 @@ export function operationModuleLoader(
     }
     const exports: OperationModule = {}
     cache.set(file, exports)
-    const exposure =
-      exposures.find(([suffix]) => normalizedFile.endsWith(suffix.replaceAll('\\', '/')))?.[1] ?? ''
+    const exposure = exposures.find(([suffix]) => file.endsWith(suffix))?.[1] ?? ''
     const evaluate = compiledOperationModule(file, source, exposure)
     evaluate((name: string) => imported(file, name), exports)
     observeSalvagedReads(file, exports)

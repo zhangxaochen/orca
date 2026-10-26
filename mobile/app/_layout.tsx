@@ -67,16 +67,17 @@ export default function RootLayout() {
     if (effectiveHostId !== '') {
       lastHostIdRef.current = effectiveHostId
     }
-    if (pathname.includes('/session/') && effectiveHostId !== '' && effectiveWorktreeId !== '') {
+    if (
+      pathname.includes('/session/') &&
+      effectiveHostId !== '' &&
+      effectiveWorktreeId !== ''
+    ) {
       setNotificationViewingWorkspace({
         hostId: effectiveHostId,
         worktreeId: effectiveWorktreeId,
         ...(resolvedExecutionHost !== '' ? { executionHost: resolvedExecutionHost } : {})
       })
-    } else if (
-      pathname.startsWith('/h/') &&
-      (effectiveHostId !== '' || lastHostIdRef.current !== '')
-    ) {
+    } else if (pathname.startsWith('/h/') && (effectiveHostId !== '' || lastHostIdRef.current !== '')) {
       setNotificationViewingWorkspace(null, {
         preserveInPageForHostId: effectiveHostId || lastHostIdRef.current
       })

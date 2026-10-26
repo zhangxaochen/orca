@@ -24,10 +24,8 @@ import {
   readLastVisitedWorktreeOnHost,
   subscribeLastVisitedWorktree,
   withLastVisitedWorktree,
-  withRecentCards,
   writeLastVisitedWorktree
 } from './last-visited-worktree-by-host'
-import { PAGE_STORAGE_MAX_VALUE_CHARS } from '../mobile-web-shell/page-storage-keys'
 import {
   LAST_VISITED_WORKTREE_STORAGE_KEY,
   readLastVisitedWorktreeRecord
@@ -76,31 +74,6 @@ describe('readLastVisitedWorktreeOnHost', () => {
     }
     expect(readLastVisitedWorktreeOnHost(raw, 'host-0')).toBeNull()
     expect(readLastVisitedWorktreeOnHost(raw, 'host-19')).toEqual({ worktreeId: 'repo::/w/a' })
-  })
-
-  it('trims recentCards so a single-host record never exceeds the page storage frame cap', () => {
-    const base = withLastVisitedWorktree(null, { hostId: 'host-1', worktreeId: 'repo::/w/a' })
-    const hugeCards = Array.from({ length: 40 }, (_, index) => ({
-      hostId: 'host-1',
-      worktreeId: `repo::/very/long/worktree/path/${index}/${'x'.repeat(500)}`,
-      tabId: `tab-${index}`,
-      title: `Card ${index}`
-    }))
-    const withCards = withRecentCards(base, hugeCards)
-    expect(withCards).not.toBeNull()
-    expect(withCards!.length).toBeLessThanOrEqual(PAGE_STORAGE_MAX_VALUE_CHARS)
-    const updated = withLastVisitedWorktree(withCards, {
-      hostId: 'host-1',
-      worktreeId: 'repo::/w/b',
-      paneKey: 'tab-1:leaf-1',
-      inSession: true
-    })
-    expect(updated.length).toBeLessThanOrEqual(PAGE_STORAGE_MAX_VALUE_CHARS)
-    expect(readLastVisitedWorktreeOnHost(updated, 'host-1')).toEqual({
-      worktreeId: 'repo::/w/b',
-      paneKey: 'tab-1:leaf-1',
-      inSession: true
-    })
   })
 })
 

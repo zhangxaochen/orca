@@ -31,7 +31,9 @@ import {
 import { structuredChatDisplayName } from '../../../../shared/structured-chat-row-name'
 
 export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends OrcaRuntimeWithScheduleMobileSessionTabsChanged {
-  constructor(...args: ConstructorParameters<typeof OrcaRuntimeWithScheduleMobileSessionTabsChanged>) {
+  constructor(
+    ...args: ConstructorParameters<typeof OrcaRuntimeWithScheduleMobileSessionTabsChanged>
+  ) {
     super(...args)
     // Why: a desktop rename of a chat tab reaches main only through the window's saved session.
     this.store?.onWorkspaceSessionWritten?.(() => {
@@ -75,12 +77,22 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     existingGroups?: readonly RuntimeMobileSessionTabGroup[],
     newTabAssignment?: { tabId: string; groupId: string }
   ): RuntimeMobileSessionTabGroup[] {
-    return buildHeadlessMobileSessionTabGroups(worktreeId, tabs, activeTab, existingGroups, newTabAssignment)
+    return buildHeadlessMobileSessionTabGroups(
+      worktreeId,
+      tabs,
+      activeTab,
+      existingGroups,
+      newTabAssignment
+    )
   }
 
   /** Transforms an internal mobile session tab snapshot into a sanitized client payload, resolving launch-agent ownership and normalizing titles. */
-  protected toMobileSessionTabsResult(snapshot: RuntimeMobileSessionTabsSnapshot): RuntimeMobileSessionTabsResult {
-    snapshot = titleStructuredConversationTabs(snapshot, (sessionId) => this.structuredConversationTabName(snapshot.worktree, sessionId))
+  protected toMobileSessionTabsResult(
+    snapshot: RuntimeMobileSessionTabsSnapshot
+  ): RuntimeMobileSessionTabsResult {
+    snapshot = titleStructuredConversationTabs(snapshot, (sessionId) =>
+      this.structuredConversationTabName(snapshot.worktree, sessionId)
+    )
     return projectRuntimeMobileSessionTabs(snapshot, this.getMobileSessionProjectionHost())
   }
 
@@ -89,7 +101,11 @@ export abstract class OrcaRuntimeWithPruneMobileSessionTabGroupLayout extends Or
     if (!snapshot) {
       return
     }
-    const next = retitleStructuredConversationTab(snapshot, sessionId, this.structuredConversationTabName(workspaceId, sessionId))
+    const next = retitleStructuredConversationTab(
+      snapshot,
+      sessionId,
+      this.structuredConversationTabName(workspaceId, sessionId)
+    )
     if (next) {
       this.emitMobileSessionTabsSnapshot(this.storeMobileSessionSnapshot(workspaceId, next))
     }

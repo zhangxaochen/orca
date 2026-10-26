@@ -1,9 +1,9 @@
 /** A user's rename, from the first source that has one. Live OSC titles are not manual. */
 export function resolveManualTerminalTitle(
-  ...sources: ({ customTitle?: string | null } | null | undefined)[]
+  ...sources: ({ customTitle?: string | null; manualTitle?: string | null } | null | undefined)[]
 ): string | null {
   for (const source of sources) {
-    const title = source?.customTitle?.trim()
+    const title = source?.customTitle?.trim() || source?.manualTitle?.trim()
     if (title) {
       return title
     }

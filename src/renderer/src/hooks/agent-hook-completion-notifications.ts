@@ -1,5 +1,4 @@
 import { useAppStore } from '@/store'
-import { isAntigravityAskPermissionAutoApproved } from './antigravity-auto-approved-permission'
 import { parsePaneKey } from '../../../shared/stable-pane-id'
 import { createAgentCompletionCoordinator } from '@/components/terminal-pane/agent-completion-coordinator'
 import type {
@@ -243,13 +242,6 @@ function createCoordinator(paneKey: string, worktreeId: string): AgentCompletion
     },
     dispatchAttention: (title, meta) => {
       if (!hookLaneDispatchEnabled(paneKey)) {
-        return
-      }
-      // Why: agy emits PreToolUse ask_permission immediately before auto-approving it
-      // under --dangerously-skip-permissions. ask_question still waits on a person.
-      if (
-        isAntigravityAskPermissionAutoApproved(paneKey, meta.agentStatus, useAppStore.getState())
-      ) {
         return
       }
       // Why: native notification settings still label this channel as "agent

@@ -88,7 +88,10 @@ export function preserveRuntimeAuthoredWorkspaceSessionFields(
       closedTerminalTabTombstonesByTabId: prior.closedTerminalTabTombstonesByTabId
     }
   }
-  if (next.sessionCustomTitles === undefined && prior?.sessionCustomTitles !== undefined) {
+  if (
+    next.sessionCustomTitles === undefined &&
+    prior?.sessionCustomTitles !== undefined
+  ) {
     result = {
       ...result,
       sessionCustomTitles: prior.sessionCustomTitles

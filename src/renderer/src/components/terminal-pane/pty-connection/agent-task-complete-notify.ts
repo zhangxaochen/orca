@@ -79,35 +79,12 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
       )
     }
 
-    const scheduledAttentionState = options.agentStatusSnapshot?.state
-    const attentionSnapshotLeftUserInput = (): boolean => {
-      if (scheduledAttentionState !== 'waiting' && scheduledAttentionState !== 'blocked') {
-        return false
-      }
-      const currentStatus = useAppStore.getState().agentStatusByPaneKey[session.cacheKey]
-      return Boolean(
-        !currentStatus || (currentStatus.state !== 'waiting' && currentStatus.state !== 'blocked')
-      )
-    }
-    // Why: the snapshot captured at schedule time stays `waiting`/`blocked` even after
-    // the pane resumes, finishes, or drops its status row inside the grace window.
-    const cancelStaleAttentionNotification = (): boolean => {
-      if (!attentionSnapshotLeftUserInput()) {
-        return false
-      }
-      session.pendingTerminalBellNotification = false
-      session.clearTerminalBellNotificationTimer()
-      session.clearPendingAgentTaskCompleteNotification()
-      return true
-    }
-
     const dispatch = (): void => {
       session.clearPendingAgentTaskCompleteNotification()
       if (
         generationAtSchedule !== session.agentTaskCompleteNotificationGeneration ||
         !session.syncAgentTaskCompleteTrackingEnabled() ||
-        hasNewerActiveHookStatus() ||
-        attentionSnapshotLeftUserInput()
+        hasNewerActiveHookStatus()
       ) {
         return
       }
@@ -133,9 +110,6 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
     }
 
     const dispatchIfDetailed = (): void => {
-      if (cancelStaleAttentionNotification()) {
-        return
-      }
       if (hasNewerActiveHookStatus()) {
         // Why: the confirmed exit belongs to the row captured above; a replaced
         // active row means a newer turn started during the notification delay.
@@ -151,18 +125,10 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
       }
     }
 
-    session.agentTaskCompleteStatusUnsubscribe = useAppStore.subscribe(() => {
-      if (cancelStaleAttentionNotification()) {
-        return
-      }
-      dispatchIfDetailed()
-    })
+    session.agentTaskCompleteStatusUnsubscribe = useAppStore.subscribe(dispatchIfDetailed)
     session.agentTaskCompleteNotificationGraceTimer = setTimeout(() => {
       session.agentTaskCompleteNotificationGraceTimer = null
       graceElapsed = true
-      if (cancelStaleAttentionNotification()) {
-        return
-      }
       dispatchIfDetailed()
     }, AGENT_TASK_COMPLETE_NOTIFICATION_GRACE_MS)
     // Why: some agents never surface assistant text through hooks. Keep a hard
@@ -208,8 +174,6 @@ export function installAgentTaskCompleteNotify(session: ConnectPanePtySession): 
       if (activeHookStatus) {
         session.preserveSuppressedTitleSideEffects(title, activeHookStatus)
       }
-      session.pendingTerminalBellNotification = false
-      session.clearTerminalBellNotificationTimer()
       return
     }
     // Why: only start the prompt-cache countdown for Claude agents — other

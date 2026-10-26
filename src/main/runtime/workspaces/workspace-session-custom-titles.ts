@@ -1,4 +1,3 @@
-import type { AiVaultSessionOpenTab } from '../../../shared/ai-vault-types'
 import { RuntimeHeadlessTabGroups } from '../session-tabs/headless-tab-group-moves'
 import {
   lookupPersistedSessionCustomTitle,
@@ -7,7 +6,6 @@ import {
   resolvePersistedSessionIdForTab,
   resolveRealTabIdFromRuntimeState
 } from './workspace-session-custom-title-resolution'
-import { resolveOpenTabForSessionId } from './workspace-session-open-tab-resolution'
 
 export abstract class RuntimeWorkspaceSessionCustomTitles extends RuntimeHeadlessTabGroups {
   protected readonly inMemorySessionCustomTitles = new Map<string, string>()
@@ -269,22 +267,5 @@ export abstract class RuntimeWorkspaceSessionCustomTitles extends RuntimeHeadles
       }
     }
     return tabId.startsWith('agent-session:') ? tabId.slice('agent-session:'.length) : null
-  }
-
-  override resolveOpenTabForSession(sessionId: string): AiVaultSessionOpenTab | null {
-    if (!sessionId) {
-      return null
-    }
-    return resolveOpenTabForSessionId({
-      sessionId,
-      mobileSessionTabsByWorktree: this.mobileSessionTabsByWorktree,
-      leaves: this.leaves,
-      tabs: this.tabs,
-      ptysById: this.ptysById,
-      statusRows:
-        this.getAgentProviderSessionSnapshotFn?.() ?? this.getAgentStatusSnapshotFn?.() ?? [],
-      session: this.store?.getWorkspaceSession?.(),
-      resolveSessionIdForTab: (tabId, handle) => this.resolveSessionIdForTab(tabId, handle)
-    })
   }
 }

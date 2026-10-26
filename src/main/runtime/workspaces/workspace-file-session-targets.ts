@@ -71,8 +71,7 @@ export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends Runtim
       for (const leaf of this.leaves.values()) {
         if (leaf.tabId === tabId) {
           const pty = leaf.ptyId ? this.ptysById.get(leaf.ptyId) : undefined
-          fallbackTitle =
-            getLatestLeafTitle(getLeafDisplayRecord(leaf, null), null) ?? pty?.title ?? null
+          fallbackTitle = getLatestLeafTitle(getLeafDisplayRecord(leaf), null) ?? pty?.title ?? null
           break
         }
       }
@@ -84,7 +83,7 @@ export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends Runtim
     }
     const snapshot = this.mobileSessionTabsByWorktree.get(worktreeId)
     if (snapshot) {
-      snapshot.tabs = snapshot.tabs.map((tab) => {
+      const tabs = snapshot.tabs.map((tab) => {
         if (tab.type === 'terminal' && tab.parentTabId === tabId) {
           return {
             ...tab,
@@ -100,6 +99,11 @@ export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends Runtim
           }
         }
         return tab
+      })
+      this.storeMobileSessionSnapshot(worktreeId, {
+        ...snapshot,
+        snapshotVersion: snapshot.snapshotVersion + 1,
+        tabs
       })
     }
     this.updateHeadlessWorkspaceContent(worktreeId, (session) => {

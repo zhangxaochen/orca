@@ -11,7 +11,7 @@ import {
   enqueueNormalBufferScrollDelta,
   resetSmoothScrollOffset
 } from './normal-buffer-smooth-scroll'
-import { clearLongPress, dispatcherShouldBlockSurface } from './tap-dispatch'
+import { dispatcherShouldBlockSurface } from './tap-dispatch'
 import {
   applyTextScale,
   MAX_TEXT_SCALE,
@@ -30,8 +30,6 @@ type TerminalGestureSurface = HTMLElement & { __orcaSurfaceHandlersAttached?: bo
 
 /** The live touch gesture: the last point, the velocity, and the pinch it may be in. */
 export type TerminalTouchState = {
-  startX: number
-  startY: number
   lastX: number
   lastY: number
   lastTime: number
@@ -43,7 +41,6 @@ export type TerminalTouchState = {
   pinchScale: number
   pinchSurfX: number
   pinchSurfY: number
-  hasMoved: boolean
 }
 
 export function updateTouchVelocity(scope: TerminalDocumentScope, deltaY: number, dt: number) {
@@ -114,7 +111,6 @@ export function attachSurfaceEventHandlers(
         scope.touchGesture.momentumId = null
         // Why: this touch stopped a coast; lifting it must not also tap.
         scope.tapCandidate = null
-        clearLongPress(scope)
       }
       const touches = touchesInRoot(scope.root, e.touches)
       if (touches.length === 2) {
@@ -129,14 +125,11 @@ export function attachSurfaceEventHandlers(
         scope.touchGesture.pinchSurfY = (mid.y - scope.panY) / total
       } else if (touches.length === 1) {
         scope.touchGesture.isPinching = false
-        scope.touchGesture.startX = touches[0].clientX
-        scope.touchGesture.startY = touches[0].clientY
         scope.touchGesture.lastX = touches[0].clientX
         scope.touchGesture.lastY = touches[0].clientY
         scope.touchGesture.lastTime = Date.now()
         scope.touchGesture.velY = 0
         scope.touchGesture.accumDelta = 0
-        scope.touchGesture.hasMoved = false
       }
     },
     { capture: true, passive: true }
@@ -190,19 +183,9 @@ export function attachSurfaceEventHandlers(
           scope.term.element &&
           scope.term.element.scrollWidth * getTotalScale(scope) > scope.viewportRect().width + 1
         ) {
-          const prevPanX = scope.panX
           scope.panX += x - scope.touchGesture.lastX
           clampPan(scope)
           updateTransform(scope)
-          const panSlop = shouldRouteScrollToTerminalInput(scope) ? 4 : 8
-          if (
-            Math.abs(scope.panX - prevPanX) > 0.5 &&
-            Math.abs(x - scope.touchGesture.startX) > panSlop
-          ) {
-            scope.touchGesture.hasMoved = true
-            scope.tapCandidate = null
-            clearLongPress(scope)
-          }
         }
 
         const deltaY = scope.touchGesture.lastY - y
@@ -217,14 +200,7 @@ export function attachSurfaceEventHandlers(
             scope.touchGesture.accumDelta -= lines * effectiveCellH
             routeScrollLines(scope, lines, x, y)
             // Why: a touch that scrolled a row is a scroll, even inside TAP_SLOP.
-            scope.touchGesture.hasMoved = true
             scope.tapCandidate = null
-            clearLongPress(scope)
-          }
-          if (Math.abs(deltaY) > 1 || Math.abs(scope.touchGesture.accumDelta) > 2) {
-            scope.touchGesture.hasMoved = true
-            scope.tapCandidate = null
-            clearLongPress(scope)
           }
         } else {
           if (enqueueNormalBufferScrollDelta(scope, deltaY)) {

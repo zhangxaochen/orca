@@ -33,16 +33,7 @@ type MockStoreState = {
   markTerminalBell: ReturnType<typeof vi.fn>
   setCacheTimerStartedAt: ReturnType<typeof vi.fn>
   observeTerminalGitHubPullRequestLink: ReturnType<typeof vi.fn>
-  agentStatusByPaneKey: Record<
-    string,
-    {
-      state: string
-      prompt: string
-      agentType?: string
-      updatedAt?: number
-      stateStartedAt?: number
-    }
-  >
+  agentStatusByPaneKey: Record<string, { state: string; prompt: string; agentType?: string }>
   paneForegroundAgentByPaneKey: Record<string, { agent: string | null }>
 }
 
@@ -350,7 +341,7 @@ describe('startParkedTerminalByteWatcher', () => {
     const { dispose } = await startWatcher()
 
     emit(WORKING_TITLE_OSC)
-    emit(`${IDLE_TITLE_OSC}\x07`)
+    emit(IDLE_TITLE_OSC)
     flushSideEffects()
     emit(WORKING_TITLE_OSC)
     flushSideEffects()
@@ -358,38 +349,6 @@ describe('startParkedTerminalByteWatcher', () => {
 
     expect(dispatchTerminalNotification).not.toHaveBeenCalled()
     expect(mockStoreState.setCacheTimerStartedAt).toHaveBeenLastCalledWith(PANE_KEY, null)
-    dispose()
-  })
-
-  it('suppresses a standalone bell timer when a fresh working status arrives before expiry', async () => {
-    const { dispose } = await startWatcher()
-    emit('\x07')
-    flushSideEffects()
-    mockStoreState.agentStatusByPaneKey[PANE_KEY] = {
-      state: 'working',
-      prompt: 'Build feature',
-      updatedAt: Date.now(),
-      stateStartedAt: Date.now()
-    }
-    vi.advanceTimersByTime(NOTIFICATION_GRACE_MS * 4)
-    expect(mockStoreState.markTerminalBell).toHaveBeenCalledTimes(1)
-    expect(dispatchTerminalNotification).not.toHaveBeenCalled()
-    dispose()
-  })
-
-  it('preserves a pending bell across working transitions when completion notifications are disabled', async () => {
-    mockStoreState.settings = {
-      ...mockStoreState.settings,
-      notifications: { enabled: true, agentTaskComplete: false }
-    }
-    const { dispose } = await startWatcher()
-    emit(`\x07${WORKING_TITLE_OSC}`)
-    flushSideEffects()
-    vi.advanceTimersByTime(NOTIFICATION_GRACE_MS)
-    expect(dispatchTerminalNotification).toHaveBeenCalledWith(
-      WORKTREE_ID,
-      expect.objectContaining({ source: 'terminal-bell' })
-    )
     dispose()
   })
 
@@ -607,14 +566,23 @@ describe('startParkedTerminalByteWatcher', () => {
     const handler = await import('./terminal-side-effect-facts-handler')
 
     expect(onData).toBeNull()
-    const title = '⠋ Remote build'
     handler._dispatchTerminalSideEffectBatchForTest({
       ptyId: remotePtyId,
       seq: 10,
-      facts: [{ kind: 'title', normalizedTitle: title, rawTitle: title }]
+      facts: [
+        {
+          kind: 'title',
+          normalizedTitle: '⠋ Remote build',
+          rawTitle: '⠋ Remote build'
+        }
+      ]
     })
 
-    expect(mockStoreState.setRuntimePaneTitle).toHaveBeenCalledWith(TAB_ID, PANE_ID, title)
+    expect(mockStoreState.setRuntimePaneTitle).toHaveBeenCalledWith(
+      TAB_ID,
+      PANE_ID,
+      '⠋ Remote build'
+    )
     dispose()
   })
 
@@ -676,23 +644,25 @@ describe('startParkedTerminalByteWatcher', () => {
 
     type RecordedCall = [string, ...unknown[]]
 
-    function setPtyApi<K extends string>(key: K, fn: unknown): void {
-      ;(window as unknown as { api: { pty: Record<string, unknown> } }).api.pty[key] = fn
-    }
-
     /** Wrap the policy-visible store actions so byte mode and fact mode can be
      *  compared as one ordered outcome sequence. Timestamps are masked. */
     function recordPolicyOutcomes(): RecordedCall[] {
       const calls: RecordedCall[] = []
-      for (const name of ['setRuntimePaneTitle', 'updateTabTitle', 'markTerminalBell'] as const) {
-        mockStoreState[name].mockImplementation((...args: unknown[]) => calls.push([name, ...args]))
-      }
-      mockStoreState.setCacheTimerStartedAt.mockImplementation((key: unknown, at: unknown) =>
+      mockStoreState.setRuntimePaneTitle.mockImplementation((...args: unknown[]) => {
+        calls.push(['setRuntimePaneTitle', ...args])
+      })
+      mockStoreState.updateTabTitle.mockImplementation((...args: unknown[]) => {
+        calls.push(['updateTabTitle', ...args])
+      })
+      mockStoreState.markTerminalBell.mockImplementation((...args: unknown[]) => {
+        calls.push(['markTerminalBell', ...args])
+      })
+      mockStoreState.setCacheTimerStartedAt.mockImplementation((key: unknown, at: unknown) => {
         calls.push(['setCacheTimerStartedAt', key, typeof at === 'number' ? '<ts>' : at])
-      )
-      dispatchTerminalNotification.mockImplementation((...args: unknown[]) =>
+      })
+      dispatchTerminalNotification.mockImplementation((...args: unknown[]) => {
         calls.push(['dispatchTerminalNotification', ...args])
-      )
+      })
       return calls
     }
 
@@ -738,7 +708,11 @@ describe('startParkedTerminalByteWatcher', () => {
     it('does not request a title snapshot for an ordinary parked watcher', async () => {
       enableMainAuthority()
       const getSideEffectSnapshot = vi.fn()
-      setPtyApi('getSideEffectSnapshot', getSideEffectSnapshot)
+      ;(
+        window as unknown as {
+          api: { pty: { getSideEffectSnapshot: typeof getSideEffectSnapshot } }
+        }
+      ).api.pty.getSideEffectSnapshot = getSideEffectSnapshot
 
       const { dispose } = await startWatcher()
 
@@ -758,7 +732,11 @@ describe('startParkedTerminalByteWatcher', () => {
           { kind: 'agent-idle', title: IDLE_TITLE }
         ] satisfies TerminalSideEffectFact[]
       })
-      setPtyApi('getSideEffectSnapshot', getSideEffectSnapshot)
+      ;(
+        window as unknown as {
+          api: { pty: { getSideEffectSnapshot: typeof getSideEffectSnapshot } }
+        }
+      ).api.pty.getSideEffectSnapshot = getSideEffectSnapshot
 
       const { dispose } = await startWatcher({ restoreTitleOnRegister: true })
       await Promise.resolve()
@@ -896,7 +874,9 @@ describe('startParkedTerminalByteWatcher', () => {
     it('marks the PTY hidden for delivery on start and clears it on dispose', async () => {
       enableMainAuthority()
       const setHiddenRendererPty = vi.fn()
-      setPtyApi('setHiddenRendererPty', setHiddenRendererPty)
+      ;(
+        window as unknown as { api: { pty: Record<string, unknown> } }
+      ).api.pty.setHiddenRendererPty = setHiddenRendererPty
       const { dispose } = await startWatcher()
 
       expect(setHiddenRendererPty).toHaveBeenCalledWith(PTY_ID, true)
@@ -914,7 +894,9 @@ describe('startParkedTerminalByteWatcher', () => {
         terminalHiddenDeliveryGate: false
       } as MockStoreState['settings']
       const setHiddenRendererPty = vi.fn()
-      setPtyApi('setHiddenRendererPty', setHiddenRendererPty)
+      ;(
+        window as unknown as { api: { pty: Record<string, unknown> } }
+      ).api.pty.setHiddenRendererPty = setHiddenRendererPty
       const { dispose, ptyWrite } = await startWatcher()
 
       // Gate off — bytes keep flowing, and they still elicit nothing (#9993).
