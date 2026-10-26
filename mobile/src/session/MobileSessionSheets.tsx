@@ -30,6 +30,16 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     worktreeName,
     sessionTabs,
     activeSessionTabId,
+    pendingDiffNotesDelivery,
+    setPendingDiffNotesDelivery,
+    showCreateTabDrawer,
+    setShowCreateTabDrawer,
+    showQuickCommands,
+    setShowQuickCommands,
+    setShowCreateBrowserModal,
+    showCreateBrowserModal,
+    showHeaderMoreActions,
+    setShowHeaderMoreActions,
     actionTarget,
     setActionTarget,
     markdownActionTarget,
@@ -73,7 +83,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
   return (
     <>
       <MobileSessionHeaderMoreActionsSheet
-        visible={controller.showHeaderMoreActions}
+        visible={showHeaderMoreActions}
         currentWorktreeId={worktreeId}
         currentTabId={activeSessionTabId}
         showRecentSessionCards={controller.showRecentSessionCardsAction}
@@ -369,3 +379,4 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     </>
   )
 }
+

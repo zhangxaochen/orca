@@ -6,7 +6,7 @@ import type {
   RuntimeSyncedLeaf
 } from '../../../../shared/runtime-types'
 import type { WorkspaceSessionState } from '../../../../shared/workspace-session-state-types'
-import { makeTerminalTab } from '../../../persistence-session-fixtures'
+import { makeTerminalTab } from '../../../persistence/persistence-session-fixtures'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import { resolveOpenTabForSessionId } from '../../workspaces/workspace-session-open-tab-resolution'
 import { RpcDispatcher } from '../dispatcher'

@@ -653,7 +653,7 @@ describe('DegradedDaemonPtyProvider', () => {
     expect(current.listProcesses).not.toHaveBeenCalled()
     expect(legacy.listProcesses).toHaveBeenCalled()
     expect(current.hasPty('current-session')).toBe(true)
-    current.hasPty.mockClear()
+    vi.mocked(current.hasPty).mockClear()
     expect(provider.hasPty('current-session')).toBe(false)
     expect(current.hasPty).not.toHaveBeenCalled()
     expect(provider.hasPty('legacy-session')).toBe(true)

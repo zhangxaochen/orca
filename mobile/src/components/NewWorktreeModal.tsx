@@ -44,11 +44,7 @@ function serverOf(repo: MobileWorkspaceRepo): `runtime:${string}` | undefined {
 }
 
 export function NewWorktreeModal(props: NewWorktreeModalProps) {
-  // Why: each drawer opening is a fresh form session; remounting resets local
-  // form state before paint instead of clearing it in a visible-prop Effect.
-  // State, not a ref: react-native-screens freezes a blurred screen by suspending
-  // this subtree, and a counter bumped during a render React then throws away
-  // would restart the session for an opening that never committed.
+  // Remount fresh form before paint per committed opening. Use state, not render-mutated ref counter: react-freeze may discard opening renders.
   const [session, setSession] = useState({ openEpoch: 0, visible: props.visible })
   if (session.visible !== props.visible) {
     setSession({
@@ -57,11 +53,7 @@ export function NewWorktreeModal(props: NewWorktreeModalProps) {
     })
   }
 
-  // Why: key the session on the HOST, never on the RpcClient object. A reconnect,
-  // forceReconnect, or foreground revival swaps that object for the same host
-  // (see useHostClient), and keying on it silently remounted this form mid-edit
-  // and threw away the picked source. Every client-scoped hook below already
-  // drops responses from a superseded client, so no remount is needed for that.
+  // Key by host, not client: reconnect swaps RpcClient without ending form session and must not erase picked source. Client-scoped hooks discard superseded responses.
   return <NewWorktreeModalContent key={`${session.openEpoch}:${props.hostId}`} {...props} />
 }
 

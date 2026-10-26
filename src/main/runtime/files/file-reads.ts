@@ -24,7 +24,7 @@ import {
   previewableBinaryByteLimit
 } from './file-preview-budget'
 import { readLocalFileRange } from '../../ipc/filesystem/local-file-range-read'
-import type { ResolveAuthorizedPathOptions } from '../../ipc/filesystem-auth'
+import type { ResolveAuthorizedPathOptions } from '../../ipc/filesystem/filesystem-auth'
 import {
   extraRootsForPersistedOpenFile,
   resolveRuntimeAuthorizedPath
@@ -51,7 +51,6 @@ export class RuntimeFileReads {
     const store = this.host.requireStore()
     const target = await this.host.resolveRuntimeFileTarget(worktreeSelector)
     const { worktree } = target
-    // Why: an `ssh:` host fails before path validation, as it always has.
     requireLocalRuntimeFileRoute(target)
     const persisted = !isSafeMobileRelativePath(relativePath)
       ? findPersistedOpenFilePath(store, worktree.id, relativePath)
@@ -260,7 +259,6 @@ async function readLocalMobileFile(
   return bytes.toString('utf8')
 }
 
-/** Up to `maxBytes` from the start of an authorized local file, and the file's full size. */
 export async function readLocalRuntimeFilePrefix(
   filePath: string,
   store: RuntimeStore,

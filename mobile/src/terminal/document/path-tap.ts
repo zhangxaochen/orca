@@ -2,20 +2,8 @@ import type { TerminalDocumentScope } from './document-scope'
 import { cellColToStringIndex, getLineText } from './cell-geometry'
 import { viewportToCell } from './viewport-cell'
 
-/**
- * File-path-under-tap detection.
- *
- * Mirrors the unit-tested `terminal-path-tap.ts`; keep the two in sync. That module is the source
- * of truth for the algorithm and has the regression tests.
- *
- * Matches both slash-bearing paths AND bare filenames with an extension (README.md,
- * src/index.ts:5) — like desktop, we propose candidates and let the host's
- * files.resolveTerminalPath existence check reject non-files. Agents often print a bare filename
- * (the markdown link target is consumed, leaving only the label text), so requiring a slash would
- * miss the common case.
- */
+// Keep in sync with terminal-path-tap.ts; bare filenames are valid candidates because the host checks existence.
 
-/** A span of a rendered line, in string indices. */
 export type TerminalPathRange = { text: string; startIndex: number; endIndex: number }
 
 /** A path proposed to the host, with the line and column suffixes it carried. */
@@ -88,15 +76,13 @@ export function trimSpacedPathTrailingProse(
   range: TerminalPathRange,
   col?: number
 ): TerminalPathRange | null {
-  // A line-end extension token only extends the span when the added segment
-  // is path-like (contains a separator) — prose must not be swallowed.
+  // Extend over spaces only for path-like segments; never swallow trailing prose.
   let selected: string | null = null
   const extensionPrefixPattern = /\.[A-Za-z0-9_+-]+(?::\d+)?(?::\d+)?(?=\s+|$)/g
   let match: RegExpExecArray | null
   while ((match = extensionPrefixPattern.exec(range.text)) !== null) {
     const end = match.index + match[0].length
-    // Why `var`: the document declares this name twice in one function, which is one binding; two
-    // block-scoped declarations would be a different program and esbuild renames the inner one.
+    // Retain var: both declarations share one function binding; block scoping would change it.
     var text = range.text.slice(0, end)
     if (countPathStarts(text) > 1) {
       continue

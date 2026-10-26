@@ -1,6 +1,6 @@
 import type { TerminalDocumentScope } from './document-scope'
 
-// Why: a leaf of pure reads, so fit, transform and overlay modules can share them without a cycle.
+// Keep pure metrics below fit/transform/overlay dependencies to avoid cycles.
 
 // xterm's RenderService.dimensions getter reads this._renderer.value.dimensions without
 // guarding for a disposed or not-yet-installed renderer, throwing TypeError when accessed

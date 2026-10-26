@@ -78,7 +78,6 @@ export type MobileAiVaultResumeLaunch = {
   envToDelete?: string[]
   launchConfig?: SleepingAgentLaunchConfig
   launchAgent?: TuiAgent
-  /** The conversation the typed command resumes, so the host can name it before the agent does. */
   resumeProviderSession?: AgentProviderSessionMetadata
   title?: string | null
 }
@@ -191,8 +190,7 @@ export async function resumeAiVaultSessionInTerminal(
     launch.launchAgent === 'qoder' &&
     Boolean(launch.clientMutationId) &&
     launch.hostCapabilities?.includes(QODER_OWNED_TERMINAL_CREATE_CAPABILITY) === true
-  // Each request is awaited outside its catch so a transport drop propagates as the original error
-  // object; only a refusal is rewritten into this step's own copy.
+  // Await requests outside refusal handling so transport errors keep their original delivery-unknown identity.
   const created = await reviewTerminalCreateRun.request(
     client,
     {

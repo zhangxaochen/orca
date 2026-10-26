@@ -20,8 +20,8 @@ export class DegradedDaemonOwnerRecovery {
     private readonly routes: Map<string, IPtyProvider>,
     private readonly spawnFresh: (opts: PtySpawnOptions) => Promise<PtySpawnResult>
   ) {
-    this.attachResolver = new DaemonSessionOwnerResolver([], routes)
-    this.livenessResolver = new DaemonSessionOwnerResolver([], routes)
+    this.attachResolver = new DaemonSessionOwnerResolver<IPtyProvider>([], routes)
+    this.livenessResolver = new DaemonSessionOwnerResolver<DaemonPtyAdapter>([], routes)
   }
 
   resolveFencedOwner = (id: string, incarnationId: string) => {

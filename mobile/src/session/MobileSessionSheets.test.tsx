@@ -8,11 +8,7 @@ import { mountFixture } from '../test-support/rpc-recording/recorder-fixture-sha
 import type { ActionSheetAction } from '../components/ActionSheetModal'
 import type { RecentSessionCardRecord } from './recent-session-cards'
 
-const sheets = vi.hoisted(() => ({
-  labelsByTitle: new Map<string, string[]>(),
-  actionsByTitle: new Map<string, ActionSheetAction[]>(),
-  clipboardWriteText: vi.fn<(text: string) => Promise<void>>(() => Promise.resolve())
-}))
+const sheets = vi.hoisted(() => ({ labelsByTitle: new Map<string, string[]>() }))
 
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
@@ -38,9 +34,7 @@ vi.mock('lucide-react-native', () => ({
   RefreshCw: 'Icon',
   SquareTerminal: 'Icon'
 }))
-vi.mock('../platform/clipboard', () => ({
-  useClipboardWriter: () => ({ writeText: sheets.clipboardWriteText })
-}))
+vi.mock('../platform/clipboard', () => ({ useClipboardWriter: () => ({}) }))
 vi.mock('../platform/haptics', () => ({ triggerSuccess: () => {}, triggerError: () => {} }))
 vi.mock('../hooks/use-now', () => ({ useNow: () => 1_700_000_000_000 }))
 vi.mock('../components/BottomDrawer', () => ({
@@ -67,7 +61,6 @@ vi.mock('../components/ActionSheetModal', async () => {
         title ?? '',
         actions.map((action) => action.label)
       )
-      sheets.actionsByTitle.set(title ?? '', actions)
       return createNode(
         'View',
         null,

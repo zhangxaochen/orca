@@ -20,6 +20,7 @@ function createPtyRecord(
     launchToken: null,
     launchIncarnationId: null,
     launchAgent: null,
+    launchCommandAgent: null,
     agentSessionOwners: [],
     foregroundAgent: null,
     connected,

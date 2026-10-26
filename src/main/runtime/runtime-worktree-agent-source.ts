@@ -28,6 +28,6 @@ export type RuntimeWorktreeAgentSource = Pick<AgentStatusIpcPayload, 'subagents'
   updatedAt: number
   /** Projected by the structured session host; `owned` rows stay fresh past the staleness window. */
   structuredHost?: StructuredHostStatus
-  programStatus?: ProgramStatusFacet
   providerSession?: AgentProviderSessionMetadata
+  programStatus?: ProgramStatusFacet
 }

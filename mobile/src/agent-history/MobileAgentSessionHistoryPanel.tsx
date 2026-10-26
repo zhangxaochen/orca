@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft, RefreshCw } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
+import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { getWorktreeLabel } from '../session/worktree-label'
@@ -53,9 +54,9 @@ function MobileAgentSessionHistoryPanelContent({
   name = '',
   origin
 }: MobileAgentSessionHistoryPanelProps) {
-  // Not `useRouter`: inside the shell's page this screen is one document standing in for one
-  // screen, and the session it resumes into is a native route the shell has to open.
+  // Use handoff, not useRouter: resumed session is a native route outside this single-document page.
   const router = useWorkspaceRouteHandoff()
+  const currentExecutionHost = useWorkspaceExecutionHost()
   const { client, state: connState } = useWorkspaceClient(hostId)
   const claimResumeOwnership = useMobileResumeOperationOwnership(
     hostId,
@@ -75,8 +76,19 @@ function MobileAgentSessionHistoryPanelContent({
   )
   const worktreeLabel = getWorktreeLabel(name, worktreeId)
 
-  // Why: the worktree list seeds the host-local scopePaths derivation and the
-  // active-worktree path for the "current worktree" badge.
+  const {
+    scope,
+    screenState,
+    refreshing,
+    hostStatusResult,
+    activeWorktreePath,
+    scopeFilterPaths,
+    onSelectScope,
+    onRefresh,
+    retry
+  } = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded })
+
+  // Worktree list seeds host-local scopePaths and current-worktree badge.
   useEffect(() => {
     if (!client || connState !== 'connected') {
       return
@@ -96,11 +108,9 @@ function MobileAgentSessionHistoryPanelContent({
           setWorktrees((catalog.value.worktrees ?? []) as Worktree[])
         }
       } catch {
-        // Why: worktree list is best-effort context; the session scan still runs
-        // (without it, scoped tabs can't narrow and fall back to the full list).
+        // Best-effort context: failed worktree list leaves scoped tabs scanning full history.
       } finally {
-        // Why: mark loaded even on failure so a scoped tab proceeds with an
-        // unscoped fetch instead of holding a spinner forever.
+        // Mark loaded on failure too so scoped tabs fetch unscoped instead of spinning forever.
         if (!cancelled) {
           setWorktreesLoaded(true)
         }
@@ -110,18 +120,6 @@ function MobileAgentSessionHistoryPanelContent({
       cancelled = true
     }
   }, [client, connState])
-
-  const {
-    scope,
-    screenState,
-    refreshing,
-    hostStatusResult,
-    activeWorktreePath,
-    scopeFilterPaths,
-    onSelectScope,
-    onRefresh,
-    retry
-  } = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded })
 
   const issues = screenState.kind === 'ready' ? screenState.issues : EMPTY_ISSUES
   const openTabActions = useMobileAgentHistoryOpenTabActions({
@@ -216,9 +214,7 @@ function MobileAgentSessionHistoryPanelContent({
         const target = resolveMobileAiVaultSessionResumeTarget({
           session,
           activeWorktreeId: worktreeId,
-          // Why: resolve against live worktrees so a workspace deleted or
-          // archived since panel mount can't be picked; the mount-time list is
-          // only a fallback when the fresh fetch fails.
+          // Prefer live worktrees so deleted/archived workspace cannot be selected; fall back to mount list only on fetch failure.
           worktrees: resumeWorktrees,
           repos,
           folderWorkspaces,
@@ -273,7 +269,16 @@ function MobileAgentSessionHistoryPanelContent({
           resumeWorktrees.find((item) => item.worktreeId === target.worktreeId)?.displayName,
           target.worktreeId
         )
-        openHistorySession(router, origin, hostId, worktreeId, target.worktreeId, resumedName)
+        openHistorySession(
+          router,
+          origin,
+          hostId,
+          worktreeId,
+          target.worktreeId,
+          resumedName,
+          target.targetExecutionHostId,
+          currentExecutionHost
+        )
       } catch (err) {
         triggerError()
         setResumeMessage(err instanceof Error ? err.message : 'Failed to resume session.')
@@ -286,6 +291,7 @@ function MobileAgentSessionHistoryPanelContent({
       client,
       connState,
       hostId,
+      currentExecutionHost,
       origin,
       resumeHost,
       hostTerminalWindowsShell,

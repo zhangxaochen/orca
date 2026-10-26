@@ -52,10 +52,7 @@ export function AgentSpinner({
 }
 
 const styles = StyleSheet.create({
-  // Why: 12x12 wrapper centered around an 8x8 inner glyph mirrors the
-  // desktop's `inline-flex h-3 w-3 ... items-center justify-center` shell
-  // around `size-2` indicator — keeps row height/baseline alignment stable
-  // across status transitions.
+  // Match desktop 12px shell/8px glyph so row baseline remains stable through status transitions.
   wrapper: {
     width: 12,
     height: 12,

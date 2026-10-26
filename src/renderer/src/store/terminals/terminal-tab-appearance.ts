@@ -5,6 +5,7 @@ import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import type { AgentType } from '../../../../shared/agent-status-types'
 import type { TerminalSlice, TerminalStoreGet, TerminalStoreSet } from './terminal-state'
 import { findRenamableUnifiedTab } from './renamable-unified-tab'
+import { captureStructuredChatRename } from '@/runtime/structured-chat-rename-action'
 
 export function createTerminalTabAppearanceActions(
   set: TerminalStoreSet,
@@ -27,23 +28,47 @@ export function createTerminalTabAppearanceActions(
       })
       const currentState = get()
       const item = findRenamableUnifiedTab(currentState.unifiedTabsByWorktree, tabId)
-      if (item) {
+      if (item?.contentType === 'agent-session') {
+        const action = captureStructuredChatRename(get, item)
+        void import('@/runtime/structured-chat-rename')
+          .then(({ renameStructuredChatTab }) =>
+            renameStructuredChatTab(
+              get,
+              item,
+              title,
+              opts,
+              () => get().setTabCustomLabel(item.id, title, opts),
+              action
+            )
+          )
+          .finally(action.finish)
+      } else if (item) {
         currentState.setTabCustomLabel(item.id, title, opts)
       }
-      const sessionId =
-        (item?.contentType === 'agent-session' ? item.entityId : null) ??
-        item?.aiVaultTitle?.sessionId ??
-        Object.values(currentState.tabsByWorktree)
-          .flat()
-          .find((t) => t.id === tabId)?.aiVaultTitle?.sessionId ??
-        collectAgentPaneConversations(
-          currentState,
-          (agent): agent is AgentType => Boolean(agent)
-        ).find((c) => c.tabId === tabId)?.providerSession.id
-      if (sessionId) {
-        callRuntimeRpc({ kind: 'local' }, 'aiVault.renameSession', { sessionId, title }).catch(
-          () => {}
-        )
+      if (item?.contentType !== 'agent-session') {
+        const sessionId =
+          item?.aiVaultTitle?.sessionId ??
+          Object.values(currentState.tabsByWorktree)
+            .flat()
+            .find((t) => t.id === tabId)?.aiVaultTitle?.sessionId ??
+          collectAgentPaneConversations(currentState, (agent): agent is AgentType =>
+            Boolean(agent)
+          ).find((c) => c.tabId === tabId)?.providerSession.id
+        if (sessionId) {
+          const owningWorktreeId =
+            item?.worktreeId ??
+            Object.entries(currentState.tabsByWorktree).find(([, tabs]) =>
+              tabs?.some((t) => t.id === tabId)
+            )?.[0] ??
+            null
+          const runtimeEnvironmentId =
+            resolveTerminalWorktreeRoute(currentState, owningWorktreeId)?.runtimeEnvironmentId ??
+            null
+          const target = runtimeEnvironmentId
+            ? ({ kind: 'environment', environmentId: runtimeEnvironmentId } as const)
+            : ({ kind: 'local' } as const)
+          callRuntimeRpc(target, 'aiVault.renameSession', { sessionId, title }).catch(() => {})
+        }
       }
     },
     setTabColor: (tabId, color, opts) => {

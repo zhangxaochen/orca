@@ -64,8 +64,7 @@ export function NotificationDisplayTest({ onTroubleshoot }: { onTroubleshoot: ()
         })
         const delivered = pushDeliveryTest.interpret(reply)
         if (!delivered.accepted) {
-          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this policy skips only a refusal, so an unaccepted reply is a failure envelope.
-          const code = (reply as RpcFailure).error?.code
+          const code = reply.ok ? undefined : reply.error?.code
           if (code === 'forbidden' || code === 'method_not_found') {
             continue
           }

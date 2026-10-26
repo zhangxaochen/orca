@@ -24,7 +24,6 @@ function isServerExecutionHostId(host: string | null | undefined): host is Execu
  */
 export function useNewWorkspaceRepositories(args: {
   client: RpcClient | null
-  /** The desktop's servers this phone can reach now, whose repos are offered too. */
   serverClients?: ReadonlyMap<ExecutionHostId, RpcClient>
   hostId?: string
   visible: boolean

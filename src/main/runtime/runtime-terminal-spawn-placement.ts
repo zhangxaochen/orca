@@ -8,17 +8,29 @@ import type { RuntimePtyWorktreeRecord } from './runtime-terminal-state-records'
  * title is the caller's name for it when the window would show it too: a revealed tab keeps the
  * name, a background tab (a worker the window never revealed) keeps its live title.
  */
-export function newTabIn(opts: {
-  viewMode?: 'terminal' | 'chat'
-  targetGroupId?: string
-  title?: string
-  presentation?: RuntimeTerminalPresentation
-}): {
+export function newTabIn(
+  opts: {
+    viewMode?: 'terminal' | 'chat'
+    targetGroupId?: string
+    title?: string
+    customTitle?: string | null
+    sessionId?: string
+    resumeProviderSession?: { id?: string }
+    presentation?: RuntimeTerminalPresentation
+  },
+  sessionCustomTitle?: (sessionId: string) => string | null
+): {
   placement: TerminalPanePlacement
   groupId?: string
 } {
   const { viewMode, targetGroupId } = opts
-  const title = opts.presentation === 'background' ? undefined : opts.title
+  const providerSessionId = opts.resumeProviderSession?.id ?? opts.sessionId ?? null
+  const restoredTitle =
+    opts.customTitle?.trim() ||
+    (providerSessionId ? sessionCustomTitle?.(providerSessionId)?.trim() : null) ||
+    (opts.resumeProviderSession ? opts.title?.trim() : null) ||
+    undefined
+  const title = restoredTitle ?? (opts.presentation === 'background' ? undefined : opts.title)
   const row = {
     ...(viewMode ? { viewMode } : {}),
     ...(title ? { customTitle: title } : {})

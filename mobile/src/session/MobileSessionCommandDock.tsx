@@ -148,7 +148,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
         {/* Accessory keys */}
         <MobileSessionCommandAccessoryBar controller={controller} />
 
-        {/* Input bar */}
+        {}
         {liveInputEnabled ? (
           <View style={[styles.inputBar, styles.liveInputBar]}>
             <Pressable

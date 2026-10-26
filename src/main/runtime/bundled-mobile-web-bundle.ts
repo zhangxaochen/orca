@@ -46,7 +46,7 @@ export function getBundledMobileWebBundleRoot(): string | undefined {
     repoBundle,
     unpackedAsarBundle,
     join(appPath, 'out', 'mobile-web'),
-    // Why: unpacked electron-vite entrypoints set appPath to out/main, next to the bundle.
+    // Unpacked electron-vite sets appPath to out/main.
     join(appPath, '..', 'mobile-web')
   ].filter((root): root is string => root !== undefined)
   return roots.find((root) => existsSync(join(root, MANIFEST_FILENAME)))
@@ -87,7 +87,6 @@ export function loadBundledMobileWebBundle(): BundledMobileWebBundle | null {
   return cachedBundle
 }
 
-/** Tests own the process, so they own the cache; nothing in the app may call this. */
 export function resetBundledMobileWebBundleCacheForTests(): void {
   cachedBundle = undefined
   cachedMtimeMs = undefined
@@ -112,9 +111,7 @@ function readBundledMobileWebBundle(root: string): BundledMobileWebBundle | null
   }
   const manifest = MobileWebBundleManifestSchema.safeParse(parsed)
   if (!manifest.success) {
-    // Why warn rather than throw: packaging already hash-verifies the bundle, so reaching here means
-    // a dev or hand-edited out/, and an unusable bundle must degrade to "no bundle", never to a
-    // crash on a path a phone can reach.
+    // Bad dev/hand-edited bundles must degrade to absent, not crash a phone-accessible path.
     console.warn(`[mobile-web-bundle] ${manifestPath} does not match the manifest contract:`, {
       issues: manifest.error.issues
     })

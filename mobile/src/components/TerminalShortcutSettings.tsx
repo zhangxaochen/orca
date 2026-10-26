@@ -29,8 +29,7 @@ import {
   type TerminalAccessoryLayout
 } from '../terminal/terminal-accessory-layout'
 
-// Why: DragReorderList absolutely positions rows, so every row in a
-// reorderable section must share one fixed height.
+// Absolutely positioned DragReorderList rows require one fixed height per section.
 const REORDER_ROW_HEIGHT = 56
 const DEFAULT_LAYOUT = getDefaultTerminalAccessoryLayout()
 

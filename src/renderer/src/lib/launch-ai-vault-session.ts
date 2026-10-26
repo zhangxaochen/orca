@@ -50,6 +50,7 @@ export function launchAiVaultSessionInNewTab(args: {
         agentSessionKind: 'resume',
         launchAgent: args.agent,
         command: args.command,
+        ...(args.customTitle ? { customTitle: args.customTitle } : {}),
         ...(args.cwd ? { cwd: args.cwd } : {}),
         ...(args.env ? { env: args.env } : {}),
         ...(args.envToDelete ? { envToDelete: args.envToDelete } : {}),

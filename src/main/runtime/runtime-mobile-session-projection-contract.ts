@@ -57,6 +57,7 @@ export type RuntimeMobileSessionProjectionHost = {
     validGroupIds: ReadonlySet<string>
   ): TabGroupLayoutNode | null
   collectTabIds(tabs: readonly RuntimeMobileSessionClientTab[]): Set<string>
+  getSessionCustomTitle?(sessionId: string): string | null
 }
 
 export type RuntimeMobileSessionProjectionInput = {

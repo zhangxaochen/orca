@@ -44,15 +44,10 @@ export type BridgeStorageUpdateListener = (
 
 export type BridgeClientShellSession = {
   current: () => BridgeShellSession | null
-  /** Reads one `init`: updates or replaces the session, then fires what that change is owed. */
   accept: (message: InitMessage) => void
-  /** Fires once the session exists, immediately if it already does. */
   onReady: (listener: () => void) => () => void
-  /** Fires when a second `init` for the session the page holds moved its route, and never else. */
   onRouteUpdate: (listener: (route: BridgeInitRoute | null) => void) => () => void
-  /** Fires when an `init` moved the safe-area insets the page holds, including a replacement's. */
   onSafeAreaInsetsUpdate: (listener: (insets: BridgeSafeAreaInsets) => void) => () => void
-  /** Fires when an `init` moved the keyboard height the page holds, including a replacement's. */
   onKeyboardInsetUpdate: (listener: (height: number) => void) => () => void
   /** Fires when an `init` moved the storage snapshot the page holds, including a replacement's. */
   onStorageUpdate: (listener: BridgeStorageUpdateListener) => () => void
@@ -61,9 +56,7 @@ export type BridgeClientShellSession = {
 }
 
 export function createBridgeClientShellSession(args: {
-  /** The shell was rebuilt: everything the old session had in flight belongs to nobody now. */
   onReplaced: () => void
-  /** Seats the connection cache from the frame, between the session moving and the listeners. */
   prime: (connection: BridgeConnectionSnapshot) => void
 }): BridgeClientShellSession {
   let session: BridgeShellSession | null = null
@@ -83,13 +76,10 @@ export function createBridgeClientShellSession(args: {
       if (held !== null && update === null) {
         args.onReplaced()
       }
-      // Updated in place for the session the page already holds, rebuilt for a different one. The
-      // identity of what survives is the assertion: same object, so the storage snapshot the page
-      // booted from is the one it keeps.
+      // Preserve the original storage snapshot across same-session init while rebuilding the session value with new route/insets.
       const sent = message.safeAreaInsets ?? ZERO_SAFE_AREA_INSETS
       const movedInsets = held !== null && !sameSafeAreaInsets(held.safeAreaInsets, sent)
-      // The held object when the values match, so a reader keyed on identity does not re-render
-      // for a re-asked `ready`.
+      // Reuse equal values’ identity so repeated ready cannot rerender keyed readers.
       const safeAreaInsets = held === null || movedInsets ? sent : held.safeAreaInsets
       const keyboardInset = message.keyboardInset ?? 0
       const movedKeyboard = held !== null && held.keyboardInset !== keyboardInset
@@ -156,8 +146,7 @@ export function createBridgeClientShellSession(args: {
         readyListeners.delete(listener)
       }
     },
-    // Not fired on subscribe, and no replay: a listener that arrives late reads the route it wants
-    // off `current`, and what this publishes is the fact that one moved.
+    // Late listeners read current; updates report changes without replaying the held route.
     onRouteUpdate: (listener) => {
       routeUpdateListeners.add(listener)
       return () => {

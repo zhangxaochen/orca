@@ -58,8 +58,7 @@ export function CustomKeyModal({
   const [macroEnter, setMacroEnter] = useState(openingDraft.macroEnter)
   const [previousVisible, setPreviousVisible] = useState(visible)
 
-  // Why: reset before the opening commit so the drawer does not flash the last
-  // custom-key draft; keep close state unchanged for the slide-out animation.
+  // Reset draft before opening commit to avoid old-key flash; retain close state through slide-out.
   if (visible !== previousVisible) {
     setPreviousVisible(visible)
     if (visible) {
@@ -80,19 +79,14 @@ export function CustomKeyModal({
         id: editingKey ? editingKey.id : `custom-${Date.now()}`
       }
       let updated: CustomKey[]
-      // Caught here because both callers are `void addKey(...)`, which leaves a rejection nowhere
-      // to go. On the page this key is allowlisted and its write rejects for size — the contract
-      // `page-async-storage` states, and the one ruling 33.6 extends to a key `init` could not
-      // carry at all — so an uncaught save here reaches the document's unhandled-rejection
-      // handler, which reports a page fault and drops the generation for a key nobody could add.
-      // Every other allowlisted writer in this closure already catches its own save.
+      // Catch both void addKey callers: page storage can refuse size/unseeded-key writes (ruling 33.6), and uncaught rejection would fault/drop generation.
+      // Other allowlisted writers in this closure already catch saves.
       try {
         updated = await updateStoredCustomKeys((keys) =>
           editingKey ? replaceCustomKeyPreservingId(keys, newKey) : [...keys, newKey]
         )
       } catch (error) {
-        // Neither reported nor closed: a drawer that dismissed itself and announced the key would
-        // put a row on the accessory bar that no store holds and the next load would not have.
+        // Keep failed-save drawer open without announcing success; otherwise accessory row would lack persisted key.
         console.warn('[custom-keys] the store would not take this key', error)
         return
       }
@@ -130,8 +124,7 @@ export function CustomKeyModal({
 
   const handleShortcutKeyInput = useCallback((value: string) => {
     if (value === '') {
-      // Why: allow the field to go empty so backspace works; the Save button
-      // stays disabled until a valid key is entered.
+      // Allow empty field for backspace; Save still requires valid key.
       setShortcutKey('')
       return
     }
