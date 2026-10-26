@@ -46,13 +46,12 @@ export function resetForegroundPushClaimsForTests(): void {
   recentForegroundPushes.clear()
 }
 
-export async function foregroundNotificationBehavior(
-  notification: Pick<Notification, 'request'>
-): Promise<NotificationBehavior> {
+export async function foregroundNotificationBehavior(notification: {
+  request: Parameters<typeof readNativeNotificationData>[0]
+}): Promise<NotificationBehavior> {
   const rawTitle = (notification.request as { readonly content?: { readonly title?: unknown } })
     ?.content?.title
-  const isTerminalBellTitle =
-    typeof rawTitle === 'string' && rawTitle.trim().startsWith('Bell in ')
+  const isTerminalBellTitle = typeof rawTitle === 'string' && rawTitle.trim().startsWith('Bell in ')
   const data = readNativeNotificationData(notification.request)
   const payload = readOrcaPushPayload(data)
   const explicitHostId =
@@ -176,7 +175,10 @@ export function pushNotificationRouteData(
     matchedHostIds.includes((data as { readonly hostId: string }).hostId)
       ? (data as { readonly hostId: string }).hostId
       : null
-  const hostId = explicitHostId ?? matchedHostIds[0] ?? resolveHostIdForFingerprint(payload.hostFingerprint, hosts)
+  const hostId =
+    explicitHostId ??
+    matchedHostIds[0] ??
+    resolveHostIdForFingerprint(payload.hostFingerprint, hosts)
   if (!hostId) {
     return null
   }

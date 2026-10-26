@@ -19,7 +19,7 @@ export function useMobileNativeChatTerminalStream(args: {
   leaseOnlyRef: MutableRefObject<Set<string>>
   webReadyRef: MutableRefObject<Set<string>>
   // False when a local gate skipped the subscribe.
-  subscribe: (handle: string) => boolean
+  subscribe: (handle: string) => boolean | void
   unsubscribe: (handle: string) => void
 }): {
   notifyWebReady: (handle: string, wasAlreadyReady: boolean) => void

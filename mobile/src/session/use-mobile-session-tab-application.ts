@@ -22,6 +22,7 @@ import { getActiveTabIdForHandle } from './mobile-session-route-helpers'
 import { resolveActiveSessionTab } from './active-session-tab'
 import {
   activateMobileSessionTab,
+  consumeLocalSessionTabFollow,
   consumePendingCrossWorktreeTabTarget
 } from './mobile-session-tab-activation'
 import { releaseTerminalCreateLock } from './terminal-create-lock'

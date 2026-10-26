@@ -47,7 +47,7 @@ export function useMobileSessionTerminalSubscription(
     signalTerminalInventoryRecovery
   } = scope
   const subscribeToTerminal = useCallback(
-    (handle: string): boolean => {
+    (handle: string): boolean | void => {
       const diagnostics = terminalDiagnosticsRef.current
       const logSkippedGate = (reason: string) =>
         diagnostics.streamSkipped(handle, reason, handle === activeHandleRef.current)
