@@ -2,7 +2,15 @@ import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
+import { clearMobileMarkdownViewModeState } from './mobile-markdown-view-mode-state'
 import type { MarkdownDocState } from './mobile-session-route-types'
+
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: vi.fn(),
+    setItem: vi.fn()
+  }
+}))
 
 vi.mock('react-native', () => ({
   View: 'View',
@@ -58,7 +66,10 @@ describe('live session markdown reader copy', () => {
     })
   }
   const buttons = () => renderer!.root.findAll((node) => String(node.type) === 'Pressable')
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearMobileMarkdownViewModeState()
+  })
   afterEach(() => act(() => renderer?.unmount()))
 
   it.each([
@@ -195,5 +206,65 @@ describe('live session markdown reader copy', () => {
     const texts = renderer!.root.findAll((node) => String(node.type) === 'Text')
     const pathText = texts.find((node) => node.props.children === 'docs/README.md')
     expect(pathText).toBeDefined()
+  })
+
+  it('remembers source view mode across unmount and remount when switching tabs', () => {
+    act(() => {
+      renderer = create(
+        createElement(MarkdownReader, {
+          documentId: 'tab-readme',
+          doc,
+          title: 'README.md',
+          relativePath: 'README.md',
+          onCopy,
+          onCopyPath,
+          onSave,
+          onDiscard,
+          onRefresh,
+          onChange: vi.fn(),
+          keyboardLift: 0
+        })
+      )
+    })
+
+    const viewToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View Markdown source'
+    )
+    expect(viewToggle).toBeDefined()
+    act(() => viewToggle!.props.onPress())
+
+    expect(
+      buttons().find((node) => node.props.accessibilityLabel === 'View rich editor')
+    ).toBeDefined()
+
+    // Simulate switching away (unmount)
+    act(() => renderer?.unmount())
+
+    // Simulate switching back (remount)
+    act(() => {
+      renderer = create(
+        createElement(MarkdownReader, {
+          documentId: 'tab-readme',
+          doc,
+          title: 'README.md',
+          relativePath: 'README.md',
+          onCopy,
+          onCopyPath,
+          onSave,
+          onDiscard,
+          onRefresh,
+          onChange: vi.fn(),
+          keyboardLift: 0
+        })
+      )
+    })
+
+    // Should immediately be in source mode without resetting to editor
+    expect(
+      buttons().find((node) => node.props.accessibilityLabel === 'View rich editor')
+    ).toBeDefined()
+    expect(
+      buttons().find((node) => node.props.accessibilityLabel === 'View Markdown source')
+    ).toBeUndefined()
   })
 })
