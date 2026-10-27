@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, ActivityIndicator } from 'react-native'
 import { ListOrdered, RefreshCw } from 'lucide-react-native'
 import { MobileRichMarkdownEditor } from '../components/MobileRichMarkdownEditor'
+import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
 import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import { resolveMarkdownFloatingActionsBottom } from './markdown-floating-actions-layout'
@@ -14,6 +15,8 @@ import { MobileLoadErrorState } from '../components/MobileLoadErrorState'
 export function MarkdownReader({
   documentId,
   doc,
+  title,
+  relativePath,
   onRefresh,
   onChange,
   onSave,
@@ -24,6 +27,8 @@ export function MarkdownReader({
 }: {
   documentId: string
   doc: MarkdownDocState | undefined
+  title?: string
+  relativePath?: string
   onRefresh: () => void
   onChange: (content: string) => void
   onSave: () => void
@@ -63,13 +68,42 @@ export function MarkdownReader({
           onKeyboardInsetChange={setWebviewKeyboardInset}
         />
       ) : (
-        <MobileFilePreviewSourceText
-          relativePath="markdown.md"
-          content={doc.localContent}
-          truncated={doc.truncated}
-          byteLength={doc.byteLength}
-          showLineNumbers={showLineNumbers}
-        />
+        <>
+          <View style={styles.fileReaderToolbar}>
+            <Pressable
+              style={[
+                styles.fileReaderToolbarButton,
+                showLineNumbers && styles.fileReaderToolbarButtonActive
+              ]}
+              onPress={() => setShowLineNumbers((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: showLineNumbers }}
+              accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
+            >
+              <ListOrdered
+                size={15}
+                color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
+                strokeWidth={2.2}
+              />
+            </Pressable>
+            <Text style={styles.fileReaderPath} numberOfLines={1}>
+              {relativePath || title || 'Markdown'}
+            </Text>
+            <MobileSourceCopyButton
+              key={relativePath || title || 'Markdown'}
+              text={doc.localContent}
+              partial={doc.truncated}
+              accessibilityLabel="Copy file content"
+            />
+          </View>
+          <MobileFilePreviewSourceText
+            relativePath={relativePath || title || 'markdown.md'}
+            content={doc.localContent}
+            truncated={doc.truncated}
+            byteLength={doc.byteLength}
+            showLineNumbers={showLineNumbers}
+          />
+        </>
       )}
       <View
         pointerEvents="box-none"
@@ -127,19 +161,6 @@ export function MarkdownReader({
               {viewMode === 'editor' ? 'Source' : 'Rich Text'}
             </Text>
           </Pressable>
-          {viewMode === 'source' ? (
-            <Pressable
-              style={[
-                styles.markdownFloatingButton,
-                showLineNumbers && styles.markdownFloatingButtonActive
-              ]}
-              onPress={() => setShowLineNumbers((prev) => !prev)}
-              accessibilityRole="button"
-              accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
-            >
-              <ListOrdered size={13} color={colors.textPrimary} strokeWidth={2.2} />
-            </Pressable>
-          ) : null}
           {showRefresh ? (
             <Pressable style={styles.markdownFloatingButton} onPress={onRefresh}>
               <RefreshCw size={13} color={colors.textPrimary} />

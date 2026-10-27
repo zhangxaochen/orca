@@ -1,7 +1,6 @@
 import { createElement, type ReactNode } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, expect, it, vi } from 'vitest'
-import { FileReader, scrollOffsetForSessionFileLine } from './MobileSessionFileReader'
 import type { DiffCommentActions, FileDocState } from './mobile-session-route-types'
 
 const scrollTo = vi.fn()
@@ -33,14 +32,19 @@ vi.mock('react-native', async () => {
 })
 vi.mock('lucide-react-native', () => ({
   Copy: 'Copy',
+  ListOrdered: 'ListOrdered',
   MessageSquare: 'MessageSquare',
   Send: 'Send',
   Plus: 'Plus',
   X: 'X'
 }))
+vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }))
 vi.mock('./mobile-session-styles', () => ({ styles: {} }))
+vi.mock('../components/MobileSourceCopyButton', () => ({ MobileSourceCopyButton: () => null }))
 vi.mock('../files/MobileFileMediaPreview', () => ({ MobileFileMediaPreview: () => null }))
 vi.mock('../components/MobileHtmlPreview', () => ({ MobileHtmlPreview: () => null }))
+
+import { FileReader, scrollOffsetForSessionFileLine } from './MobileSessionFileReader'
 
 let renderer: ReactTestRenderer | undefined
 

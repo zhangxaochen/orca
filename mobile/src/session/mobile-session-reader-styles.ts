@@ -54,7 +54,7 @@ export const mobileSessionReaderStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSubtle,
@@ -65,7 +65,7 @@ export const mobileSessionReaderStyles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: typography.metaSize,
     fontWeight: '500',
-    marginRight: spacing.sm
+    marginHorizontal: spacing.sm
   },
   fileReaderToolbarActions: {
     flexDirection: 'row',

@@ -12,10 +12,16 @@ vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
   StyleSheet: { create: <T,>(styles: T) => styles, hairlineWidth: 1 }
 }))
-vi.mock('lucide-react-native', () => ({ RefreshCw: 'RefreshCw', ListOrdered: 'ListOrdered' }))
+vi.mock('lucide-react-native', () => ({
+  RefreshCw: 'RefreshCw',
+  ListOrdered: 'ListOrdered',
+  Copy: 'Copy',
+  Check: 'Check'
+}))
 vi.mock('../components/MobileRichMarkdownEditor', () => ({
   MobileRichMarkdownEditor: 'MobileRichMarkdownEditor'
 }))
+vi.mock('expo-clipboard', () => ({ setStringAsync: vi.fn() }))
 vi.mock('./mobile-session-styles', () => ({ styles: {} }))
 
 const doc: MarkdownDocState = {
@@ -149,5 +155,45 @@ describe('live session markdown reader copy', () => {
         (node) => node.props.accessibilityLabel === 'View Markdown source'
       )
     ).toBeDefined()
+  })
+
+  it('renders top address bar with line number toggle, path, and copy in source view', () => {
+    act(() => {
+      renderer = create(
+        createElement(MarkdownReader, {
+          documentId: 'doc',
+          doc,
+          title: 'README.md',
+          relativePath: 'docs/README.md',
+          onCopy,
+          onCopyPath,
+          onSave,
+          onDiscard,
+          onRefresh,
+          onChange: vi.fn(),
+          keyboardLift: 0
+        })
+      )
+    })
+    const viewToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View Markdown source'
+    )
+    act(() => viewToggle!.props.onPress())
+
+    const sourceCopy = buttons().find(
+      (node) => node.props.accessibilityLabel === 'Copy file content'
+    )
+    expect(sourceCopy).toBeDefined()
+
+    const lineToggle = buttons().find(
+      (node) =>
+        node.props.accessibilityLabel === 'Show line numbers' ||
+        node.props.accessibilityLabel === 'Hide line numbers'
+    )
+    expect(lineToggle).toBeDefined()
+
+    const texts = renderer!.root.findAll((node) => String(node.type) === 'Text')
+    const pathText = texts.find((node) => node.props.children === 'docs/README.md')
+    expect(pathText).toBeDefined()
   })
 })

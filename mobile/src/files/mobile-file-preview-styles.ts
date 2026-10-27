@@ -97,6 +97,12 @@ export const filePreviewStyles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl
   },
+  textContentWithLines: {
+    paddingLeft: 2,
+    paddingRight: spacing.sm,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl
+  },
   textPreview: {
     color: colors.textPrimary,
     fontFamily: typography.monoFamily,
@@ -112,7 +118,7 @@ export const filePreviewStyles = StyleSheet.create({
     minHeight: 19
   },
   sourceLineNumber: {
-    paddingRight: spacing.sm,
+    paddingRight: 6,
     textAlign: 'right',
     color: colors.textMuted,
     fontFamily: typography.monoFamily,
