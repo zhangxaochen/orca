@@ -118,6 +118,7 @@ export const filePreviewStyles = StyleSheet.create({
     minHeight: 19
   },
   sourceLineNumber: {
+    flexShrink: 0,
     paddingRight: 6,
     textAlign: 'right',
     color: colors.textMuted,
@@ -127,6 +128,7 @@ export const filePreviewStyles = StyleSheet.create({
   },
   sourceLineText: {
     flex: 1,
+    minWidth: 0,
     color: colors.textPrimary,
     fontFamily: typography.monoFamily,
     fontSize: 13,
