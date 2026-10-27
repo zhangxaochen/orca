@@ -60,6 +60,7 @@ describe('EditorPanelActionsMenu', () => {
         diffWordWrap={false}
         diffShowWhitespace={false}
         editorWordWrap
+        editorLineNumbers
         shouldShowMarkdownExportAction
         canExportMarkdownToPdf
         canShowMarkdownFrontmatterToggle
@@ -67,25 +68,32 @@ describe('EditorPanelActionsMenu', () => {
         onToggleDiffWordWrap={vi.fn()}
         onToggleDiffWhitespace={vi.fn()}
         onToggleEditorWordWrap={vi.fn()}
+        onToggleEditorLineNumbers={vi.fn()}
         onToggleMarkdownFrontmatter={onToggleMarkdownFrontmatter}
         onExportMarkdownToPdf={vi.fn()}
       />
     )
-    expect(checkboxItems.list.map(({ label }) => label)).toEqual(['Word Wrap', 'Front Matter'])
-    expect(checkboxItems.list[1]?.checked).toBe(true)
-    checkboxItems.list[1]?.onCheckedChange?.(false)
+    expect(checkboxItems.list.map(({ label }) => label)).toEqual([
+      'Word Wrap',
+      'Line Numbers',
+      'Front Matter'
+    ])
+    expect(checkboxItems.list[2]?.checked).toBe(true)
+    checkboxItems.list[2]?.onCheckedChange?.(false)
     expect(onToggleMarkdownFrontmatter).toHaveBeenCalledOnce()
   })
 
   it('shows Word Wrap for normal file tabs using editorWordWrap (#9974)', () => {
     const onToggleDiffWordWrap = vi.fn()
     const onToggleEditorWordWrap = vi.fn()
+    const onToggleEditorLineNumbers = vi.fn()
     renderToStaticMarkup(
       React.createElement(EditorPanelActionsMenu, {
         isDiffSurface: false,
         diffWordWrap: false,
         diffShowWhitespace: false,
         editorWordWrap: true,
+        editorLineNumbers: true,
         shouldShowMarkdownExportAction: false,
         canExportMarkdownToPdf: false,
         canShowMarkdownFrontmatterToggle: false,
@@ -93,15 +101,19 @@ describe('EditorPanelActionsMenu', () => {
         onToggleDiffWordWrap,
         onToggleDiffWhitespace: () => {},
         onToggleEditorWordWrap,
+        onToggleEditorLineNumbers,
         onToggleMarkdownFrontmatter: () => {},
         onExportMarkdownToPdf: () => {}
       })
     )
 
-    expect(checkboxItems.list).toHaveLength(1)
+    expect(checkboxItems.list).toHaveLength(2)
     expect(checkboxItems.list[0]).toMatchObject({ checked: true, label: 'Word Wrap' })
+    expect(checkboxItems.list[1]).toMatchObject({ checked: true, label: 'Line Numbers' })
     checkboxItems.list[0]?.onCheckedChange?.(false)
+    checkboxItems.list[1]?.onCheckedChange?.(false)
     expect(onToggleEditorWordWrap).toHaveBeenCalledOnce()
+    expect(onToggleEditorLineNumbers).toHaveBeenCalledOnce()
     expect(onToggleDiffWordWrap).not.toHaveBeenCalled()
   })
 
@@ -114,6 +126,7 @@ describe('EditorPanelActionsMenu', () => {
         diffWordWrap: true,
         diffShowWhitespace: false,
         editorWordWrap: false,
+        editorLineNumbers: false,
         shouldShowMarkdownExportAction: false,
         canExportMarkdownToPdf: false,
         canShowMarkdownFrontmatterToggle: false,
@@ -121,13 +134,15 @@ describe('EditorPanelActionsMenu', () => {
         onToggleDiffWordWrap,
         onToggleDiffWhitespace: () => {},
         onToggleEditorWordWrap,
+        onToggleEditorLineNumbers: () => {},
         onToggleMarkdownFrontmatter: () => {},
         onExportMarkdownToPdf: () => {}
       })
     )
 
-    expect(checkboxItems.list).toHaveLength(2)
+    expect(checkboxItems.list).toHaveLength(3)
     expect(checkboxItems.list[0]).toMatchObject({ checked: true, label: 'Word Wrap' })
+    expect(checkboxItems.list[1]).toMatchObject({ checked: false, label: 'Line Numbers' })
     checkboxItems.list[0]?.onCheckedChange?.(false)
     expect(onToggleDiffWordWrap).toHaveBeenCalledOnce()
     expect(onToggleEditorWordWrap).not.toHaveBeenCalled()
@@ -141,6 +156,7 @@ describe('EditorPanelActionsMenu', () => {
         diffWordWrap: false,
         diffShowWhitespace: true,
         editorWordWrap: false,
+        editorLineNumbers: true,
         shouldShowMarkdownExportAction: false,
         canExportMarkdownToPdf: false,
         canShowMarkdownFrontmatterToggle: false,
@@ -148,17 +164,19 @@ describe('EditorPanelActionsMenu', () => {
         onToggleDiffWordWrap: () => {},
         onToggleDiffWhitespace,
         onToggleEditorWordWrap: () => {},
+        onToggleEditorLineNumbers: () => {},
         onToggleMarkdownFrontmatter: () => {},
         onExportMarkdownToPdf: () => {}
       })
     )
 
-    expect(checkboxItems.list).toHaveLength(2)
-    expect(checkboxItems.list[1]).toMatchObject({
+    expect(checkboxItems.list).toHaveLength(3)
+    expect(checkboxItems.list[1]).toMatchObject({ checked: true, label: 'Line Numbers' })
+    expect(checkboxItems.list[2]).toMatchObject({
       checked: true,
       label: 'Show Whitespace'
     })
-    checkboxItems.list[1]?.onCheckedChange?.(false)
+    checkboxItems.list[2]?.onCheckedChange?.(false)
     expect(onToggleDiffWhitespace).toHaveBeenCalledOnce()
   })
 })

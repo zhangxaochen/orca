@@ -187,6 +187,7 @@ export function getEditorPanelRenderModel({
     isMermaid: viewerLanguage === 'mermaid',
     isCsv: viewerLanguage === 'csv' || viewerLanguage === 'tsv',
     isNotebook: viewerLanguage === 'notebook',
+    canToggleLineNumbers: !isBinaryEditSurface && activeFile.mode !== 'check-details',
     // Preview reads disk; exclude deleted modified sides and historical commit snapshots that may not match it.
     canOpenPreviewToSide:
       canOpenWorkspaceFileBrowser &&

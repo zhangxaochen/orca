@@ -90,6 +90,7 @@ export default function CombinedDiffViewer({
     markdownReviewNotesEnabled,
     worktreeId: file.worktreeId
   })
+  const editorLineNumbers = settings?.editorLineNumbers !== false
   const preferences = useCombinedDiffViewPreferences({
     combinedDiffFileTreeVisibleByDefault: settings?.combinedDiffFileTreeVisibleByDefault,
     diffDefaultView: settings?.diffDefaultView,
@@ -327,6 +328,7 @@ export default function CombinedDiffViewer({
           commitCompare={entrySet.commitCompare}
           diffCommentCount={notes.diffCommentCount}
           diffCommentsForWorktree={diffCommentsForWorktree}
+          diffLineNumbers={editorLineNumbers}
           diffShowWhitespace={settings?.diffShowWhitespace}
           diffWordWrap={settings?.diffWordWrap}
           file={file}
@@ -343,6 +345,9 @@ export default function CombinedDiffViewer({
           sectionCount={sections.length}
           setAllSectionsCollapsed={preferences.setAllSectionsCollapsed}
           sideBySide={preferences.sideBySide}
+          toggleDiffLineNumbers={() =>
+            void updateSettings({ editorLineNumbers: !editorLineNumbers })
+          }
           toggleDiffShowWhitespace={preferences.toggleDiffShowWhitespace}
           toggleDiffWordWrap={preferences.toggleDiffWordWrap}
           toggleSideBySide={preferences.toggleSideBySide}

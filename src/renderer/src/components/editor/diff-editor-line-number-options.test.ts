@@ -19,6 +19,17 @@ describe('buildDiffEditorLineNumberOptions', () => {
       modified: 'on'
     })
   })
+
+  it('turns both gutters off when line numbers are hidden', () => {
+    expect(buildDiffEditorLineNumberOptions(true, false)).toEqual({
+      original: 'off',
+      modified: 'off'
+    })
+    expect(buildDiffEditorLineNumberOptions(false, false)).toEqual({
+      original: 'off',
+      modified: 'off'
+    })
+  })
 })
 
 function createMockCodeEditor(initialLineNumbers: editor.LineNumbersType = 'on'): {
@@ -63,6 +74,21 @@ describe('applyDiffEditorLineNumberOptions', () => {
       getOriginalEditor: () => original.editor,
       getModifiedEditor: () => modified.editor
     } as unknown as editor.IStandaloneDiffEditor
+
+    const hidden = applyDiffEditorLineNumberOptions(diffEditor, true, false)
+
+    expect(original.getLineNumbers()).toBe('off')
+    expect(modified.getLineNumbers()).toBe('off')
+
+    modified.editor.updateOptions({ lineNumbers: 'on' })
+    modified.emitDidChangeConfiguration()
+    expect(original.getLineNumbers()).toBe('off')
+    expect(modified.getLineNumbers()).toBe('off')
+
+    hidden.dispose()
+    modified.editor.updateOptions({ lineNumbers: 'on' })
+    modified.emitDidChangeConfiguration()
+    expect(modified.getLineNumbers()).toBe('on')
 
     const disposable = applyDiffEditorLineNumberOptions(diffEditor, false)
 
