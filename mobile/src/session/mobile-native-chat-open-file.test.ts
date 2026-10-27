@@ -154,6 +154,8 @@ describe('openMobileNativeChatFileTap', () => {
     openMobileNativeChatFileTap({ ...options, pathText: 'gone/missing.ts' })
     await Promise.resolve()
     await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
 
     expect(options.onOpenFailed).toHaveBeenCalledTimes(1)
     expect(options.pushPreviewRoute).not.toHaveBeenCalled()
