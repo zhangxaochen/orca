@@ -55,6 +55,11 @@ describe('MobileFilePreviewSourceText line numbers', () => {
     // Line number texts: 1, 2, 3
     const numbers = textNodes.map((n) => n.props.children).filter((c) => typeof c === 'number')
     expect(numbers).toEqual([1, 2, 3])
+
+    const firstNumber = textNodes.find((n) => n.props.children === 1)
+    expect([firstNumber?.props.style].flat()).toContainEqual(
+      expect.objectContaining({ flexShrink: 0, minWidth: expect.any(Number) })
+    )
   })
 
   it('renders single text block without line numbers when showLineNumbers is false', async () => {

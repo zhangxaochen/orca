@@ -112,7 +112,10 @@ export function MobileFilePreviewSourceText({
           {lines.map((lineSegments, lineIndex) => (
             <View key={lineIndex} style={styles.sourceLineRow}>
               <Text
-                style={[styles.sourceLineNumber, { width: lineNumberWidth }]}
+                style={[
+                  styles.sourceLineNumber,
+                  { width: lineNumberWidth, minWidth: lineNumberWidth, flexShrink: 0 }
+                ]}
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               >
