@@ -3,10 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   clearMobileMarkdownViewModeState,
   getInitialMobileMarkdownViewMode,
+  getMobileMarkdownScrollRatio,
   MOBILE_MARKDOWN_DOC_VIEW_MODES_STORAGE_KEY,
   MOBILE_MARKDOWN_VIEW_MODE_STORAGE_KEY,
   parseMobileMarkdownViewMode,
   readMobileMarkdownViewModePreferences,
+  saveMobileMarkdownScrollRatio,
   saveMobileMarkdownViewMode
 } from './mobile-markdown-view-mode-state'
 
@@ -76,5 +78,20 @@ describe('mobile-markdown-view-mode-state', () => {
     expect(getInitialMobileMarkdownViewMode('notes.md')).toBe('editor')
     // other documents fall back to last chosen mode 'source'
     expect(getInitialMobileMarkdownViewMode('other.md')).toBe('source')
+  })
+
+  it('tracks and clamps scroll ratio per document in memory', () => {
+    expect(getMobileMarkdownScrollRatio('README.md')).toBe(0)
+
+    saveMobileMarkdownScrollRatio('README.md', 0.42)
+    expect(getMobileMarkdownScrollRatio('README.md')).toBe(0.42)
+    expect(getMobileMarkdownScrollRatio('CONTRIBUTING.md')).toBe(0)
+
+    // Clamps to [0, 1]
+    saveMobileMarkdownScrollRatio('README.md', 1.5)
+    expect(getMobileMarkdownScrollRatio('README.md')).toBe(1)
+
+    saveMobileMarkdownScrollRatio('README.md', -0.2)
+    expect(getMobileMarkdownScrollRatio('README.md')).toBe(0)
   })
 })

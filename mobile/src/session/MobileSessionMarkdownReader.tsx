@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ActivityIndicator } from 'react-native'
 import { ListOrdered, RefreshCw } from 'lucide-react-native'
 import { MobileRichMarkdownEditor } from '../components/MobileRichMarkdownEditor'
@@ -6,7 +6,11 @@ import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
 import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import { resolveMarkdownFloatingActionsBottom } from './markdown-floating-actions-layout'
-import { useMobileMarkdownViewMode } from './mobile-markdown-view-mode-state'
+import {
+  getMobileMarkdownScrollRatio,
+  saveMobileMarkdownScrollRatio,
+  useMobileMarkdownViewMode
+} from './mobile-markdown-view-mode-state'
 import { markdownReaderStatusText } from './mobile-markdown-reader-status'
 import { colors, spacing } from '../theme/mobile-theme'
 import { styles } from './mobile-session-styles'
@@ -44,6 +48,21 @@ export function MarkdownReader({
   const [viewMode, setViewMode] = useMobileMarkdownViewMode(documentKey)
   const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
   const effectiveKeyboardLift = Math.max(keyboardLift, webviewKeyboardInset)
+
+  const scrollRatioRef = useRef(getMobileMarkdownScrollRatio(documentKey))
+
+  useEffect(() => {
+    scrollRatioRef.current = getMobileMarkdownScrollRatio(documentKey)
+  }, [documentKey])
+
+  const handleScrollRatioChange = useCallback(
+    (ratio: number) => {
+      scrollRatioRef.current = ratio
+      saveMobileMarkdownScrollRatio(documentKey, ratio)
+    },
+    [documentKey]
+  )
+
   if (!doc || doc.status === 'loading') {
     return (
       <View style={styles.markdownState}>
@@ -63,11 +82,13 @@ export function MarkdownReader({
     <View style={styles.markdownEditor}>
       {viewMode === 'editor' ? (
         <MobileRichMarkdownEditor
-          key={documentId}
+          key={`${documentId}-${viewMode}`}
           content={doc.localContent}
           editable={doc.editable && !doc.saving}
           onChange={onChange}
           onKeyboardInsetChange={setWebviewKeyboardInset}
+          initialScrollRatio={scrollRatioRef.current}
+          onScrollRatioChange={handleScrollRatioChange}
         />
       ) : (
         <>
@@ -104,6 +125,8 @@ export function MarkdownReader({
             truncated={doc.truncated}
             byteLength={doc.byteLength}
             showLineNumbers={showLineNumbers}
+            initialScrollRatio={scrollRatioRef.current}
+            onScrollRatioChange={handleScrollRatioChange}
           />
         </>
       )}
