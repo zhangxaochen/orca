@@ -31,7 +31,7 @@ vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
   useSafeAreaFrame: () => ({ x: 0, y: 0, width: 390, height: 844 })
 }))
-vi.mock('lucide-react-native', () => ({ ChevronLeft: 'Icon', Save: 'Icon' }))
+vi.mock('lucide-react-native', () => ({ ChevronLeft: 'Icon', ListOrdered: 'Icon', Save: 'Icon' }))
 vi.mock('../navigation/route-handoff', () => ({
   useRouteHandoff: () => ({ back: () => {}, canGoBack: () => false, push })
 }))

@@ -22,6 +22,7 @@ type Props = {
   lineColumn: MobileFilePreviewLineColumn | null
   imageWidth: number
   imageHeight: number
+  showLineNumbers?: boolean
   onDraftChange: (content: string) => void
   onImageError: () => void
   onOpenFile?: (pathText: string) => void
@@ -92,6 +93,7 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
         truncated={preview.truncated}
         byteLength={preview.byteLength}
         initialLine={options.lineColumn?.line}
+        showLineNumbers={options.showLineNumbers}
         onOpenFile={options.onOpenFile}
       />
     )
@@ -106,6 +108,7 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
         truncated={preview.truncated}
         byteLength={preview.byteLength}
         initialLine={options.lineColumn?.line}
+        showLineNumbers={options.showLineNumbers}
       />
     )
   }
@@ -119,6 +122,7 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
       truncated={preview.truncated}
       byteLength={preview.byteLength}
       initialLine={options.lineColumn?.line}
+      showLineNumbers={options.showLineNumbers}
     />
   )
 }

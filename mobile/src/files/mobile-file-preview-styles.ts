@@ -59,6 +59,25 @@ export const filePreviewStyles = StyleSheet.create({
     fontSize: typography.bodySize,
     textAlign: 'center'
   },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
+  },
+  toolbarButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.button,
+    backgroundColor: 'transparent'
+  },
+  toolbarButtonPressed: {
+    backgroundColor: colors.bgRaised
+  },
+  toolbarButtonActive: {
+    backgroundColor: colors.bgRaised
+  },
   saveButton: {
     width: 36,
     height: 36,
@@ -79,6 +98,29 @@ export const filePreviewStyles = StyleSheet.create({
     paddingBottom: spacing.xl
   },
   textPreview: {
+    color: colors.textPrimary,
+    fontFamily: typography.monoFamily,
+    fontSize: 13,
+    lineHeight: 19
+  },
+  sourceLinesContainer: {
+    width: '100%'
+  },
+  sourceLineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minHeight: 19
+  },
+  sourceLineNumber: {
+    paddingRight: spacing.sm,
+    textAlign: 'right',
+    color: colors.textMuted,
+    fontFamily: typography.monoFamily,
+    fontSize: 12,
+    lineHeight: 19
+  },
+  sourceLineText: {
+    flex: 1,
     color: colors.textPrimary,
     fontFamily: typography.monoFamily,
     fontSize: 13,
