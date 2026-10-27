@@ -6,6 +6,7 @@ import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
 import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import { resolveMarkdownFloatingActionsBottom } from './markdown-floating-actions-layout'
+import { useMobileMarkdownViewMode } from './mobile-markdown-view-mode-state'
 import { markdownReaderStatusText } from './mobile-markdown-reader-status'
 import { colors, spacing } from '../theme/mobile-theme'
 import { styles } from './mobile-session-styles'
@@ -39,7 +40,8 @@ export function MarkdownReader({
 }) {
   // Native Keyboard events under-report the WebView editor's covered area, so prefer the larger WebView-measured inset.
   const [webviewKeyboardInset, setWebviewKeyboardInset] = useState(0)
-  const [viewMode, setViewMode] = useState<'editor' | 'source'>('editor')
+  const documentKey = relativePath || title || documentId
+  const [viewMode, setViewMode] = useMobileMarkdownViewMode(documentKey)
   const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
   const effectiveKeyboardLift = Math.max(keyboardLift, webviewKeyboardInset)
   if (!doc || doc.status === 'loading') {
