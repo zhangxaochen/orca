@@ -32,6 +32,7 @@ export function MobileFilePreviewSourceText({
   truncated,
   byteLength,
   initialLine,
+  initialLineSeq,
   showLineNumbers = true
 }: {
   relativePath: string
@@ -39,10 +40,12 @@ export function MobileFilePreviewSourceText({
   truncated?: boolean
   byteLength?: number
   initialLine?: number
+  initialLineSeq?: number
   showLineNumbers?: boolean
 }) {
   const scrollRef = useRef<ScrollView>(null)
-  const revealedRef = useRef(false)
+  const contentHeightRef = useRef(0)
+  const revealedKeyRef = useRef<string | null>(null)
   const syntax = useMemo(
     () => buildMobileFilePreviewSyntax(relativePath, content),
     [content, relativePath]
@@ -55,33 +58,51 @@ export function MobileFilePreviewSourceText({
 
   const lineNumberWidth = useMemo(() => {
     if (!lines) {
-      return 28
+      return 18
     }
     const digits = Math.max(1, String(lines.length).length)
-    return Math.max(28, digits * 8 + 8)
+    return Math.max(18, Math.ceil(digits * 7.5) + 8)
   }, [lines])
 
-  useEffect(() => {
-    revealedRef.current = false
-  }, [content, initialLine, relativePath])
+  const revealTargetKey = initialLine
+    ? `${relativePath}:${initialLine}:${initialLineSeq ?? 0}`
+    : null
 
-  const revealInitialLine = () => {
-    if (!initialLine || revealedRef.current) {
+  const revealInitialLine = (height?: number) => {
+    if (
+      !initialLine ||
+      !revealTargetKey ||
+      revealedKeyRef.current === revealTargetKey ||
+      !scrollRef.current
+    ) {
       return
     }
-    revealedRef.current = true
-    scrollRef.current?.scrollTo({
+    scrollRef.current.scrollTo({
       y: scrollOffsetForPreviewLine(initialLine),
       animated: false
     })
+    if (typeof height === 'number' && height > 0) {
+      revealedKeyRef.current = revealTargetKey
+    }
   }
+
+  useEffect(() => {
+    if (contentHeightRef.current > 0) {
+      revealInitialLine(contentHeightRef.current)
+    }
+  }, [initialLine, initialLineSeq, relativePath])
 
   return (
     <ScrollView
       ref={scrollRef}
       style={styles.scroll}
-      contentContainerStyle={styles.textContent}
-      onContentSizeChange={revealInitialLine}
+      contentContainerStyle={
+        showLineNumbers && lines ? styles.textContentWithLines : styles.textContent
+      }
+      onContentSizeChange={(_width, height) => {
+        contentHeightRef.current = height
+        revealInitialLine(height)
+      }}
     >
       {truncated ? (
         <MobileFilePreviewTruncatedNote byteLength={byteLength ?? content.length} />

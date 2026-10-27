@@ -35,10 +35,12 @@ import { DiffLineRow } from './MobileSessionDiffLineRow'
 import { sendableMobileDiffComments } from './mobile-diff-comments'
 import { MobileLoadErrorState } from '../components/MobileLoadErrorState'
 
-export const MOBILE_SESSION_FILE_READER_LINE_HEIGHT = 22
+import { scrollOffsetForPreviewLine } from '../files/mobile-file-preview-line-column'
+
+export const MOBILE_SESSION_FILE_READER_LINE_HEIGHT = 19
 
 export function scrollOffsetForSessionFileLine(line: number): number {
-  return Math.max(0, line - 1) * MOBILE_SESSION_FILE_READER_LINE_HEIGHT
+  return scrollOffsetForPreviewLine(line)
 }
 
 type FileReaderProps = {
@@ -66,7 +68,7 @@ function FileReaderDocument({
   relativePath,
   language,
   initialLine,
-  initialLineSeq: _initialLineSeq,
+  initialLineSeq,
   diffCommentActions
 }: FileReaderProps) {
   const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
@@ -290,33 +292,31 @@ function FileReaderDocument({
   const renderSourceText = (content: string) => (
     <View style={styles.markdownEditor}>
       <View style={styles.fileReaderToolbar}>
+        <Pressable
+          style={[
+            styles.fileReaderToolbarButton,
+            showLineNumbers && styles.fileReaderToolbarButtonActive
+          ]}
+          onPress={() => setShowLineNumbers((prev) => !prev)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: showLineNumbers }}
+          accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
+        >
+          <ListOrdered
+            size={15}
+            color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
+            strokeWidth={2.2}
+          />
+        </Pressable>
         <Text style={styles.fileReaderPath} numberOfLines={1}>
           {relativePath || title}
         </Text>
-        <View style={styles.fileReaderToolbarActions}>
-          <Pressable
-            style={[
-              styles.fileReaderToolbarButton,
-              showLineNumbers && styles.fileReaderToolbarButtonActive
-            ]}
-            onPress={() => setShowLineNumbers((prev) => !prev)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: showLineNumbers }}
-            accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
-          >
-            <ListOrdered
-              size={15}
-              color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
-              strokeWidth={2.2}
-            />
-          </Pressable>
-          <MobileSourceCopyButton
-            key={relativePath}
-            text={content}
-            partial={doc.kind === 'file' ? doc.truncated : false}
-            accessibilityLabel="Copy file content"
-          />
-        </View>
+        <MobileSourceCopyButton
+          key={relativePath}
+          text={content}
+          partial={doc.kind === 'file' ? doc.truncated : false}
+          accessibilityLabel="Copy file content"
+        />
       </View>
       <MobileFilePreviewSourceText
         relativePath={relativePath || title}
@@ -324,6 +324,7 @@ function FileReaderDocument({
         truncated={doc.kind === 'file' ? doc.truncated : false}
         byteLength={doc.kind === 'file' ? doc.byteLength : content.length}
         initialLine={initialLine}
+        initialLineSeq={initialLineSeq}
         showLineNumbers={showLineNumbers}
       />
     </View>

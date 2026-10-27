@@ -19,6 +19,7 @@ vi.mock('./mobile-file-preview-styles', () => ({
   filePreviewStyles: {
     scroll: {},
     textContent: {},
+    textContentWithLines: {},
     textPreview: {},
     sourceLinesContainer: {},
     sourceLineRow: {},
