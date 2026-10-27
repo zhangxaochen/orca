@@ -33,7 +33,9 @@ export function MobileFilePreviewSourceText({
   byteLength,
   initialLine,
   initialLineSeq,
-  showLineNumbers = true
+  showLineNumbers = true,
+  initialScrollRatio,
+  onScrollRatioChange
 }: {
   relativePath: string
   content: string
@@ -42,10 +44,45 @@ export function MobileFilePreviewSourceText({
   initialLine?: number
   initialLineSeq?: number
   showLineNumbers?: boolean
+  initialScrollRatio?: number
+  onScrollRatioChange?: (ratio: number) => void
 }) {
   const scrollRef = useRef<ScrollView>(null)
   const contentHeightRef = useRef(0)
+  const layoutHeightRef = useRef(0)
   const revealedKeyRef = useRef<string | null>(null)
+  const restoredRatioRef = useRef(false)
+  const initialScrollRatioRef = useRef(initialScrollRatio)
+  const onScrollRatioChangeRef = useRef(onScrollRatioChange)
+
+  useEffect(() => {
+    onScrollRatioChangeRef.current = onScrollRatioChange
+  }, [onScrollRatioChange])
+
+  const restoreInitialRatio = (height?: number) => {
+    if (
+      restoredRatioRef.current ||
+      initialLine ||
+      typeof initialScrollRatioRef.current !== 'number' ||
+      initialScrollRatioRef.current <= 0 ||
+      !scrollRef.current
+    ) {
+      return
+    }
+    const ch = height ?? contentHeightRef.current
+    const lh = layoutHeightRef.current
+    if (ch > 0 && lh > 0) {
+      const maxScroll = ch - lh
+      if (maxScroll > 0) {
+        scrollRef.current.scrollTo({
+          y: initialScrollRatioRef.current * maxScroll,
+          animated: false
+        })
+        restoredRatioRef.current = true
+      }
+    }
+  }
+
   const syntax = useMemo(
     () => buildMobileFilePreviewSyntax(relativePath, content),
     [content, relativePath]
@@ -99,10 +136,24 @@ export function MobileFilePreviewSourceText({
       contentContainerStyle={
         showLineNumbers && lines ? styles.textContentWithLines : styles.textContent
       }
+      onLayout={(event) => {
+        layoutHeightRef.current = event.nativeEvent.layout.height
+        restoreInitialRatio()
+      }}
       onContentSizeChange={(_width, height) => {
         contentHeightRef.current = height
         revealInitialLine(height)
+        restoreInitialRatio(height)
       }}
+      onScroll={(event) => {
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent
+        const maxScroll = contentSize.height - layoutMeasurement.height
+        if (maxScroll > 0) {
+          const ratio = Math.max(0, Math.min(1, contentOffset.y / maxScroll))
+          onScrollRatioChangeRef.current?.(ratio)
+        }
+      }}
+      scrollEventThrottle={16}
     >
       {truncated ? (
         <MobileFilePreviewTruncatedNote byteLength={byteLength ?? content.length} />

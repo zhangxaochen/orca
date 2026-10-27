@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
 import { clearMobileMarkdownViewModeState } from './mobile-markdown-view-mode-state'
+import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import type { MarkdownDocState } from './mobile-session-route-types'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -266,5 +267,59 @@ describe('live session markdown reader copy', () => {
     expect(
       buttons().find((node) => node.props.accessibilityLabel === 'View Markdown source')
     ).toBeUndefined()
+  })
+
+  it('preserves scroll ratio when switching between editor and source view', () => {
+    act(() => {
+      renderer = create(
+        createElement(MarkdownReader, {
+          documentId: 'tab-scroll',
+          doc,
+          title: 'DOC.md',
+          relativePath: 'DOC.md',
+          onCopy,
+          onCopyPath,
+          onSave,
+          onDiscard,
+          onRefresh,
+          onChange: vi.fn(),
+          keyboardLift: 0
+        })
+      )
+    })
+
+    // Initially in editor mode with initialScrollRatio = 0
+    let editor = renderer!.root.findByType('MobileRichMarkdownEditor' as any)
+    expect(editor.props.initialScrollRatio).toBe(0)
+
+    // Simulate scrolling in rich editor
+    act(() => {
+      editor.props.onScrollRatioChange(0.65)
+    })
+
+    // Switch to source mode
+    const viewToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View Markdown source'
+    )
+    act(() => viewToggle!.props.onPress())
+
+    // Source view should receive initialScrollRatio = 0.65
+    const source = renderer!.root.findByType(MobileFilePreviewSourceText)
+    expect(source.props.initialScrollRatio).toBe(0.65)
+
+    // Simulate scrolling in source view to 0.8
+    act(() => {
+      source.props.onScrollRatioChange?.(0.8)
+    })
+
+    // Switch back to editor mode
+    const editorToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View rich editor'
+    )
+    act(() => editorToggle!.props.onPress())
+
+    // Editor should remount with initialScrollRatio = 0.8
+    editor = renderer!.root.findByType('MobileRichMarkdownEditor' as any)
+    expect(editor.props.initialScrollRatio).toBe(0.8)
   })
 })

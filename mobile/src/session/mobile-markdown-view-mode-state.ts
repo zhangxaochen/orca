@@ -8,8 +8,35 @@ export const MOBILE_MARKDOWN_DOC_VIEW_MODES_STORAGE_KEY = 'orca:mobile:markdown:
 
 const MAX_REMEMBERED_DOCUMENTS = 50
 const docViewModes = new Map<string, MobileMarkdownViewMode>()
+const docScrollRatios = new Map<string, number>()
 let lastChosenMode: MobileMarkdownViewMode = 'editor'
 let storageHydrated = false
+
+export function getMobileMarkdownScrollRatio(docKey?: string | null): number {
+  if (docKey && docScrollRatios.has(docKey)) {
+    return docScrollRatios.get(docKey)!
+  }
+  return 0
+}
+
+export function saveMobileMarkdownScrollRatio(
+  docKey: string | undefined | null,
+  ratio: number
+): void {
+  if (!docKey || typeof ratio !== 'number' || !Number.isFinite(ratio)) {
+    return
+  }
+  const clamped = Math.max(0, Math.min(1, ratio))
+  docScrollRatios.delete(docKey)
+  docScrollRatios.set(docKey, clamped)
+  while (docScrollRatios.size > MAX_REMEMBERED_DOCUMENTS) {
+    const oldestKey = docScrollRatios.keys().next().value
+    if (typeof oldestKey !== 'string') {
+      break
+    }
+    docScrollRatios.delete(oldestKey)
+  }
+}
 
 export function parseMobileMarkdownViewMode(raw: unknown): MobileMarkdownViewMode {
   return raw === 'source' ? 'source' : 'editor'
@@ -85,6 +112,7 @@ export async function readMobileMarkdownViewModePreferences(): Promise<void> {
 
 export function clearMobileMarkdownViewModeState(): void {
   docViewModes.clear()
+  docScrollRatios.clear()
   lastChosenMode = 'editor'
   storageHydrated = false
 }
