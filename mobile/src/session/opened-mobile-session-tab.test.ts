@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  activateOpenedSessionTab,
   activateOpenedSourceControlDiffTab,
   findOpenedMobileSessionTab,
   shouldActivateOpenedMobileSessionTab,
@@ -135,6 +136,20 @@ describe('activateOpenedSourceControlDiffTab', () => {
 
     expect(settled).toBe(true)
     expect(harness.switched).toEqual(['diff-1'])
+  })
+
+  it('prefers an edit tab when preferMode is edit', async () => {
+    const harness = createSourceControlHarness()
+
+    const settled = await activateOpenedSessionTab({
+      ...harness.options(async () => {
+        harness.setTabs([diffTab, { type: 'file', id: 'edit-1', mode: 'edit', relativePath: 'src/app.ts' }])
+      }),
+      preferMode: 'edit'
+    })
+
+    expect(settled).toBe(true)
+    expect(harness.switched).toEqual(['edit-1'])
   })
 
   it('settles without switching when the snapshot already made the diff active', async () => {

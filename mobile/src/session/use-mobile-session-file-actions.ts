@@ -1,9 +1,17 @@
 import { useRef, useCallback, useState } from 'react'
 import { openExternalLink } from '../platform/external-link'
+import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
+import { createMobileFilePreviewHref } from '../files/mobile-file-preview-route'
+import { isRendererUnavailableReply } from '../transport/renderer-unavailable-reply'
 import { useMobileFileTapHandlers } from './use-mobile-file-tap-handlers'
-import type { MobileFileTapResolvedConfirmation } from './mobile-file-tap-open'
+import { displayNameFromPath, type MobileFileTapResolvedConfirmation } from './mobile-file-tap-open'
+import { fileTapOpenRun } from './mobile-session-launch-operations'
 import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
-import { activateOpenedSourceControlDiffTab } from './opened-mobile-session-tab'
+import {
+  activateOpenedSessionTab,
+  activateOpenedSourceControlDiffTab,
+  findOpenedMobileSessionTab
+} from './opened-mobile-session-tab'
 import type { MobileSessionTab } from './mobile-session-route-types'
 import type { MobileSessionTerminalSendActionsModel } from './use-mobile-session-terminal-send-actions'
 
@@ -106,6 +114,84 @@ export function useMobileSessionFileActions(scope: MobileSessionTerminalSendActi
     [fetchSessionTabs, scheduleDelayedAction]
   )
 
+  const router = useWorkspaceRouteHandoff()
+  const handleOpenFile = useCallback(
+    (relativePath: string) => {
+      if (!client) {
+        return
+      }
+      handleFileOpenStart()
+      const activationSeq = ++handleOpenedFileDiffActivationSeqRef.current
+      const activeTabIdAtTap = fileOpenStartActiveTabIdRef.current
+
+      const existingTab = findOpenedMobileSessionTab(sessionTabsRef.current, relativePath, {
+        preferMode: 'edit'
+      })
+      if (existingTab) {
+        switchSessionTabRef.current?.(existingTab)
+        return
+      }
+
+      void fileTapOpenRun
+        .request(
+          client,
+          { worktree: `id:${worktreeId}`, relativePath },
+          { timeoutMs: 15_000 }
+        )
+        .then((res) => {
+          if (isRendererUnavailableReply(res)) {
+            router.push(
+              createMobileFilePreviewHref({
+                hostId,
+                worktreeId,
+                source: 'worktree',
+                relativePath,
+                name: displayNameFromPath(relativePath),
+                worktreeName: routeWorktreeName
+              })
+            )
+          }
+        })
+
+      let activated = false
+      const activateOpenedTab = async (): Promise<void> => {
+        const settled = await activateOpenedSessionTab<MobileSessionTab>({
+          relativePath,
+          activeTabIdAtTap,
+          fetchSessionTabs,
+          getTabs: () => sessionTabsRef.current,
+          getActiveTabId: () => activeSessionTabIdRef.current,
+          getActivationState: () => ({
+            activated,
+            activationSeq,
+            latestActivationSeq: handleOpenedFileDiffActivationSeqRef.current
+          }),
+          switchSessionTab: (tab) => switchSessionTabRef.current?.(tab),
+          preferMode: 'edit'
+        })
+        if (settled) {
+          activated = true
+        }
+      }
+
+      scheduleDelayedAction(() => void activateOpenedTab(), 200)
+      scheduleDelayedAction(() => void activateOpenedTab(), 600)
+      scheduleDelayedAction(() => void activateOpenedTab(), 1200)
+    },
+    [
+      client,
+      fetchSessionTabs,
+      handleFileOpenStart,
+      hostId,
+      routeWorktreeName,
+      router,
+      scheduleDelayedAction,
+      sessionTabsRef,
+      switchSessionTabRef,
+      worktreeId
+    ]
+  )
+
   const handleTerminalOpenUrl = useCallback(
     (handle: string, url: string) => {
       if (handle !== activeHandleRef.current) {
@@ -131,6 +217,7 @@ export function useMobileSessionFileActions(scope: MobileSessionTerminalSendActi
     fileOpenStartActiveTabIdRef,
     handleFileOpenStart,
     handleOpenedFileDiff,
+    handleOpenFile,
     handleTerminalOpenUrl
   }
 }

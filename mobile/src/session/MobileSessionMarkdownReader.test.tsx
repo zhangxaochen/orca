@@ -8,10 +8,11 @@ vi.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
   Pressable: 'Pressable',
+  ScrollView: 'ScrollView',
   ActivityIndicator: 'ActivityIndicator',
   StyleSheet: { create: <T,>(styles: T) => styles, hairlineWidth: 1 }
 }))
-vi.mock('lucide-react-native', () => ({ RefreshCw: 'RefreshCw' }))
+vi.mock('lucide-react-native', () => ({ RefreshCw: 'RefreshCw', ListOrdered: 'ListOrdered' }))
 vi.mock('../components/MobileRichMarkdownEditor', () => ({
   MobileRichMarkdownEditor: 'MobileRichMarkdownEditor'
 }))
@@ -110,5 +111,43 @@ describe('live session markdown reader copy', () => {
     expect(onRefresh).toHaveBeenCalledOnce()
     expect(onCopy).not.toHaveBeenCalled()
     expect(onCopyPath).not.toHaveBeenCalled()
+  })
+
+  it('toggles between rich editor and source view with line numbers', () => {
+    render(doc)
+    const viewToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View Markdown source'
+    )
+    expect(viewToggle).toBeDefined()
+    expect(
+      buttons().find(
+        (node) =>
+          node.props.accessibilityLabel === 'Show line numbers' ||
+          node.props.accessibilityLabel === 'Hide line numbers'
+      )
+    ).toBeUndefined()
+
+    act(() => viewToggle!.props.onPress())
+
+    const lineToggle = buttons().find(
+      (node) =>
+        node.props.accessibilityLabel === 'Show line numbers' ||
+        node.props.accessibilityLabel === 'Hide line numbers'
+    )
+    expect(lineToggle).toBeDefined()
+
+    const richToggle = buttons().find(
+      (node) => node.props.accessibilityLabel === 'View rich editor'
+    )
+    expect(richToggle).toBeDefined()
+    act(() => {
+      richToggle!.props.onPress()
+    })
+
+    expect(
+      buttons().find(
+        (node) => node.props.accessibilityLabel === 'View Markdown source'
+      )
+    ).toBeDefined()
   })
 })

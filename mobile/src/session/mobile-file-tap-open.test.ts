@@ -253,7 +253,7 @@ describe('openMobileFileTap', () => {
     })
     await Promise.resolve()
     await Promise.resolve()
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(client.sendRequest).toHaveBeenCalledWith(
       'files.open',
@@ -746,7 +746,7 @@ describe('openMobileFileTap', () => {
       scheduleDelayedAction: vi.fn(),
       onRevealFileLine
     })
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await vi.advanceTimersByTimeAsync(0)
 
     expect(onRevealFileLine).not.toHaveBeenCalled()
   })

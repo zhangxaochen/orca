@@ -15,6 +15,7 @@ vi.mock('react-native', () => ({
 }))
 
 vi.mock('lucide-react-native', () => ({
+  BookOpen: 'BookOpen',
   Code: 'Code',
   Pencil: 'Pencil',
   Copy: 'Copy',

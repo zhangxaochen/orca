@@ -21,6 +21,7 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     createWarning,
     handleFileOpenStart,
     handleOpenedFileDiff,
+    handleOpenFile,
     handleSessionContentRowLayout
   } = controller
   return (
@@ -54,6 +55,10 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
           onRequestClose={() => setActivePanel(null)}
           onFileOpenStart={handleFileOpenStart}
           onOpenedFileDiff={handleOpenedFileDiff}
+          onOpenFile={(relativePath) => {
+            handleOpenFile(relativePath)
+            setActivePanel(null)
+          }}
         />
       )}
     </View>

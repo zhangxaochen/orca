@@ -309,6 +309,6 @@ function scheduleOpenedWorktreeTabActivation<T extends FileTapSessionTab>(
   options.scheduleDelayedAction(() => void activateOpenedTab(), 1800)
 }
 
-function displayNameFromPath(path: string): string | undefined {
+export function displayNameFromPath(path: string): string | undefined {
   return path.split(/[\\/]/).findLast(Boolean)
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { View, Text, Pressable, ActivityIndicator } from 'react-native'
-import { RefreshCw } from 'lucide-react-native'
+import { ListOrdered, RefreshCw } from 'lucide-react-native'
 import { MobileRichMarkdownEditor } from '../components/MobileRichMarkdownEditor'
+import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
+import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import { resolveMarkdownFloatingActionsBottom } from './markdown-floating-actions-layout'
 import { markdownReaderStatusText } from './mobile-markdown-reader-status'
 import { colors, spacing } from '../theme/mobile-theme'
@@ -32,6 +34,8 @@ export function MarkdownReader({
 }) {
   // Native Keyboard events under-report the WebView editor's covered area, so prefer the larger WebView-measured inset.
   const [webviewKeyboardInset, setWebviewKeyboardInset] = useState(0)
+  const [viewMode, setViewMode] = useState<'editor' | 'source'>('editor')
+  const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
   const effectiveKeyboardLift = Math.max(keyboardLift, webviewKeyboardInset)
   if (!doc || doc.status === 'loading') {
     return (
@@ -50,13 +54,23 @@ export function MarkdownReader({
 
   return (
     <View style={styles.markdownEditor}>
-      <MobileRichMarkdownEditor
-        key={documentId}
-        content={doc.localContent}
-        editable={doc.editable && !doc.saving}
-        onChange={onChange}
-        onKeyboardInsetChange={setWebviewKeyboardInset}
-      />
+      {viewMode === 'editor' ? (
+        <MobileRichMarkdownEditor
+          key={documentId}
+          content={doc.localContent}
+          editable={doc.editable && !doc.saving}
+          onChange={onChange}
+          onKeyboardInsetChange={setWebviewKeyboardInset}
+        />
+      ) : (
+        <MobileFilePreviewSourceText
+          relativePath="markdown.md"
+          content={doc.localContent}
+          truncated={doc.truncated}
+          byteLength={doc.byteLength}
+          showLineNumbers={showLineNumbers}
+        />
+      )}
       <View
         pointerEvents="box-none"
         style={[
@@ -100,6 +114,32 @@ export function MarkdownReader({
           >
             <Text style={styles.markdownFloatingButtonText}>Copy path</Text>
           </Pressable>
+          <Pressable
+            style={[
+              styles.markdownFloatingButton,
+              viewMode === 'source' && styles.markdownFloatingButtonActive
+            ]}
+            onPress={() => setViewMode((prev) => (prev === 'editor' ? 'source' : 'editor'))}
+            accessibilityRole="button"
+            accessibilityLabel={viewMode === 'editor' ? 'View Markdown source' : 'View rich editor'}
+          >
+            <Text style={styles.markdownFloatingButtonText}>
+              {viewMode === 'editor' ? 'Source' : 'Rich Text'}
+            </Text>
+          </Pressable>
+          {viewMode === 'source' ? (
+            <Pressable
+              style={[
+                styles.markdownFloatingButton,
+                showLineNumbers && styles.markdownFloatingButtonActive
+              ]}
+              onPress={() => setShowLineNumbers((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
+            >
+              <ListOrdered size={13} color={colors.textPrimary} strokeWidth={2.2} />
+            </Pressable>
+          ) : null}
           {showRefresh ? (
             <Pressable style={styles.markdownFloatingButton} onPress={onRefresh}>
               <RefreshCw size={13} color={colors.textPrimary} />

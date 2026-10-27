@@ -230,7 +230,6 @@ function onDocumentTouchEnd(scope: TerminalDocumentScope, e: TouchEvent) {
     if (
       touches.length === 0 &&
       scope.tapCandidate &&
-      !scope.touchGesture.hasMoved &&
       scope.selMode !== 'select' &&
       Date.now() - scope.tapCandidate.t <= TAP_MAX_MS &&
       // Release can precede a queued row-scroll frame; cancelled-out movement remains a tap.

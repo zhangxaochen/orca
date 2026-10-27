@@ -2,7 +2,7 @@ import { MobileMarkdownPreviewImage } from './MobileMarkdownPreviewImage'
 import type { MobileFilePreviewRpcSender } from './mobile-file-preview-operations'
 import { useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
-import { Code, Pencil } from 'lucide-react-native'
+import { BookOpen, Code } from 'lucide-react-native'
 import { MobileMarkdown } from '../components/MobileMarkdown'
 import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
 import { colors } from '../theme/mobile-theme'
@@ -70,7 +70,7 @@ export function MobileFileMarkdownPreview({
           accessibilityState={{ selected: previewSelected }}
           accessibilityLabel="View rendered Markdown preview"
         >
-          <Pencil
+          <BookOpen
             size={15}
             color={previewSelected ? colors.textPrimary : colors.textSecondary}
             strokeWidth={2.2}

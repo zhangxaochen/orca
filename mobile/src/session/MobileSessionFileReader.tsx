@@ -1,6 +1,6 @@
 import { MobileFileMediaPreview } from '../files/MobileFileMediaPreview'
 import type { MobileFilePreviewRpcSender } from '../files/mobile-file-preview-operations'
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   FlatList,
   Image,
@@ -12,11 +12,12 @@ import {
   ActivityIndicator,
   type ListRenderItem
 } from 'react-native'
-import { Copy, MessageSquare, Send } from 'lucide-react-native'
-import { MobileSyntaxSegments } from '../components/MobileSyntaxSegments'
+import { Copy, ListOrdered, MessageSquare, Send } from 'lucide-react-native'
+import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
+import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
+import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import {
   buildPlainMobileDiffSyntaxLines,
-  highlightMobileCode,
   highlightMobileDiffLines,
   resolveMobileSyntaxLanguage
 } from './mobile-file-syntax'
@@ -28,7 +29,6 @@ import type {
   DiffCommentActions,
   DiffSyntaxState,
   FileDocState,
-  FileSyntaxState,
   RenderableDiffLine
 } from './mobile-session-route-types'
 import { DiffLineRow } from './MobileSessionDiffLineRow'
@@ -66,63 +66,15 @@ function FileReaderDocument({
   relativePath,
   language,
   initialLine,
-  initialLineSeq,
+  initialLineSeq: _initialLineSeq,
   diffCommentActions
 }: FileReaderProps) {
-  const scrollRef = useRef<ScrollView>(null)
-  const contentHeightRef = useRef(0)
-  const revealedKeyRef = useRef<string | null>(null)
+  const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
   const syntaxLanguage = useMemo(
     () => resolveMobileSyntaxLanguage(relativePath || title, language),
     [language, relativePath, title]
   )
-  const [fileSyntax, setFileSyntax] = useState<FileSyntaxState | null>(null)
   const [diffSyntax, setDiffSyntax] = useState<DiffSyntaxState | null>(null)
-  const revealTargetKey = initialLine
-    ? `${relativePath}:${initialLine}:${initialLineSeq ?? 0}`
-    : null
-  const syntaxReady =
-    doc?.status === 'ready' &&
-    (doc.kind === 'file' || doc.kind === 'html') &&
-    fileSyntax?.doc === doc &&
-    fileSyntax.language === syntaxLanguage
-  const applyInitialLineScroll = useCallback(
-    (height: number) => {
-      if (
-        !initialLine ||
-        !revealTargetKey ||
-        revealedKeyRef.current === revealTargetKey ||
-        !scrollRef.current
-      ) {
-        return
-      }
-      scrollRef.current.scrollTo({
-        y: scrollOffsetForSessionFileLine(initialLine),
-        animated: false
-      })
-      if (height > 0 && syntaxReady) {
-        revealedKeyRef.current = revealTargetKey
-      }
-    },
-    [initialLine, revealTargetKey, syntaxReady]
-  )
-  const handleContentSizeChange = useCallback(
-    (_width: number, height: number) => {
-      contentHeightRef.current = height
-      applyInitialLineScroll(height)
-    },
-    [applyInitialLineScroll]
-  )
-  useEffect(() => {
-    if (doc?.status !== 'ready') {
-      contentHeightRef.current = 0
-      revealedKeyRef.current = null
-      return
-    }
-    if (doc.kind === 'file' || doc.kind === 'html') {
-      applyInitialLineScroll(contentHeightRef.current)
-    }
-  }, [applyInitialLineScroll, doc])
   const [activeCommentLine, setActiveCommentLine] = useState<number | null>(null)
   const [commentDraft, setCommentDraft] = useState('')
   const plainDiffLines = useMemo(
@@ -213,27 +165,17 @@ function FileReaderDocument({
   )
 
   useEffect(() => {
-    if (doc?.status !== 'ready') {
+    if (doc?.status !== 'ready' || doc.kind !== 'diff') {
       return undefined
     }
 
     // Defer highlighting one tick so large files appear as plain text immediately.
     const timer = setTimeout(() => {
-      if (doc.kind === 'file' || doc.kind === 'html') {
-        setFileSyntax({
-          doc,
-          language: syntaxLanguage,
-          segments: highlightMobileCode(doc.content, syntaxLanguage).segments
-        })
-        return
-      }
-      if (doc.kind === 'diff') {
-        setDiffSyntax({
-          doc,
-          language: syntaxLanguage,
-          lines: highlightMobileDiffLines(doc.lines, syntaxLanguage)
-        })
-      }
+      setDiffSyntax({
+        doc,
+        language: syntaxLanguage,
+        lines: highlightMobileDiffLines(doc.lines, syntaxLanguage)
+      })
     }, 0)
 
     return () => clearTimeout(timer)
@@ -347,22 +289,43 @@ function FileReaderDocument({
 
   const renderSourceText = (content: string) => (
     <View style={styles.markdownEditor}>
-      <ScrollView
-        ref={scrollRef}
-        style={styles.filePreviewScroll}
-        contentContainerStyle={styles.filePreviewContent}
-        onContentSizeChange={handleContentSizeChange}
-      >
-        <Text selectable style={styles.filePreviewText} accessibilityLabel={`${title} preview`}>
-          <MobileSyntaxSegments
-            segments={
-              fileSyntax?.doc === doc && fileSyntax.language === syntaxLanguage
-                ? fileSyntax.segments
-                : [{ text: content, kind: 'plain' }]
-            }
-          />
+      <View style={styles.fileReaderToolbar}>
+        <Text style={styles.fileReaderPath} numberOfLines={1}>
+          {relativePath || title}
         </Text>
-      </ScrollView>
+        <View style={styles.fileReaderToolbarActions}>
+          <Pressable
+            style={[
+              styles.fileReaderToolbarButton,
+              showLineNumbers && styles.fileReaderToolbarButtonActive
+            ]}
+            onPress={() => setShowLineNumbers((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: showLineNumbers }}
+            accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
+          >
+            <ListOrdered
+              size={15}
+              color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
+              strokeWidth={2.2}
+            />
+          </Pressable>
+          <MobileSourceCopyButton
+            key={relativePath}
+            text={content}
+            partial={doc.kind === 'file' ? doc.truncated : false}
+            accessibilityLabel="Copy file content"
+          />
+        </View>
+      </View>
+      <MobileFilePreviewSourceText
+        relativePath={relativePath || title}
+        content={content}
+        truncated={doc.kind === 'file' ? doc.truncated : false}
+        byteLength={doc.kind === 'file' ? doc.byteLength : content.length}
+        initialLine={initialLine}
+        showLineNumbers={showLineNumbers}
+      />
     </View>
   )
 

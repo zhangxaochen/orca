@@ -39,7 +39,7 @@ export type OpenedSourceControlDiffActivationState = {
   latestActivationSeq: number
 }
 
-export type ActivateOpenedSourceControlDiffTabOptions<T extends OpenedMobileSessionTabCandidate> = {
+export type ActivateOpenedSessionTabOptions<T extends OpenedMobileSessionTabCandidate> = {
   relativePath: string
   activeTabIdAtTap: string | null
   fetchSessionTabs: () => Promise<void>
@@ -47,11 +47,15 @@ export type ActivateOpenedSourceControlDiffTabOptions<T extends OpenedMobileSess
   getActiveTabId: () => string | null
   getActivationState: () => OpenedSourceControlDiffActivationState
   switchSessionTab: (tab: T) => void
+  preferMode?: 'diff' | 'edit'
 }
 
+export type ActivateOpenedSourceControlDiffTabOptions<T extends OpenedMobileSessionTabCandidate> =
+  ActivateOpenedSessionTabOptions<T>
+
 // Diff opens have no source terminal; settle already-active tabs and stop activation if the user changed tabs after the tap.
-export async function activateOpenedSourceControlDiffTab<T extends OpenedMobileSessionTabCandidate>(
-  options: ActivateOpenedSourceControlDiffTabOptions<T>
+export async function activateOpenedSessionTab<T extends OpenedMobileSessionTabCandidate>(
+  options: ActivateOpenedSessionTabOptions<T>
 ): Promise<boolean> {
   const isSuperseded = (): boolean => {
     const state = options.getActivationState()
@@ -65,7 +69,7 @@ export async function activateOpenedSourceControlDiffTab<T extends OpenedMobileS
     return false
   }
   const opened = findOpenedMobileSessionTab(options.getTabs(), options.relativePath, {
-    preferMode: 'diff'
+    preferMode: options.preferMode ?? 'diff'
   })
   if (!opened) {
     return false
@@ -82,6 +86,8 @@ export async function activateOpenedSourceControlDiffTab<T extends OpenedMobileS
   options.switchSessionTab(opened)
   return true
 }
+
+export const activateOpenedSourceControlDiffTab = activateOpenedSessionTab
 
 export function shouldActivateOpenedMobileSessionTab(
   state: OpenedMobileSessionTabActivationState
