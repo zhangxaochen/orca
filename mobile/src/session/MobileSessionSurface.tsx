@@ -5,6 +5,7 @@ import { MobileSessionContentRow } from './MobileSessionContentRow'
 import { MobileSessionHeader } from './MobileSessionHeader'
 import { MobileSessionSheets } from './MobileSessionSheets'
 import { MobileTerminalFileTapSheet } from './MobileTerminalFileTapSheet'
+import { MobileTerminalUrlTapSheet } from './MobileTerminalUrlTapSheet'
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   const { setMobileSessionRootRef } = controller
@@ -17,6 +18,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
       </View>
       <MobileSessionSheets controller={controller} />
       <MobileTerminalFileTapSheet controller={controller} />
+      <MobileTerminalUrlTapSheet controller={controller} />
     </View>
   )
 }
