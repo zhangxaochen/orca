@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Pressable, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaFrame } from 'react-native-safe-area-context'
-import { ChevronLeft, ListOrdered, Save } from 'lucide-react-native'
+import { ChevronLeft, Save } from 'lucide-react-native'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
 import { getWorktreeLabel } from '../session/worktree-label'
 import { colors, spacing } from '../theme/mobile-theme'
@@ -231,12 +231,6 @@ export function MobileFilePreviewScreen({ route }: Props) {
     leave
   })
 
-  const canToggleLineNumbers =
-    !isEditableTerminalArtifact &&
-    (preview.status === 'ready' || preview.status === 'empty') &&
-    preview.kind !== 'image' &&
-    preview.kind !== 'media'
-
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.header} edges={['top']}>
@@ -259,25 +253,6 @@ export function MobileFilePreviewScreen({ route }: Props) {
             </Text>
           </View>
           <View style={styles.topBarActions}>
-            {canToggleLineNumbers ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.toolbarButton,
-                  showLineNumbers && styles.toolbarButtonActive,
-                  pressed && styles.toolbarButtonPressed
-                ]}
-                onPress={() => setShowLineNumbers((prev) => !prev)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: showLineNumbers }}
-                accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
-              >
-                <ListOrdered
-                  size={18}
-                  color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
-                  strokeWidth={2.2}
-                />
-              </Pressable>
-            ) : null}
             {isEditableTerminalArtifact ? (
               <Pressable
                 style={[styles.saveButton, (!canSaveArtifact || saving) && styles.saveButtonDisabled]}
@@ -302,6 +277,7 @@ export function MobileFilePreviewScreen({ route }: Props) {
         saveError={saveError}
         lineColumn={lineColumn}
         showLineNumbers={showLineNumbers}
+        onToggleLineNumbers={() => setShowLineNumbers((prev) => !prev)}
         imageWidth={Math.max(1, width - spacing.md * 2)}
         imageHeight={Math.max(240, height - 160)}
         onDraftChange={setDraftContent}

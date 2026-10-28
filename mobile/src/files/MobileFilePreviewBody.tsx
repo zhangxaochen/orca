@@ -6,6 +6,7 @@ import type { MobileFilePreviewResult } from './mobile-file-preview-request'
 import { MobileFileMarkdownPreview } from './MobileFileMarkdownPreview'
 import { MobileFilePreviewEditableSource } from './MobileFilePreviewEditableSource'
 import { MobileFilePreviewSourceText } from './MobileFilePreviewSourceText'
+import { MobileFileAddressToolbar } from '../components/MobileFileAddressToolbar'
 import type { MobileFilePreviewLineColumn } from './mobile-file-preview-line-column'
 import { filePreviewStyles as styles } from './mobile-file-preview-styles'
 import { MobileLoadErrorState } from '../components/MobileLoadErrorState'
@@ -23,6 +24,7 @@ type Props = {
   imageWidth: number
   imageHeight: number
   showLineNumbers?: boolean
+  onToggleLineNumbers?: () => void
   onDraftChange: (content: string) => void
   onImageError: () => void
   onOpenFile?: (pathText: string) => void
@@ -46,8 +48,18 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
     return options.editable ? (
       <EditablePreviewSource {...options} />
     ) : (
-      <View style={styles.state}>
-        <Text style={styles.stateText}>Empty file</Text>
+      <View style={styles.codeContainer}>
+        <MobileFileAddressToolbar
+          path={options.relativePath || options.title}
+          showLineNumbers={options.showLineNumbers}
+          onToggleLineNumbers={options.onToggleLineNumbers}
+          content=""
+          truncated={false}
+          copyAccessibilityLabel="Copy file content"
+        />
+        <View style={styles.state}>
+          <Text style={styles.stateText}>Empty file</Text>
+        </View>
       </View>
     )
   }
@@ -94,6 +106,7 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
         byteLength={preview.byteLength}
         initialLine={options.lineColumn?.line}
         showLineNumbers={options.showLineNumbers}
+        onToggleLineNumbers={options.onToggleLineNumbers}
         onOpenFile={options.onOpenFile}
       />
     )
@@ -102,6 +115,39 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
     return options.editable ? (
       <EditablePreviewSource {...options} />
     ) : (
+      <View style={styles.codeContainer}>
+        <MobileFileAddressToolbar
+          path={options.relativePath || options.title}
+          showLineNumbers={options.showLineNumbers}
+          onToggleLineNumbers={options.onToggleLineNumbers}
+          content={preview.content}
+          truncated={preview.truncated}
+          copyAccessibilityLabel="Copy file content"
+        />
+        <MobileFilePreviewSourceText
+          relativePath={options.relativePath}
+          content={preview.content}
+          truncated={preview.truncated}
+          byteLength={preview.byteLength}
+          initialLine={options.lineColumn?.line}
+          showLineNumbers={options.showLineNumbers}
+        />
+      </View>
+    )
+  }
+  if (options.editable) {
+    return <EditablePreviewSource {...options} />
+  }
+  return (
+    <View style={styles.codeContainer}>
+      <MobileFileAddressToolbar
+        path={options.relativePath || options.title}
+        showLineNumbers={options.showLineNumbers}
+        onToggleLineNumbers={options.onToggleLineNumbers}
+        content={preview.content}
+        truncated={preview.truncated}
+        copyAccessibilityLabel="Copy file content"
+      />
       <MobileFilePreviewSourceText
         relativePath={options.relativePath}
         content={preview.content}
@@ -110,20 +156,7 @@ export function MobileFilePreviewBody({ preview, ...options }: Props) {
         initialLine={options.lineColumn?.line}
         showLineNumbers={options.showLineNumbers}
       />
-    )
-  }
-  if (options.editable) {
-    return <EditablePreviewSource {...options} />
-  }
-  return (
-    <MobileFilePreviewSourceText
-      relativePath={options.relativePath}
-      content={preview.content}
-      truncated={preview.truncated}
-      byteLength={preview.byteLength}
-      initialLine={options.lineColumn?.line}
-      showLineNumbers={options.showLineNumbers}
-    />
+    </View>
   )
 }
 

@@ -12,8 +12,8 @@ import {
   ActivityIndicator,
   type ListRenderItem
 } from 'react-native'
-import { Copy, ListOrdered, MessageSquare, Send } from 'lucide-react-native'
-import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
+import { Copy, MessageSquare, Send } from 'lucide-react-native'
+import { MobileFileAddressToolbar } from '../components/MobileFileAddressToolbar'
 import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import {
@@ -291,33 +291,14 @@ function FileReaderDocument({
 
   const renderSourceText = (content: string) => (
     <View style={styles.markdownEditor}>
-      <View style={styles.fileReaderToolbar}>
-        <Pressable
-          style={[
-            styles.fileReaderToolbarButton,
-            showLineNumbers && styles.fileReaderToolbarButtonActive
-          ]}
-          onPress={() => setShowLineNumbers((prev) => !prev)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: showLineNumbers }}
-          accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
-        >
-          <ListOrdered
-            size={15}
-            color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
-            strokeWidth={2.2}
-          />
-        </Pressable>
-        <Text style={styles.fileReaderPath} numberOfLines={1}>
-          {relativePath || title}
-        </Text>
-        <MobileSourceCopyButton
-          key={relativePath}
-          text={content}
-          partial={doc.kind === 'file' ? doc.truncated : false}
-          accessibilityLabel="Copy file content"
-        />
-      </View>
+      <MobileFileAddressToolbar
+        path={relativePath || title}
+        showLineNumbers={showLineNumbers}
+        onToggleLineNumbers={() => setShowLineNumbers((prev) => !prev)}
+        content={content}
+        truncated={doc.kind === 'file' ? doc.truncated : false}
+        copyAccessibilityLabel="Copy file content"
+      />
       <MobileFilePreviewSourceText
         relativePath={relativePath || title}
         content={content}

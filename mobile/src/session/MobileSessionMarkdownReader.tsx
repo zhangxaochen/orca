@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ActivityIndicator } from 'react-native'
-import { ListOrdered, RefreshCw } from 'lucide-react-native'
+import { RefreshCw } from 'lucide-react-native'
 import { MobileRichMarkdownEditor } from '../components/MobileRichMarkdownEditor'
-import { MobileSourceCopyButton } from '../components/MobileSourceCopyButton'
+import { MobileFileAddressToolbar } from '../components/MobileFileAddressToolbar'
 import { MobileFilePreviewSourceText } from '../files/MobileFilePreviewSourceText'
 import { useMobileLineNumbersPreference } from '../files/mobile-line-numbers-preference'
 import { resolveMarkdownFloatingActionsBottom } from './markdown-floating-actions-layout'
@@ -92,33 +92,14 @@ export function MarkdownReader({
         />
       ) : (
         <>
-          <View style={styles.fileReaderToolbar}>
-            <Pressable
-              style={[
-                styles.fileReaderToolbarButton,
-                showLineNumbers && styles.fileReaderToolbarButtonActive
-              ]}
-              onPress={() => setShowLineNumbers((prev) => !prev)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: showLineNumbers }}
-              accessibilityLabel={showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
-            >
-              <ListOrdered
-                size={15}
-                color={showLineNumbers ? colors.textPrimary : colors.textSecondary}
-                strokeWidth={2.2}
-              />
-            </Pressable>
-            <Text style={styles.fileReaderPath} numberOfLines={1}>
-              {relativePath || title || 'Markdown'}
-            </Text>
-            <MobileSourceCopyButton
-              key={relativePath || title || 'Markdown'}
-              text={doc.localContent}
-              partial={doc.truncated}
-              accessibilityLabel="Copy file content"
-            />
-          </View>
+          <MobileFileAddressToolbar
+            path={relativePath || title || 'Markdown'}
+            showLineNumbers={showLineNumbers}
+            onToggleLineNumbers={() => setShowLineNumbers((prev) => !prev)}
+            content={doc.localContent}
+            truncated={doc.truncated}
+            copyAccessibilityLabel="Copy file content"
+          />
           <MobileFilePreviewSourceText
             relativePath={relativePath || title || 'markdown.md'}
             content={doc.localContent}

@@ -142,6 +142,10 @@ export const filePreviewStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.editorSurface
   },
+  codeContainer: {
+    flex: 1,
+    backgroundColor: colors.editorSurface
+  },
   modeToolbar: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
