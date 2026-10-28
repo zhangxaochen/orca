@@ -257,6 +257,10 @@ async function readLocalMobileFile(
     MOBILE_FILE_READ_MAX_BYTES + 1,
     options
   )
+  // An extension the list does not know can still be binary; as text, a save would corrupt it.
+  if (isBinaryBuffer(bytes)) {
+    throw new Error('binary_file')
+  }
   return bytes.toString('utf8')
 }
 
