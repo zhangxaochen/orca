@@ -78,6 +78,7 @@ export function useMobileSessionTabsReconciliation<Result, Tab>({
     return hasRecoveryNeed() || contextKey !== null
   }, [getPendingTerminalRecoveryContextKey, hasRecoveryNeed, pendingTerminalRecoveryBudget])
   const allowRecoveryPoll = useCallback(() => {
+    // Spend the terminal budget even while other needs poll, or the pending terminal never offers Retry.
     const contextKey = getPendingTerminalRecoveryContextKey?.() ?? null
     const attempt = pendingTerminalRecoveryBudget.take(contextKey)
     if (attempt.parked) {

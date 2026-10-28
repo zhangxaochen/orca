@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet } from '../theme/themed-styles'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
   getActiveAdditionalProviders,
   getAdditionalProviderUsageRows,
@@ -51,6 +53,7 @@ export function UsageBar({
   resetText?: string | null
   labelWidth?: number
 }) {
+  useMobileColorScheme()
   // Why: round then clamp so bar width, color, and label share one value (desktop parity).
   const used = usedPercent == null ? null : Math.max(0, Math.min(100, Math.round(usedPercent)))
   // Why: same consumption bands as desktop barColor (green <60, amber <80, red ≥80).
@@ -121,6 +124,7 @@ export function AdditionalProvidersUsageSections({
   snapshot: AccountsSnapshot
   now: number
 }) {
+  useMobileColorScheme()
   const providers = getActiveAdditionalProviders(snapshot)
   if (providers.length === 0) {
     return null
@@ -176,7 +180,7 @@ export function AdditionalProvidersUsageSections({
   )
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet(() => ({
   usageBarColumn: {
     flex: 1,
     gap: 2
@@ -272,4 +276,4 @@ const styles = StyleSheet.create({
     fontSize: typography.metaSize,
     color: colors.statusRed
   }
-})
+}))

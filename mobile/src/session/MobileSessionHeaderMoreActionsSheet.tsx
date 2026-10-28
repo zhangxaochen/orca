@@ -4,6 +4,7 @@ import { ActionSheetModal } from '../components/ActionSheetModal'
 import { colors } from '../theme/mobile-theme'
 import type { RecentSessionCardRecord } from './recent-session-cards'
 import { RecentSessionCardsSection } from './RecentSessionCardsSheet'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 
 type MobileSessionHeaderMoreActionsSheetProps = {
   visible: boolean
@@ -34,6 +35,7 @@ export function MobileSessionHeaderMoreActionsSheet({
   onOpenChecks,
   onClose
 }: MobileSessionHeaderMoreActionsSheetProps) {
+  useMobileColorScheme()
   return (
     <ActionSheetModal
       visible={visible}

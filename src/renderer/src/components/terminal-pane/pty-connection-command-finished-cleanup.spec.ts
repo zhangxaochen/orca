@@ -227,13 +227,7 @@ export function registerPtyConnectionCommandFinishedCleanupTests(): void {
       const paneKey = makePaneKey('tab-1', LEAF_1)
       const deps = createDeps({ isVisibleRef: { current: false } })
 
-      connectPanePty(
-        ...mockPanePtyArgs(
-          createPane(1),
-          createManager(1),
-          createDeps({ isVisibleRef: { current: false } })
-        )
-      )
+      connectPanePty(...mockPanePtyArgs(createPane(1), createManager(1), deps))
       await vi.advanceTimersByTimeAsync(20)
       await flushAsyncTicks()
       mockStoreState.agentLaunchConfigByPaneKey[paneKey] = {
@@ -280,13 +274,7 @@ export function registerPtyConnectionCommandFinishedCleanupTests(): void {
       const paneKey = makePaneKey('tab-1', LEAF_1)
       const deps = createDeps({ isVisibleRef: { current: false } })
 
-      connectPanePty(
-        ...mockPanePtyArgs(
-          createPane(1),
-          createManager(1),
-          createDeps({ isVisibleRef: { current: false } })
-        )
-      )
+      connectPanePty(...mockPanePtyArgs(createPane(1), createManager(1), deps))
       await vi.advanceTimersByTimeAsync(20)
       await flushAsyncTicks()
       mockStoreState.agentLaunchConfigByPaneKey[paneKey] = {

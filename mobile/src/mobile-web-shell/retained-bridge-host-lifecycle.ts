@@ -82,6 +82,7 @@ export function acquireRetainedOrCreateBridgeHost(args: {
     route: latest.route,
     safeAreaInsets: latest.safeAreaInsets,
     keyboardInset: latest.keyboardInset,
+    colorScheme: latest.colorScheme,
     pageRoutes: latest.pageRoutes,
     pageRouteGrants: latest.pageRouteGrants,
     routeGrants: latest.routeGrants,
@@ -98,7 +99,7 @@ export function acquireRetainedOrCreateBridgeHost(args: {
         recordShellLifecycleLine(binding.args.hostId, line)
       }
     }),
-    onNavigate: (href) => binding.args.onNavigate(href),
+    onNavigate: (href, replace) => binding.args.onNavigate(href, replace),
     onNavigateBack: () => binding.args.onNavigateBack(),
     onExternalLink: (url) => binding.args.onExternalLink(url),
     onHaptic: (kind) => binding.args.onHaptic(kind),
@@ -118,7 +119,8 @@ export function acquireRetainedOrCreateBridgeHost(args: {
     onBinaryFramesDropped: (total) => binding.args.onBinaryFramesDropped(total),
     onPageReady: () => binding.args.onPageReady(),
     onPagePainted: () => binding.args.onPagePainted(),
-    onPageBackClaim: (claimed) => binding.args.onPageBackClaim(claimed)
+    onPageBackClaim: (claimed) => binding.args.onPageBackClaim(claimed),
+    onPageLocation: (href) => binding.args.onPageLocation(href)
   })
   latest.onBinaryFramesDropped(0)
   return { host, binding }

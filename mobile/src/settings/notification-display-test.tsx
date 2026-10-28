@@ -8,6 +8,8 @@ import { sendLocalNotificationDisplayTest } from '../notifications/push-socket-f
 import { getDevicePushToken } from '../notifications/push-token'
 import type { RpcFailure } from '../transport/types'
 import { colors, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet } from '../theme/themed-styles'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 
 const TOKEN_PROBE_TIMEOUT_MS = 1500
 
@@ -30,6 +32,7 @@ async function readPushTokenQuickly(): Promise<
 }
 
 export function NotificationDisplayTest({ onTroubleshoot }: { onTroubleshoot: () => void }) {
+  useMobileColorScheme()
   const busy = useRef(false)
   const [hostIds, setHostIds] = useState<string[]>([])
   const [sending, setSending] = useState(false)
@@ -132,7 +135,7 @@ export function NotificationDisplayTest({ onTroubleshoot }: { onTroubleshoot: ()
     </View>
   )
 }
-const styles = StyleSheet.create({
+const styles = themedStyleSheet(() => ({
   container: { marginTop: spacing.xl, gap: spacing.sm },
   label: { color: colors.textPrimary, fontSize: typography.bodySize, fontWeight: '600' },
   detail: { color: colors.textMuted, fontSize: typography.metaSize, lineHeight: 18 },
@@ -146,6 +149,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md
   },
+  sizingLabel: { opacity: 0 },
+  buttonLabel: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
   troubleshootLink: { alignSelf: 'flex-start', paddingVertical: spacing.sm },
   linkText: {
     color: colors.textSecondary,
@@ -154,4 +163,4 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.6 },
   buttonText: { color: colors.textPrimary, fontSize: typography.metaSize, fontWeight: '600' }
-})
+}))

@@ -2,6 +2,7 @@ import type { MarkdownDocState, MobileSessionTab } from './mobile-session-route-
 import type { ActionSheetAction } from '../components/ActionSheetModal'
 import { selectBulkCloseTabs } from './mobile-tab-close-selection'
 import { getMobileSessionTabTitle } from './mobile-terminal-tab-agent'
+import { closeTabsAfterConfirmation } from '../../../src/shared/bulk-tab-close-confirmation'
 
 export type PendingBulkCloseConfirmation = {
   anchor: MobileSessionTab
@@ -30,6 +31,7 @@ type BulkCloseSheetDeps = {
   switchSessionTab: (tab: MobileSessionTab) => void
   closeSessionTab: (tab: MobileSessionTab) => Promise<void>
   onRequestConfirmBulkClose?: (pending: PendingBulkCloseConfirmation) => void
+  confirmBulkClose?: () => Promise<boolean>
 }
 
 export function selectClosableBulkTabs(
@@ -48,7 +50,7 @@ export function selectClosableBulkTabs(
 }
 
 export async function runBulkCloseSessionTabs(
-  deps: Omit<BulkCloseSheetDeps, 'onRequestConfirmBulkClose'>,
+  deps: Omit<BulkCloseSheetDeps, 'onRequestConfirmBulkClose' | 'confirmBulkClose'>,
   anchor: MobileSessionTab,
   confirmedTargetIds?: readonly string[]
 ): Promise<void> {
@@ -71,7 +73,10 @@ export async function runBulkCloseSessionTabs(
 
 // Pass tab ids so long-press sheets share bulk-close orchestration without retaining full tabs.
 export function createBulkCloseSheetActions(deps: BulkCloseSheetDeps) {
-  return (anchorTabId: string | null | undefined, dismiss: () => void): ActionSheetAction[] => {
+  const closableIds = (anchorTabId: string) =>
+    selectClosableBulkTabs(deps, anchorTabId).map((candidate) => candidate.id)
+
+  return (anchorTabId: string | null | undefined, dismiss?: () => void): ActionSheetAction[] => {
     const anchor =
       anchorTabId == null
         ? undefined
@@ -104,8 +109,18 @@ export function createBulkCloseSheetActions(deps: BulkCloseSheetDeps) {
       {
         label: 'Close Other Tabs',
         destructive: true,
+        // Why: the confirm is its own native Modal; wait for this sheet to unmount (#10331).
+        closeBeforePress: true,
         onPress: () => {
-          dismiss()
+          if (deps.confirmBulkClose) {
+            void closeTabsAfterConfirmation(
+              () => closableIds(anchor.id),
+              deps.confirmBulkClose,
+              (tabIds) => void runBulkCloseSessionTabs(deps, anchor, tabIds)
+            )
+            return
+          }
+          dismiss?.()
           void runBulkCloseSessionTabs(deps, anchor, targetIds)
         }
       }
@@ -128,6 +143,6 @@ export function createCloseWithBulkActions(
         }
       }
     },
-    ...bulkActions(target?.id, dismiss)
+    ...bulkActions(target?.id)
   ]
 }

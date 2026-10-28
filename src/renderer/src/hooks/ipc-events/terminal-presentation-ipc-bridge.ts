@@ -8,6 +8,7 @@ import type { SplitTerminalPaneDetail } from '@/constants/terminal'
 import { verifyTerminalRevealIdentity } from '@/lib/terminal-reveal-identity'
 import { insertUnifiedTabAfterAnchor } from '@/lib/unified-tab-anchor-insertion'
 import { tryMakePaneKey } from './agent-status-routing'
+import { registerLaunchRecipe } from './launch-recipe-registration'
 import { wasAgentLaunchPaneClosedByUser } from '@/lib/agent-launch-pane-closes'
 import { revealWorkspaceSurface } from '@/lib/workspace-surface-reveal'
 import { useAppStore } from '../../store'
@@ -21,6 +22,7 @@ import {
 
 export function registerTerminalPresentationIpcBridge(unsubs: (() => void)[]): void {
   unsubs.push(
+    window.api.ui.onLaunchRecipe(registerLaunchRecipe),
     window.api.ui.onCreateTerminal(
       ({
         requestId,
@@ -174,14 +176,13 @@ export function registerTerminalPresentationIpcBridge(unsubs: (() => void)[]): v
           if (leafId && ptyId) {
             const launchPaneKey = tryMakePaneKey(tab.id, leafId)
             if (launchConfig) {
-              if (launchPaneKey) {
-                store.registerAgentLaunchConfig(launchPaneKey, launchConfig, {
-                  ...(launchAgent ? { agentType: launchAgent } : {}),
-                  ...(launchToken ? { launchToken } : {}),
-                  tabId: tab.id,
-                  leafId
-                })
-              }
+              registerLaunchRecipe({
+                tabId: tab.id,
+                leafId,
+                launchConfig,
+                ...(launchToken ? { launchToken } : {}),
+                ...(launchAgent ? { launchAgent } : {})
+              })
             } else if (!splitFromLeafId && launchPaneKey) {
               store.clearAgentLaunchConfig(launchPaneKey)
             }

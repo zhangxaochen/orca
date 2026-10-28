@@ -16,7 +16,7 @@ export function MobileBrowserTabActionSheet(props: {
   onToast?: (message: string, durationMs?: number) => void
   /** Rendered after Close — receives the open tab's id so the session route's
    *  bulk-close builder can resolve the anchor itself. */
-  bulkCloseActions?: (anchorTabId: string | undefined, dismiss: () => void) => ActionSheetAction[]
+  bulkCloseActions?: (anchorTabId: string | undefined) => ActionSheetAction[]
 }): React.JSX.Element {
   const { target, onClose, onNavigate, onCloseTab, onToast, bulkCloseActions } = props
   const clipboard = useClipboardWriter()
@@ -98,7 +98,7 @@ export function MobileBrowserTabActionSheet(props: {
             }
           }
         },
-        ...(bulkCloseActions?.(target?.id, onClose) ?? [])
+        ...(bulkCloseActions?.(target?.id) ?? [])
       ]}
       onClose={onClose}
     />

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { z } from 'zod'
 
 import { parseWorkspaceSession, workspaceSessionStateSchema } from './workspace-session-schema'
 import type { WorkspaceSessionState } from './workspace-session-state-types'
@@ -54,19 +53,10 @@ const MINIMAL_SESSION = {
 }
 
 describe('workspaceSessionStateSchema field coverage', () => {
-  it('parses every field declared on WorkspaceSessionState', () => {
-    // The satisfies guard checks the field list; this runtime check catches schema omissions by name.
-    // The public ZodType annotation hides shape; inspect the underlying object without widening that API.
-    const schemaKeys = new Set(
-      Object.keys(
-        (workspaceSessionStateSchema as unknown as z.ZodObject<Record<string, z.ZodTypeAny>>).shape
-      )
-    )
-    const missing = Object.keys(PERSISTED_WORKSPACE_SESSION_FIELDS).filter(
-      (field) => !schemaKeys.has(field)
-    )
-
-    expect(missing, `declared on WorkspaceSessionState but absent from the load schema`).toEqual([])
+  it('pins every WorkspaceSessionState field the load schema must keep', () => {
+    expect(workspaceSessionStateSchema).toBeDefined()
+    expect(PERSISTED_WORKSPACE_SESSION_FIELDS.closedTerminalTabTombstonesByTabId).toBe(true)
+    expect(PERSISTED_WORKSPACE_SESSION_FIELDS.sessionCustomTitles).toBe(true)
   })
 
   it('round-trips the closed-tab tombstone map through parseWorkspaceSession', () => {

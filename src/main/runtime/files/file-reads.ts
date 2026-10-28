@@ -25,6 +25,7 @@ import {
 } from './file-preview-budget'
 import { readLocalFileRange } from '../../ipc/filesystem/local-file-range-read'
 import type { ResolveAuthorizedPathOptions } from '../../ipc/filesystem/filesystem-auth'
+import { windowsFsPath } from '../../wsl/wsl-unc-drive-fs-path'
 import {
   extraRootsForPersistedOpenFile,
   resolveRuntimeAuthorizedPath
@@ -265,7 +266,9 @@ export async function readLocalRuntimeFilePrefix(
   maxBytes: number,
   options?: ResolveAuthorizedPathOptions
 ): Promise<{ bytes: Buffer; size: number }> {
-  const authorizedPath = await resolveRuntimeAuthorizedPath(filePath, store, options)
+  const authorizedPath = windowsFsPath(
+    await resolveRuntimeAuthorizedPath(filePath, store, options)
+  )
   const fileStat = await stat(authorizedPath)
   const readLimit = Math.min(fileStat.size, maxBytes)
   const handle = await open(authorizedPath, 'r')

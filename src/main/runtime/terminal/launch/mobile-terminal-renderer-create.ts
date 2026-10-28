@@ -188,11 +188,12 @@ export abstract class OrcaRuntimeWithRunCreateMobileSessionTerminal extends Orca
         }
       )
     }
-    if (win.webContents.isDestroyed?.()) {
+    const rendererWebContents = win.webContents
+    if (rendererWebContents.isDestroyed?.()) {
       throw new Error('runtime_unavailable')
     }
     const releasePublicationThrottle = pairedCreate
-      ? rendererPublicationThrottle.acquire(win.webContents)
+      ? rendererPublicationThrottle.acquire(rendererWebContents)
       : () => {}
     try {
       const reply = await requestMobileRendererTerminalTabCreate({

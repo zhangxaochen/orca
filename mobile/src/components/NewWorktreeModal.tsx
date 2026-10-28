@@ -71,14 +71,13 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
     onOpenWorktree,
     onClose
   } = props
-  const { repos, selectedRepo, setSelectedRepo, upsertRepo, loading } = useNewWorkspaceRepositories(
-    {
+  const { repos, allRepos, selectedRepo, setSelectedRepo, upsertRepo, loading } =
+    useNewWorkspaceRepositories({
       client: desktopClient,
       serverClients,
       hostId,
       visible
-    }
-  )
+    })
   // Why: everything about the picked repo runs where it does; the routing table keeps the
   // desktop's own concerns (settings, accounts) on the desktop.
   const repoServer = selectedRepo ? serverOf(selectedRepo) : undefined
@@ -133,6 +132,7 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
   )
   const createSubmit = useNewWorkspaceCreateSubmit({
     client,
+    repos: allRepos,
     selectedRepo,
     selectedAgent: agentSelection.selectedAgent,
     setSelectedAgent: agentSelection.setSelectedAgent,

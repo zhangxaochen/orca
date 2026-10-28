@@ -9,6 +9,7 @@ import {
 import { MobileTerminalLiveInputStatus } from './MobileTerminalLiveInputStatus'
 import { MobileTerminalInputActions } from './MobileTerminalInputActions'
 import { colors } from '../theme/mobile-theme'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionCommandAccessoryBar } from './MobileSessionCommandAccessoryBar'
@@ -16,13 +17,32 @@ import { useMobileCommandInputField } from './use-mobile-command-input-field'
 
 /**
  * Terminal command dock. Return inserts a newline; the send button submits the whole buffer.
+ * Markdown, file, browser and chat tabs bring their own input; only terminals get the dock and its keys.
  */
-export function MobileSessionCommandDock({ controller }: { controller: MobileSessionController }) {
+export function sessionCommandDockShown(controller: MobileSessionController): boolean {
+  return (
+    !controller.activeMarkdownTab &&
+    !controller.activeFileTab &&
+    !controller.activeBrowserTab &&
+    !controller.showNativeChat
+  )
+}
+
+export function MobileSessionCommandDock({
+  controller,
+  keysInRail = false
+}: {
+  controller: MobileSessionController
+  keysInRail?: boolean
+}) {
+  useMobileColorScheme()
   const {
     insets,
     bufferedTerminalDraftState,
     autocompleteEnabled,
     liveInputCapture,
+    dictationMode,
+    dictationEnabled,
     bindCommandField,
     handleLiveInputChange,
     handleLiveInputKeyPress,
@@ -32,20 +52,14 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
     canCompose,
     liveInputEnabled,
     focusLiveInput,
-    showNativeChat,
     dictation,
     cancelDictation,
     handleDictationToggle,
     handleDictationPressIn,
     handleDictationPressOut,
-    dictationMode,
-    dictationEnabled,
     handleSend,
     isAttaching,
     attachImage,
-    activeMarkdownTab,
-    activeFileTab,
-    activeBrowserTab,
     keyboardLift
   } = controller
 
@@ -135,20 +149,14 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
   )
 
   return (
-    !activeMarkdownTab &&
-    !activeFileTab &&
-    !activeBrowserTab &&
-    !showNativeChat && (
+    sessionCommandDockShown(controller) && (
       <View
         style={[
           styles.commandDock,
           { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
         ]}
       >
-        {/* Accessory keys */}
-        <MobileSessionCommandAccessoryBar controller={controller} />
-
-        {}
+        {keysInRail ? null : <MobileSessionCommandAccessoryBar controller={controller} />}
         {liveInputEnabled ? (
           <View style={[styles.inputBar, styles.liveInputBar]}>
             <Pressable

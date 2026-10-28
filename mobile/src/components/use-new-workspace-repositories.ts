@@ -5,11 +5,11 @@ import { getCachedRepos, setCachedRepos } from '../cache/repo-cache'
 import { listHostRepos } from '../worktree/server-repos'
 import { useServerRepos } from '../worktree/use-server-repos'
 import { useLastVisitedWorktreeRepoId } from '../worktree/use-last-visited-worktree-repo'
+import { refreshMobileNewWorkspaceDialogSelectedRepo } from '../worktree/new-workspace-dialog-repo-selection'
 import {
-  getMobileNewWorkspaceDialogEligibleRepos,
-  refreshMobileNewWorkspaceDialogSelectedRepo,
-  resolveMobileNewWorkspaceDialogRepoId
-} from '../worktree/new-workspace-dialog-repo-selection'
+  getNewWorkspaceDialogEligibleRepos,
+  resolveNewWorkspaceDialogRepoId
+} from '../../../src/shared/new-workspace-dialog-repo'
 import type { MobileWorkspaceRepo } from './new-worktree-modal-types'
 
 const NO_SERVER_CLIENTS: ReadonlyMap<ExecutionHostId, RpcClient> = new Map()
@@ -29,6 +29,7 @@ export function useNewWorkspaceRepositories(args: {
   visible: boolean
 }): {
   repos: MobileWorkspaceRepo[]
+  allRepos: MobileWorkspaceRepo[]
   selectedRepo: MobileWorkspaceRepo | null
   setSelectedRepo: (repo: MobileWorkspaceRepo | null) => void
   upsertRepo: (repo: MobileWorkspaceRepo) => void
@@ -48,8 +49,8 @@ export function useNewWorkspaceRepositories(args: {
   const [pickedRepo, setSelectedRepo] = useState<MobileWorkspaceRepo | null>(null)
   const [loading, setLoading] = useState(initialRepos == null)
   const lastVisitedRepo = useLastVisitedWorktreeRepoId(hostId, visible)
-
-  const repos = useMemo(() => {
+  // Why: trust checks count same-id rows on every host, as desktop does; only the picker filters.
+  const allRepos = useMemo(() => {
     const allServerHosts = new Set([...serverRepos.keys(), ...addedServerRepos.keys()])
     const combinedServerRepos: MobileWorkspaceRepo[] = []
     for (const host of allServerHosts) {
@@ -62,7 +63,7 @@ export function useNewWorkspaceRepositories(args: {
       ? desktopRepos
       : [...desktopRepos, ...combinedServerRepos]
   }, [desktopRepos, serverRepos, addedServerRepos])
-
+  const repos = useMemo(() => getNewWorkspaceDialogEligibleRepos(allRepos), [allRepos])
   // Why derived: the pick follows its repo's latest listing, and goes once its host stops listing it.
   const selectedRepo = useMemo(
     () => refreshMobileNewWorkspaceDialogSelectedRepo(repos, pickedRepo),
@@ -73,9 +74,8 @@ export function useNewWorkspaceRepositories(args: {
     if (!visible || !lastVisitedRepo.loaded || selectedRepo || repos.length === 0) {
       return
     }
-    const eligibleRepos = getMobileNewWorkspaceDialogEligibleRepos(repos)
-    const preferredRepoId = resolveMobileNewWorkspaceDialogRepoId({
-      eligibleRepos,
+    const preferredRepoId = resolveNewWorkspaceDialogRepoId({
+      eligibleRepos: repos,
       activeRepoId: lastVisitedRepo.repoId
     })
     const preferredRepo = repos.find((repo) => repo.id === preferredRepoId) ?? null
@@ -150,6 +150,7 @@ export function useNewWorkspaceRepositories(args: {
 
   return {
     repos,
+    allRepos,
     selectedRepo,
     setSelectedRepo,
     upsertRepo,

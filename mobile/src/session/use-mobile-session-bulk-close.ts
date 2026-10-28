@@ -6,6 +6,7 @@ import {
   type PendingBulkCloseConfirmation
 } from './mobile-bulk-close-sheet-actions'
 import type { RpcSuccess } from '../transport/types'
+import { BULK_TAB_CLOSE_COPY } from '../../../src/shared/bulk-tab-close-confirmation'
 import { activateMobileSessionTab } from './mobile-session-tab-activation'
 import type { MobileSessionTab, SessionTabsResult } from './mobile-session-route-types'
 import type { MobileSessionCloseActionsModel } from './use-mobile-session-close-actions'
@@ -53,6 +54,15 @@ export function useMobileSessionBulkClose(scope: MobileSessionCloseActionsModel)
     }
   }
   const cancelBulkClose = () => setPendingBulkClose(null)
+  const bulkCloseConfirm = {
+    visible: false,
+    title: BULK_TAB_CLOSE_COPY.title.others,
+    message: BULK_TAB_CLOSE_COPY.description,
+    confirmLabel: BULK_TAB_CLOSE_COPY.confirm,
+    destructive: true,
+    onConfirm: confirmBulkClose,
+    onCancel: cancelBulkClose
+  }
 
   const visibleTabs: MobileSessionTab[] = sessionTabs
   const activeMarkdownTab = activeSessionTab?.type === 'markdown' ? activeSessionTab : null
@@ -114,6 +124,7 @@ export function useMobileSessionBulkClose(scope: MobileSessionCloseActionsModel)
   ])
   return {
     bulkCloseActions,
+    bulkCloseConfirm,
     closeWithBulkActions,
     pendingBulkClose,
     confirmBulkClose,

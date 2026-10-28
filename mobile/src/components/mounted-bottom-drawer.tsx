@@ -1,5 +1,13 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
-import { View, Pressable, useWindowDimensions, ScrollView, Keyboard, Modal } from 'react-native'
+import {
+  View,
+  Pressable,
+  useWindowDimensions,
+  ScrollView,
+  Keyboard,
+  Modal,
+  Platform
+} from 'react-native'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
@@ -12,6 +20,7 @@ import Animated, {
   Extrapolation
 } from 'react-native-reanimated'
 import { spacing } from '../theme/mobile-theme'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { resolveBottomDrawerFillHeight } from './bottom-drawer-fill-height'
 import { resolveBottomDrawerKeyboardInset } from './bottom-drawer-keyboard-inset'
 import { BOTTOM_DRAWER_HIDE_DURATION_MS } from './bottom-drawer-constants'
@@ -68,6 +77,7 @@ export function MountedBottomDrawer({
   zIndex = 1000,
   scrollResetKey = null
 }: MountedBottomDrawerProps) {
+  useMobileColorScheme()
   const translateY = useSharedValue(0)
   const progress = useSharedValue(0)
   const keyboardOffset = useSharedValue(0)
@@ -154,8 +164,10 @@ export function MountedBottomDrawer({
 
     // Why: autoFocus can raise the keyboard before listeners attach, and an
     // already-open IME fires no new onShow. Fill sheets always seed; a
-    // content-sized sheet seeds only when it opts in.
-    if (fillAvailable || seedKeyboard) {
+    // content-sized sheet seeds only when it opts in. Page sheets on web seed
+    // because focus moving under an open IME sends no event; native content
+    // sheets own a Modal window, where stale metrics would stick.
+    if (fillAvailable || seedKeyboard || Platform.OS === 'web') {
       const existing = currentSoftKeyboardHeight()
       if (existing > 0) {
         applyKeyboardHeight(existing)

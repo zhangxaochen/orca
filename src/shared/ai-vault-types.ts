@@ -153,6 +153,8 @@ export type AiVaultSession = {
   }
   /** Present when this session is currently open in a workspace tab on the host. */
   openTab?: AiVaultSessionOpenTab
+  /** The client's pairing with the listing server when it listed this row; host mutations are fenced to it. */
+  hostPairingRevision?: number
 }
 
 export type AiVaultSubagentListArgs = {

@@ -17,6 +17,7 @@ import {
   activateOpenedSourceControlDiffTab,
   findOpenedMobileSessionTab
 } from './opened-mobile-session-tab'
+import { useProvideSessionScreenHandlers } from './session-screen-handlers'
 import type { MobileSessionTab } from './mobile-session-route-types'
 import type { MobileSessionTerminalSendActionsModel } from './use-mobile-session-terminal-send-actions'
 
@@ -39,6 +40,7 @@ export function useMobileSessionFileActions(scope: MobileSessionTerminalSendActi
     activeSessionTab,
     activeSessionTabTypeRef,
     switchSessionTabRef,
+    switchTab,
     handleCreateBrowserRef,
     scheduleDelayedAction,
     nativeChatSendError,
@@ -118,6 +120,11 @@ export function useMobileSessionFileActions(scope: MobileSessionTerminalSendActi
     },
     [fetchSessionTabs, scheduleDelayedAction]
   )
+  useProvideSessionScreenHandlers(hostId, worktreeId, {
+    onFileOpenStart: handleFileOpenStart,
+    onOpenedFileDiff: handleOpenedFileDiff,
+    onResumedTerminal: switchTab
+  })
 
   const router = useWorkspaceRouteHandoff()
   const handleOpenFile = useCallback(

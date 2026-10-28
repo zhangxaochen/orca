@@ -7,7 +7,7 @@ import { subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 import { useHostClient } from '../transport/host-client-hooks'
 import { frameWithoutHostLine } from './shell-bridge-log-lines'
 import { recordShellLifecycleLine } from './shell-lifecycle-line-recorder'
-import type { BridgeInitRoute } from './bridge/bridge-envelope'
+import type { BridgeColorScheme, BridgeInitRoute } from './bridge/bridge-envelope'
 import type { BridgeClearableRouteParam } from './bridge/bridge-route-update'
 import type { BridgeSafeAreaInsets } from './bridge/bridge-safe-area-insets'
 import type { BridgeHapticsKind } from './bridge/bridge-haptics-notify'
@@ -59,12 +59,13 @@ export type MobileWebShellBridgeArgs = {
   route: BridgeInitRoute
   safeAreaInsets: BridgeSafeAreaInsets
   keyboardInset: number
+  colorScheme: BridgeColorScheme
   pageRoutes: readonly string[]
   pageRouteGrants: readonly { pathname: string; grants: readonly string[] }[]
   // Effective session grants include the served-route union when this page owns the host area.
   routeGrants: readonly string[]
   ownsHostArea?: boolean
-  onNavigate: (href: string) => void
+  onNavigate: (href: string, replace: boolean) => void
   onExternalLink: (url: string) => void
   onHaptic: (kind: BridgeHapticsKind) => void
   serveNativeVerb: (verb: BridgeNativeVerb, params: unknown) => Promise<unknown>
@@ -78,6 +79,7 @@ export type MobileWebShellBridgeArgs = {
   onPagePainted: () => void
   // Document resets explicitly publish false so retired pages cannot retain Back.
   onPageBackClaim: (claimed: boolean) => void
+  onPageLocation: (href: string) => void
   onRouteParamClear: (param: BridgeClearableRouteParam, value: string) => void
   onRouteRefused: (issue: string) => void
   onBinaryFramesDropped: (total: number) => void
@@ -180,6 +182,15 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       }
     }
   }, [args.hostId, args.route.pathname, buildId, client, hasSnapshot, sessionId])
+
+  // A rebuilt host already starts from the latest scheme; this re-sends init when it changes under a live page.
+  const colorScheme = args.colorScheme
+  useEffect(() => {
+    const mounted = hostRef.current
+    if (mounted !== null && mounted.sessionId === sessionId) {
+      mounted.host.publishColorScheme(colorScheme)
+    }
+  }, [colorScheme, sessionId])
 
   return {
     bridgeEnabled: ready !== null,

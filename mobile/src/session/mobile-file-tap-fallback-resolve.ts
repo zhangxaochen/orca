@@ -48,20 +48,21 @@ export async function resolveMissingTerminalFileTap<T extends FileTapSessionTab>
   options: OpenMobileFileTapOptions<T>,
   initialResolved: RuntimeTerminalPathResolution
 ): Promise<RuntimeTerminalPathResolution | null> {
+  const pathText = options.pathText ?? ''
   const worktree = `id:${options.worktreeId}`
 
   if (options.terminalHandle && initialResolved.absolutePath?.startsWith('//')) {
-    const withoutTerminal = await tryResolveCandidatePath(options, worktree, options.pathText)
+    const withoutTerminal = await tryResolveCandidatePath(options, worktree, pathText)
     if (withoutTerminal) {
       return withoutTerminal
     }
   }
 
-  if (/^\/(?![\\/]|[A-Za-z]:)/.test(options.pathText)) {
+  if (/^\/(?![\\/]|[A-Za-z]:)/.test(pathText)) {
     const withoutLeadingSlash = await tryResolveCandidatePath(
       options,
       worktree,
-      options.pathText.slice(1)
+      pathText.slice(1)
     )
     if (withoutLeadingSlash) {
       return withoutLeadingSlash
@@ -72,8 +73,8 @@ export async function resolveMissingTerminalFileTap<T extends FileTapSessionTab>
   for (const tab of options.getSessionTabs()) {
     if (
       tab.relativePath &&
-      tab.relativePath !== options.pathText &&
-      pathMatchesSuffixCaseInsensitive(tab.relativePath, options.pathText)
+      tab.relativePath !== pathText &&
+      pathMatchesSuffixCaseInsensitive(tab.relativePath, pathText)
     ) {
       matchingTabPaths.add(tab.relativePath)
     }
@@ -90,7 +91,7 @@ export async function resolveMissingTerminalFileTap<T extends FileTapSessionTab>
 
   if (
     options.nativeChatContext ||
-    /^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/]|file:\/\/)/i.test(options.pathText)
+    /^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/]|file:\/\/)/i.test(pathText)
   ) {
     return null
   }
@@ -152,7 +153,7 @@ export async function resolveMissingTerminalFileTap<T extends FileTapSessionTab>
           if (!fsPath || triedPaths.has(fsPath)) {
             continue
           }
-          if (pathMatchesSuffixCaseInsensitive(fsPath, options.pathText)) {
+          if (pathMatchesSuffixCaseInsensitive(fsPath, pathText)) {
             triedPaths.add(fsPath)
             const resolvedFromUri = await tryResolveCandidatePath(options, worktree, fsPath)
             if (resolvedFromUri) {
@@ -180,7 +181,7 @@ export async function resolveMissingTerminalFileTap<T extends FileTapSessionTab>
       if (siblingProbes > 6) {
         break
       }
-      const fromSibling = await tryResolveCandidatePath(options, `id:${wtId}`, options.pathText)
+      const fromSibling = await tryResolveCandidatePath(options, `id:${wtId}`, pathText)
       if (fromSibling) {
         return fromSibling
       }

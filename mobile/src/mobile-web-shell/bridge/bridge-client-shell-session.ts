@@ -6,6 +6,7 @@ import {
   type BridgeSafeAreaInsets
 } from './bridge-safe-area-insets'
 import type {
+  BridgeColorScheme,
   BridgeConnectionSnapshot,
   BridgeHostMessage,
   BridgeInitRoute
@@ -51,6 +52,7 @@ export type BridgeClientShellSession = {
   onKeyboardInsetUpdate: (listener: (height: number) => void) => () => void
   /** Fires when an `init` moved the storage snapshot the page holds, including a replacement's. */
   onStorageUpdate: (listener: BridgeStorageUpdateListener) => () => void
+  onColorSchemeUpdate: (listener: (scheme: BridgeColorScheme) => void) => () => void
   /** Drops the session and every listener waiting on one, which `close` is the only caller of. */
   close: () => void
 }
@@ -67,6 +69,7 @@ export function createBridgeClientShellSession(args: {
   const storageListeners = new Set<
     (storage: Readonly<Record<string, string>>, storageOversize: readonly string[]) => void
   >()
+  const schemeListeners = new Set<(scheme: BridgeColorScheme) => void>()
 
   return {
     current: () => session,
@@ -91,16 +94,19 @@ export function createBridgeClientShellSession(args: {
       const storage = held === null || movedStorage ? nextSession.storage : held.storage
       const storageOversize =
         held === null || movedStorage ? nextSession.storageOversize : held.storageOversize
+      const colorScheme = message.colorScheme ?? 'dark'
+      const movedScheme = held !== null && held.colorScheme !== colorScheme
       session =
         update === null
-          ? { ...nextSession, safeAreaInsets, storage, storageOversize }
+          ? { ...nextSession, safeAreaInsets, storage, storageOversize, colorScheme }
           : {
               ...update,
               route: message.route ?? null,
               safeAreaInsets,
               keyboardInset,
               storage,
-              storageOversize
+              storageOversize,
+              colorScheme
             }
       // Re-primed either way, because a second `init` is also how the page recovers a cache it has
       // refused a `state` frame into: the shell rebuilt under it publishes a generation the page's
@@ -124,6 +130,11 @@ export function createBridgeClientShellSession(args: {
       if (movedStorage) {
         for (const listener of storageListeners) {
           listener(storage, storageOversize)
+        }
+      }
+      if (movedScheme) {
+        for (const listener of schemeListeners) {
+          listener(colorScheme)
         }
       }
       // Only a route that moved is an update. The shell answers every `ready` with the route it
@@ -169,6 +180,12 @@ export function createBridgeClientShellSession(args: {
       storageListeners.add(listener)
       return () => {
         storageListeners.delete(listener)
+      }
+    },
+    onColorSchemeUpdate: (listener) => {
+      schemeListeners.add(listener)
+      return () => {
+        schemeListeners.delete(listener)
       }
     },
     close: () => {

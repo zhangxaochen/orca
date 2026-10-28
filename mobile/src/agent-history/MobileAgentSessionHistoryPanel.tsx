@@ -4,9 +4,11 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft, RefreshCw } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
+import { useSessionScreenHandlers } from '../session/session-screen-handlers'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { getWorktreeLabel } from '../session/worktree-label'
 import {
@@ -54,9 +56,11 @@ function MobileAgentSessionHistoryPanelContent({
   name = '',
   origin
 }: MobileAgentSessionHistoryPanelProps) {
+  useMobileColorScheme()
   // Use handoff, not useRouter: resumed session is a native route outside this single-document page.
   const router = useWorkspaceRouteHandoff()
   const currentExecutionHost = useWorkspaceExecutionHost()
+  const sessionBelow = useSessionScreenHandlers(hostId, worktreeId)
   const { client, state: connState } = useWorkspaceClient(hostId)
   const claimResumeOwnership = useMobileResumeOperationOwnership(
     hostId,
@@ -203,11 +207,9 @@ function MobileAgentSessionHistoryPanelContent({
       setResumeMessage(null)
       try {
         const {
-          repos,
-          folderWorkspaces,
-          projectGroups,
           settings,
-          worktrees: freshWorktrees
+          worktrees: freshWorktrees,
+          ...catalog
         } = await loadMobileResumeMetadata(client)
         assertCurrentOwner()
         const resumeWorktrees = freshWorktrees ?? worktrees
@@ -216,9 +218,8 @@ function MobileAgentSessionHistoryPanelContent({
           activeWorktreeId: worktreeId,
           // Prefer live worktrees so deleted/archived workspace cannot be selected; fall back to mount list only on fetch failure.
           worktrees: resumeWorktrees,
-          repos,
-          folderWorkspaces,
-          projectGroups
+          catalog,
+          hostPlatform: resumeHost.platform
         })
         if (target.status !== 'ready') {
           setResumeMessage(target.message)
@@ -242,11 +243,11 @@ function MobileAgentSessionHistoryPanelContent({
         assertCurrentOwner()
         const launch = buildMobileAiVaultResumeLaunch({
           session: preparedSession,
-          hostPlatform: platform,
+          workspacePlatform: platform,
           hostTerminalWindowsShell,
           settings
         })
-        await resumeAiVaultSessionInTerminal(
+        const resumed = await resumeAiVaultSessionInTerminal(
           client,
           target.worktreeId,
           {
@@ -269,6 +270,14 @@ function MobileAgentSessionHistoryPanelContent({
           resumeWorktrees.find((item) => item.worktreeId === target.worktreeId)?.displayName,
           target.worktreeId
         )
+        // From a session screen the same workspace is the screen below; otherwise the session takes this screen's place.
+        if (
+          origin === 'session' &&
+          target.worktreeId === worktreeId &&
+          (target.targetExecutionHostId ?? null) === (currentExecutionHost ?? null)
+        ) {
+          sessionBelow?.onResumedTerminal(resumed.terminal)
+        }
         openHistorySession(
           router,
           origin,
@@ -293,6 +302,7 @@ function MobileAgentSessionHistoryPanelContent({
       hostId,
       currentExecutionHost,
       origin,
+      sessionBelow,
       resumeHost,
       hostTerminalWindowsShell,
       router,

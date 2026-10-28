@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, Text, View } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { ChevronRight, Minus, Plus } from 'lucide-react-native'
 import type Animated from 'react-native-reanimated'
@@ -10,6 +10,8 @@ import { DragReorderList } from './DragReorderList'
 import { TerminalShortcutReorderRow } from './terminal-shortcut-reorder-row'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { terminalSettingsScreenStyles as baseStyles } from '../terminal/terminal-settings-screen-styles'
+import { themedStyleSheet } from '../theme/themed-styles'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
   TERMINAL_ACCESSORY_KEYS,
   type TerminalAccessoryKey
@@ -102,6 +104,7 @@ export function TerminalShortcutSettings({
   scrollContentHeight,
   onDragActiveChange
 }: Props): React.JSX.Element {
+  useMobileColorScheme()
   const [showCustomKeyModal, setShowCustomKeyModal] = useState(false)
   const [editingCustomKey, setEditingCustomKey] = useState<CustomKey | null>(null)
   const layoutStore = useSequencedStorage<TerminalAccessoryLayout>(
@@ -339,7 +342,7 @@ export function TerminalShortcutSettings({
   )
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet(() => ({
   rowDividerContent: {
     height: REORDER_ROW_HEIGHT,
     justifyContent: 'center',
@@ -366,4 +369,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: typography.monoFamily
   }
-})
+}))
