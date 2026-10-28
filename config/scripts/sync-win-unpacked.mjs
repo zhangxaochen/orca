@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import {
+  chmodSync,
   copyFileSync,
   cpSync,
   existsSync,
@@ -7,7 +8,8 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
-  renameSync
+  renameSync,
+  writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve, sep } from 'node:path'
@@ -322,10 +324,40 @@ export async function stageFilteredOut(repoRoot, extractDir, stagingResources) {
   syncUnpackedOut(stagingResources, repoRoot)
 }
 
+function extractBaseAsar(archivePath, dest) {
+  const disk = require('@electron/asar/lib/disk')
+  const filesystem = disk.readFilesystemSync(archivePath)
+  const filenames = filesystem.listFiles()
+  const followLinks = process.platform === 'win32'
+  mkdirSync(dest, { recursive: true })
+  for (const fullPath of filenames) {
+    const filename = fullPath.replace(/^[\\/]/, '')
+    if (filename === 'out' || filename.startsWith('out/') || filename.startsWith('out\\')) {
+      continue
+    }
+    const destFilename = join(dest, filename)
+    const file = filesystem.getFile(filename, followLinks)
+    if ('files' in file) {
+      mkdirSync(destFilename, { recursive: true })
+    } else {
+      try {
+        const content = disk.readFileSync(filesystem, filename, file)
+        mkdirSync(join(destFilename, '..'), { recursive: true })
+        writeFileSync(destFilename, content)
+        if (file.executable) {
+          chmodSync(destFilename, '755')
+        }
+      } catch {
+        // Ignore unreadable or missing stale entries from previous asar
+      }
+    }
+  }
+}
+
 async function stageResources(repoRoot, extractDir, stagingResources, distAsar) {
   rmSync(extractDir, { recursive: true, force: true })
   rmSync(stagingResources, { recursive: true, force: true })
-  extractAll(distAsar, extractDir)
+  extractBaseAsar(distAsar, extractDir)
   await stageFilteredOut(repoRoot, extractDir, stagingResources)
   syncProcessHost(stagingResources, repoRoot)
   verifyPackagedDaemonEntryBoots(stagingResources)
