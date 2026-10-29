@@ -83,6 +83,7 @@ export function acquireRetainedOrCreateBridgeHost(args: {
     safeAreaInsets: latest.safeAreaInsets,
     keyboardInset: latest.keyboardInset,
     colorScheme: latest.colorScheme,
+    uiLocale: latest.uiLocale,
     pageRoutes: latest.pageRoutes,
     pageRouteGrants: latest.pageRouteGrants,
     routeGrants: latest.routeGrants,

@@ -74,6 +74,7 @@ export type BridgeRpcClient = RpcClient & {
   /** Fires when an `init` moved the storage snapshot; the value itself is on `getShellSession`. */
   onStorageUpdate: (listener: BridgeStorageUpdateListener) => () => void
   onColorSchemeUpdate: (listener: (scheme: BridgeShellSession['colorScheme']) => void) => () => void
+  onUiLocaleUpdate: (listener: (locale: BridgeShellSession['uiLocale']) => void) => () => void
   getShellSession: () => BridgeShellSession | null
   // False without navigate lets tap handlers fall back safely instead of throwing into uncaught UI callbacks.
   notifyNavigate: (href: string, replace?: boolean) => boolean
@@ -334,6 +335,7 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
     onKeyboardInsetUpdate: shellSession.onKeyboardInsetUpdate,
     onStorageUpdate: shellSession.onStorageUpdate,
     onColorSchemeUpdate: shellSession.onColorSchemeUpdate,
+    onUiLocaleUpdate: shellSession.onUiLocaleUpdate,
     getShellSession: shellSession.current,
     clearRouteParam: (param, value) =>
       posted({

@@ -11,6 +11,7 @@ import {
   readBridgeClientMessage,
   type BridgeClientMessage,
   type BridgeColorScheme,
+  type BridgeUiLocale,
   type BridgeConnectionSnapshot,
   type BridgeInitRoute
 } from './bridge/bridge-envelope'
@@ -39,6 +40,7 @@ export type BridgeHost = {
   /** Hands this session updated storage entries over the same re-sent `init`. */
   publishStorage: () => void
   publishColorScheme: (next: BridgeColorScheme) => void
+  publishUiLocale: (next: BridgeUiLocale) => void
   /**
    * Hands the page one Back press. False when this document never said it takes one, which is
    * every page older than the frame; the caller then leaves the key to the navigator.
@@ -80,7 +82,8 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
     onRefused: (issue) => options.onDiagnostic?.({ kind: 'route-update-refused', issue }),
     ...(options.safeAreaInsets === undefined ? {} : { safeAreaInsets: options.safeAreaInsets }),
     ...(options.keyboardInset === undefined ? {} : { keyboardInset: options.keyboardInset }),
-    ...(options.colorScheme === undefined ? {} : { colorScheme: options.colorScheme })
+    ...(options.colorScheme === undefined ? {} : { colorScheme: options.colorScheme }),
+    ...(options.uiLocale === undefined ? {} : { uiLocale: options.uiLocale })
   })
   let closed = false
   // Close ends document service until the next ready. Native delivery preserves frame order, so stragglers remain between those markers without an epoch.
@@ -140,6 +143,7 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
           safeAreaInsets: routes.safeAreaInsets(),
           keyboardInset: routes.keyboardInset(),
           colorScheme: routes.colorScheme(),
+          uiLocale: routes.uiLocale(),
           pageRoutes,
           ...(parsedRouteGrants?.success === true
             ? { pageRouteGrants: parsedRouteGrants.data }
@@ -312,6 +316,9 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
     },
     publishColorScheme: (next) => {
       routes.publishColorScheme(next, deliverable())
+    },
+    publishUiLocale: (next) => {
+      routes.publishUiLocale(next, deliverable())
     },
     sendBack: back.send,
     readSessionBack: back.read,
