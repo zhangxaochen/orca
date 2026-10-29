@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Pressable, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaFrame } from 'react-native-safe-area-context'
 import { ChevronLeft, Save } from 'lucide-react-native'
@@ -72,6 +72,13 @@ function MobileFilePreviewDocument({ route }: Props) {
   const [saving, setSaving] = useState(false)
   const [showLineNumbers, setShowLineNumbers] = useMobileLineNumbersPreference()
   const savingRef = useRef(false)
+  const saveRevisionRef = useRef(0)
+  useLayoutEffect(
+    () => () => {
+      saveRevisionRef.current += 1
+    },
+    []
+  )
   const draftContentRef = useRef(draftContent)
   const savedContentRef = useRef(savedContent)
   const draftSourceKeyRef = useRef<string | null>(null)
@@ -264,30 +271,46 @@ function MobileFilePreviewDocument({ route }: Props) {
       return
     }
     savingRef.current = true
+    const saveRevision = ++saveRevisionRef.current
+    const isCurrentSave = () => saveRevisionRef.current === saveRevision
     setSaving(true)
     setSaveError('')
     try {
       const result = await saveMobileTerminalArtifactPreview(client, previewSource, draftContent, {
         baseContent: savedContent,
-        onTerminalArtifactSourceRefreshed: setPreviewSource
+        isCurrent: isCurrentSave,
+        onTerminalArtifactSourceRefreshed: (source) => {
+          if (isCurrentSave()) {
+            setPreviewSource(source)
+          }
+        }
       })
+      if (!isCurrentSave()) {
+        return
+      }
       if (result.status === 'saved') {
         setSavedContent(draftContent)
       } else {
         setSaveError(saveErrorMessageFromPreviewResult(result))
       }
     } catch (err) {
+      if (!isCurrentSave()) {
+        return
+      }
       const message =
         err instanceof Error
           ? err.message
           : translate('files.filePreviewScreen.saveFailed', 'Unable to save file')
       setSaveError(message)
     } finally {
-      savingRef.current = false
-      setSaving(false)
+      if (isCurrentSave()) {
+        savingRef.current = false
+        setSaving(false)
+      }
     }
   }, [canSaveArtifact, client, draftContent, previewSource, savedContent])
 
+  // Unmount retires pending saves; a refused back keeps the document and its save alive.
   const leave = useCallback(() => router.back(), [router])
   const { confirmingDiscard, requestBack, stay, discard } = useMobileFilePreviewBack({
     hasUnsavedDraft: hasUnsavedTerminalArtifactDraft,
@@ -377,7 +400,14 @@ function MobileFilePreviewDocument({ route }: Props) {
       <ConfirmModal
         visible={confirmingDiscard}
         title={t('files.filePreviewScreen.discardTitle', 'Discard changes?')}
-        message={t('files.filePreviewScreen.discardMessage', 'Unsaved edits will be lost.')}
+        message={
+          saving
+            ? t(
+                'files.filePreviewScreen.discardMessageSaving',
+                'The save in progress may not finish. Unsaved edits will be lost.'
+              )
+            : t('files.filePreviewScreen.discardMessage', 'Unsaved edits will be lost.')
+        }
         confirmLabel={t('files.filePreviewScreen.discard', 'Discard')}
         cancelLabel={t('files.filePreviewScreen.stay', 'Stay')}
         destructive
