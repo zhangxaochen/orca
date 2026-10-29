@@ -32,6 +32,7 @@ import { appUpdateChecker } from '../src/app-update/app-update-runtime'
 import { SideSafeArea } from '../src/layout/side-safe-area'
 import { useFollowDeviceUiLocale } from '../src/i18n/use-follow-device-ui-locale'
 import { startMobileUiLanguage } from '../src/i18n/ui-language-preference'
+import { subscribeMobileUiLanguage } from '../src/i18n/mobile-i18n'
 import { InAppNotificationBanner } from '../src/notifications/InAppNotificationBanner'
 
 // Keep splash visible until React content is ready to avoid a blank frame.
@@ -43,6 +44,10 @@ const languageReady = startMobileUiLanguage()
 
 // Create orca-desktop channel at boot: background FCM can arrive before socket subscription, and Android drops unknown-channel pushes.
 void ensureDesktopNotificationChannel().catch(() => {})
+// Channel names show in Android settings; rename them in the active language.
+subscribeMobileUiLanguage(() => {
+  void ensureDesktopNotificationChannel().catch(() => {})
+})
 void registerPushDismissalTask().catch(() => {})
 
 // Register before scheduling so foreground delivery uses the same suppression policy.

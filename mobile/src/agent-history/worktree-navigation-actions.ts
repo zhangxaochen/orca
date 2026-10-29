@@ -6,6 +6,7 @@ import type { RouteHandoff } from '../navigation/route-handoff'
 import { workspaceRouteHref } from '../navigation/workspace-execution-host'
 import { MOBILE_AI_VAULT_CAPABILITY } from './agent-history-capability'
 import { MobileAgentSessionHistoryIcon } from './MobileAgentSessionHistoryIcon'
+import { translate } from '../i18n/mobile-i18n'
 
 type Args = {
   hostId: string
@@ -58,7 +59,8 @@ export function buildWorktreeNavigationActions(args: Args): ActionSheetAction[] 
   const executionHost = args.executionHost
   const actions: ActionSheetAction[] = [
     {
-      label: 'Source Control',
+      id: 'sourceControl',
+      label: translate('agentHistory.worktreeNavigationActions.sourceControl', 'Source Control'),
       icon: GitBranch,
       onPress: () => {
         const params = new URLSearchParams({ name: args.worktreeName, origin: 'host' })
@@ -74,7 +76,11 @@ export function buildWorktreeNavigationActions(args: Args): ActionSheetAction[] 
   ]
   if (args.hostCapabilities.includes(MOBILE_AI_VAULT_CAPABILITY)) {
     actions.push({
-      label: 'Agent Session History',
+      id: 'agentSessionHistory',
+      label: translate(
+        'agentHistory.worktreeNavigationActions.agentSessionHistory',
+        'Agent Session History'
+      ),
       renderIcon: () =>
         MobileAgentSessionHistoryIcon({ size: 16, color: colors.textSecondary, strokeWidth: 2 }),
       onPress: () => {

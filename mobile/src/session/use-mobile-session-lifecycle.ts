@@ -12,7 +12,7 @@ import {
   recoverActiveTerminalAfterForeground,
   shouldRecoverTerminalOnAppStateChange
 } from '../terminal/terminal-foreground-recovery'
-import { loadCustomKeys } from '../terminal/terminal-custom-keys'
+import { loadCustomKeys, subscribeStoredCustomKeys } from '../terminal/terminal-custom-keys'
 import type { MobileSessionTabReconciliationModel } from './use-mobile-session-tab-reconciliation'
 
 export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationModel) {
@@ -21,6 +21,7 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
   const {
     hostId,
     connState,
+    customKeys,
     setCustomKeys,
     setShortcutLayout,
     setVisibleBuiltInIds,
@@ -53,20 +54,40 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
     }
   }, [hostId])
 
+  const customKeysRef = useRef(customKeys)
   useEffect(() => {
-    let active = true
-    void settleSessionPreferenceRead(loadCustomKeys()).then((keys) => {
-      if (active) {
-        if (keys) {
+    customKeysRef.current = customKeys
+  }, [customKeys])
+  const customKeysReadRevisionRef = useRef(0)
+  const refreshCustomKeys = useCallback(() => {
+    const revision = ++customKeysReadRevisionRef.current
+    const keysAtStart = customKeysRef.current
+    void settleSessionPreferenceRead(loadCustomKeys(keysAtStart)).then((keys) => {
+      if (customKeysReadRevisionRef.current === revision) {
+        if (keys && customKeysRef.current === keysAtStart) {
           setCustomKeys(keys)
         }
         setCustomKeysLoaded(true)
       }
     })
     return () => {
-      active = false
+      if (customKeysReadRevisionRef.current === revision) {
+        customKeysReadRevisionRef.current += 1
+      }
     }
   }, [])
+
+  useEffect(
+    () =>
+      subscribeStoredCustomKeys((keys) => {
+        // An accepted write is at least as new as any read still in flight.
+        customKeysReadRevisionRef.current += 1
+        customKeysRef.current = keys
+        setCustomKeys(keys)
+        setCustomKeysLoaded(true)
+      }),
+    []
+  )
 
   const layoutReadRevisionRef = useRef(0)
   const refreshAccessoryLayout = useCallback(() => {
@@ -92,7 +113,16 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
     }
   }, [])
 
-  useFocusEffect(refreshAccessoryLayout)
+  useFocusEffect(
+    useCallback(() => {
+      const releaseKeys = refreshCustomKeys()
+      const releaseLayout = refreshAccessoryLayout()
+      return () => {
+        releaseKeys()
+        releaseLayout()
+      }
+    }, [refreshAccessoryLayout, refreshCustomKeys])
+  )
 
   useEffect(() => {
     const unsubscribeLayout = subscribeMirroredKey(TERMINAL_ACCESSORY_LAYOUT_STORAGE_KEY, () => {
@@ -103,16 +133,18 @@ export function useMobileSessionLifecycle(scope: MobileSessionTabReconciliationM
     })
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
+        refreshCustomKeys()
         refreshAccessoryLayout()
       }
     })
     return () => {
+      customKeysReadRevisionRef.current += 1
       layoutReadRevisionRef.current += 1
       unsubscribeLayout()
       unsubscribeKeys()
       sub.remove()
     }
-  }, [refreshAccessoryLayout])
+  }, [refreshAccessoryLayout, refreshCustomKeys])
 
   const pendingForegroundRecoveryRef = useRef(false)
   useEffect(() => {

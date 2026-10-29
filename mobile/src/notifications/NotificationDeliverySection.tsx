@@ -1,4 +1,5 @@
 import { Switch, Text, View } from 'react-native'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function NotificationDeliverySection({ value, disabled, onChange }: Props) {
+  const t = useMobileTranslation()
   useMobileColorScheme()
   const row = (key: keyof NotificationDeliveryPreferences, label: string, hint?: string) => {
     return (
@@ -36,19 +38,33 @@ export function NotificationDeliverySection({ value, disabled, onChange }: Props
       <View style={styles.section}>
         {row(
           'onlyWhenDesktopAway',
-          'Only when away from desktop',
-          'After 3 minutes without keyboard or mouse activity, or when locked.'
+          t(
+            'notifications.notificationDeliverySection.onlyWhenAway',
+            'Only when away from desktop'
+          ),
+          t(
+            'notifications.notificationDeliverySection.onlyWhenAwayHint',
+            'After 3 minutes without keyboard or mouse activity, or when locked.'
+          )
         )}
-        {row('sound', 'Notification sound')}
+        {row('sound', t('notifications.notificationDeliverySection.sound', 'Notification sound'))}
         {row(
           'suppressWhileViewing',
-          'Mute the whole open workspace',
-          'The tab open on this phone never alerts. Turn on to also skip its other tabs.'
+          t(
+            'notifications.notificationDeliverySection.suppressWhileFocused',
+            'Mute the whole open workspace'
+          ),
+          t(
+            'notifications.notificationDeliverySection.suppressWhileFocusedHint',
+            'The tab open on this phone never alerts. Turn on to also skip its other tabs.'
+          )
         )}
       </View>
       <Text style={styles.footer}>
-        Alert types follow each paired desktop’s notification settings. Notifications pause after 7
-        days without using this app; open it and reconnect to resume.
+        {t(
+          'notifications.notificationDeliverySection.footer',
+          'Alert types follow each paired desktop’s notification settings. Notifications pause after 7 days without using this app; open it and reconnect to resume.'
+        )}
       </Text>
     </>
   )

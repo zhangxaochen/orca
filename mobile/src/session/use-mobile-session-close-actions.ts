@@ -7,6 +7,8 @@ import {
 import type { MobileSessionTab, Terminal } from './mobile-session-route-types'
 import { readAllRecentSessionCardsSync, removeRecentSessionCard } from './recent-session-cards'
 import type { MobileSessionContentCreateActionsModel } from './use-mobile-session-content-create-actions'
+import { mobileNativeChatScopeKey } from './native-chat/mobile-native-chat-scope-key'
+import { closeMobileNativeChatTabDraft } from './native-chat/composer/mobile-native-chat-draft-store'
 
 function pickReplacementSessionTab(args: {
   hostId: string | undefined
@@ -160,7 +162,7 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
           reason: 'user'
         })
       )
-      if (response.accepted) {
+      if (response.accepted && !response.value.refused) {
         if (hostId && worktreeId) {
           removeRecentSessionCard(
             hostId,
@@ -168,6 +170,10 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
             tab.id,
             tab.type === 'terminal' ? tab.terminal : undefined
           )
+        }
+        const chatScope = mobileNativeChatScopeKey(hostId, worktreeId, tab.id)
+        if (chatScope && response.value.retirementConfirmed) {
+          closeMobileNativeChatTabDraft(chatScope)
         }
         if (tab.type === 'markdown') {
           setMarkdownDocs((prev) => {

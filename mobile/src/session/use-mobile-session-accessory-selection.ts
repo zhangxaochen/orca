@@ -7,6 +7,7 @@ import {
   createTerminalAccessoryRepeatSender
 } from '../terminal/terminal-accessory-repeat'
 import { useClipboardReader, useClipboardWriter } from '../platform/clipboard'
+import { translate } from '../i18n/mobile-i18n'
 import { newTabRepoListRead, type MobileRuntimeRepoSummary } from './mobile-session-read-operations'
 import {
   triggerSelection,
@@ -175,7 +176,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
         triggerSuccess()
         // Why: Android 13+ shows its own system copy toast; iOS shows none, so only iOS needs our in-app toast.
         if (Platform.OS === 'ios') {
-          showToast('Copied')
+          showToast(translate('common.copied', 'Copied'))
         }
         terminalRefs.current.get(handle)?.cancelSelect()
       } catch (e) {
@@ -185,7 +186,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
           name: err.name,
           message: err.message
         })
-        showToast("Couldn't copy", 1500)
+        showToast(translate('session.useAccessorySelection.copyFailed', "Couldn't copy"), 1500)
       }
     },
     [clipboard, showToast]
@@ -199,7 +200,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
       try {
         await clipboard.writeText(text)
       } catch {
-        showToast("Couldn't copy", 1500)
+        showToast(translate('session.useAccessorySelection.copyFailed', "Couldn't copy"), 1500)
       }
     },
     [activeHandleRef, clipboard, showToast]
@@ -211,7 +212,13 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
         return
       }
       console.warn('[mobile-clip] selection evicted')
-      showToast('Selection cleared (scrolled out of buffer)', 1500)
+      showToast(
+        translate(
+          'session.useAccessorySelection.selectionCleared',
+          'Selection cleared (scrolled out of buffer)'
+        ),
+        1500
+      )
       setSelectModeActive(false)
     },
     [showToast]

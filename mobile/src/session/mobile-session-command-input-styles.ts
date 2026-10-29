@@ -244,7 +244,6 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
   liveInputBar: {
     gap: 2
   },
-
   liveInputFocusTarget: {
     flex: 1,
     minHeight: 34,
@@ -257,15 +256,24 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     borderRadius: radii.input,
     paddingHorizontal: spacing.sm + 2
   },
-
   liveInputFocusTargetPressed: {
     backgroundColor: colors.borderSubtle
   },
-
   liveInputFocusTargetDisabled: {
     opacity: 0.45
   },
-
+  commandField: {
+    flex: 1,
+    flexDirection: 'row',
+    marginRight: spacing.sm
+  },
+  commandFieldInput: {
+    marginRight: 0
+  },
+  // Dictation's preview draws the draft instead while it is hidden.
+  commandFieldInputHidden: {
+    color: 'transparent'
+  },
   liveInputCapture: {
     position: 'absolute',
     opacity: 0,

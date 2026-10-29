@@ -12,6 +12,7 @@ import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { terminalSettingsScreenStyles as baseStyles } from '../terminal/terminal-settings-screen-styles'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import {
   TERMINAL_ACCESSORY_KEYS,
   type TerminalAccessoryKey
@@ -105,6 +106,7 @@ export function TerminalShortcutSettings({
   onDragActiveChange
 }: Props): React.JSX.Element {
   useMobileColorScheme()
+  const t = useMobileTranslation()
   const [showCustomKeyModal, setShowCustomKeyModal] = useState(false)
   const [editingCustomKey, setEditingCustomKey] = useState<CustomKey | null>(null)
   const layoutStore = useSequencedStorage<TerminalAccessoryLayout>(
@@ -239,10 +241,14 @@ export function TerminalShortcutSettings({
 
   return (
     <>
-      <Text style={[baseStyles.groupHeading, baseStyles.inputGroupGap]}>SHORTCUT BAR</Text>
+      <Text style={[baseStyles.groupHeading, baseStyles.inputGroupGap]}>
+        {t('components.terminalShortcutSettings.shortcutBar', 'SHORTCUT BAR')}
+      </Text>
       <Text style={baseStyles.groupDescription}>
-        Toggle keys to show or hide them, and hold the grip to drag built-in or custom shortcuts
-        into any order or row on the terminal shortcut bar.
+        {t(
+          'components.terminalShortcutSettings.shortcutBarDescription',
+          'Toggle keys to show or hide them, and hold the grip to drag built-in or custom shortcuts into any order or row on the terminal shortcut bar.'
+        )}
       </Text>
       <View style={[baseStyles.section, baseStyles.sectionTopGap]}>
         <View style={baseStyles.row}>
@@ -310,8 +316,11 @@ export function TerminalShortcutSettings({
           }
         />
         {renderActionRow(
-          'Add Custom Shortcut…',
-          'Create key combo or text macro',
+          t('components.terminalShortcutSettings.addShortcut', 'Add Custom Shortcut…'),
+          t(
+            'components.terminalShortcutSettings.addDescription',
+            'Create key combo or text macro'
+          ),
           () => {
             setEditingCustomKey(null)
             setShowCustomKeyModal(true)
@@ -320,8 +329,11 @@ export function TerminalShortcutSettings({
         )}
         <View style={baseStyles.separator} />
         {renderActionRow(
-          'Reset Defaults',
-          'Show every built-in shortcut key in the original order',
+          t('components.terminalShortcutSettings.resetDefaults', 'Reset Defaults'),
+          t(
+            'components.terminalShortcutSettings.resetDescription',
+            'Show every built-in shortcut key in the original order'
+          ),
           () =>
             layoutStore.commit(
               reconcileTerminalAccessoryLayoutCustomKeys(DEFAULT_LAYOUT, customKeyIds)
