@@ -126,10 +126,20 @@ export function MobileWebShellScreen({
   // Edge-to-edge disables adjustResize and zeroes WebView IME insets, so visualViewport never shrinks; publish native keyboard height to the page.
   const keyboardInset = Math.max(0, useKeyboardOcclusion())
   const pageInsets = pageSafeAreaInsets({ insets, topCovered: noticeShown })
-  const { snapshot, unreadable, readStorage, refreshStorage, writeStorage, readWorkspaceKey } =
-    usePageHostSnapshot(hostId, route.pathname, ownsHostArea || routeGrants.includes('native.storage.read'))
-  // Declared before the bridge so the handler it is handed already belongs to this session: the
-  // media verbs hold staged files, and a registry born after the host would outlive the page.
+  const {
+    snapshot,
+    unreadable,
+    retry: retryHostSnapshot,
+    readStorage,
+    refreshStorage,
+    writeStorage,
+    readWorkspaceKey
+  } = usePageHostSnapshot(
+    hostId,
+    route.pathname,
+    ownsHostArea || routeGrants.includes('native.storage.read')
+  )
+  // Create the media registry before the bridge; its staged files must belong to this page session.
   const serveDeviceVerb = useNativeDeviceVerbs(state.kind === 'ready' ? state.sessionId : null)
   const servePdfView = useNativePdfViewer(hostId, state.kind === 'ready' ? state.sessionId : null)
   const serveNativeVerb = (verb: BridgeNativeVerb, params: unknown): Promise<unknown> =>
@@ -292,15 +302,11 @@ export function MobileWebShellScreen({
     }
   }, [hostId, route.pathname, state.kind])
 
-  // A profile read that rejected never becomes a host, so the session would otherwise sit in
-  // `ready` behind an un-hidden view with nothing serving it and the page asking forever.
-  // `document-load-failed` because that is the outcome: the document loads and no session opens.
-  // The refetch it costs is wasted on a device-local read, and the second report is terminal, which
-  // is the failure screen with a Try again this deserves.
+  // Profile failures preserve verified bundle bytes and retry the device store.
   useEffect(() => {
     if (unreadable) {
       console.warn('[web-shell] this host could not be read from the app store')
-      reportShellFailure('document-load-failed')
+      reportShellFailure('host-profile-unreadable')
     }
   }, [reportShellFailure, unreadable])
   useEffect(() => {
@@ -320,7 +326,12 @@ export function MobileWebShellScreen({
       <ShellStateScreen
         hostId={hostId}
         state={state}
-        onRetry={retry}
+        onRetry={() => {
+          if (unreadable) {
+            retryHostSnapshot()
+          }
+          retry()
+        }}
         downloadProgress={downloadProgress}
         host={snapshot?.host ?? null}
         activatingLabel={openingLabel}

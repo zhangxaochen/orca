@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { AiVaultSession } from '../../../../shared/ai-vault-types'
 import type { AiVaultSearchHit } from '../../../../shared/ai-vault-search-types'
+import type { AgentDotState } from '@/components/AgentStateDot'
 import { AiVaultVirtualRow } from './AiVaultVirtualRow'
 
 const cliSession: AiVaultSession = {
@@ -35,17 +36,24 @@ afterEach(() => {
   cleanup()
 })
 
+type OpenPaneOptions = {
+  onJumpToOriginalPane?: (session: AiVaultSession) => void
+  onCloseOriginalPane?: (session: AiVaultSession) => void
+  structuredSessionOpen?: boolean
+}
+
 function renderSession(
   session: AiVaultSession,
   blocked = false,
   searchHit?: AiVaultSearchHit,
   searchHitHostLabels?: ReadonlyMap<string, string>,
-  openPane?: {
-    onJumpToOriginalPane?: (session: AiVaultSession) => void
-    onCloseOriginalPane?: (session: AiVaultSession) => void
-    structuredSessionOpen?: boolean
-  }
+  liveStateOrOpenPane?: AgentDotState | OpenPaneOptions | null
 ) {
+  const openPane =
+    typeof liveStateOrOpenPane === 'object' && liveStateOrOpenPane !== null
+      ? liveStateOrOpenPane
+      : undefined
+  const liveState = typeof liveStateOrOpenPane === 'string' ? liveStateOrOpenPane : null
   const buildResumeStartup = vi.fn(() => ({ command: session.resumeCommand }))
   const onCopyResume = vi.fn()
   const onResume = vi.fn()
@@ -77,7 +85,7 @@ function renderSession(
             : null
         }
         isStructuredSessionOpen={() => openPane?.structuredSessionOpen ?? false}
-        getSessionLiveState={() => null}
+        getSessionLiveState={() => liveState}
         getWorktreeInfo={() => null}
         getSessionResumeState={() => ({
           blocked,
@@ -117,6 +125,11 @@ function renderSession(
     onCloseOriginalPane
   }
 }
+
+it('passes semantic status through the virtual row to the real glyph', () => {
+  renderSession(cliSession, false, undefined, undefined, 'monitoring')
+  expect(screen.getByLabelText('Monitoring background tasks')).toBeTruthy()
+})
 
 describe('AiVaultVirtualRow search hit source host', () => {
   it('names the host a hit came from when hits span several hosts', () => {

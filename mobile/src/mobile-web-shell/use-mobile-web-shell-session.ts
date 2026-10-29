@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { MobileWebShellFailureReason } from '../../modules/orca-mobile-web-shell/src/load-state'
 import { useHostProtocolGates } from '../components/host-protocol-gates-context'
 import { useHostClient } from '../transport/host-client-hooks'
 import {
@@ -32,6 +31,7 @@ import {
   reduceMobileWebShellSession
 } from './mobile-web-shell-session'
 import type {
+  MobileWebShellReportedFailure,
   MobileWebShellSessionEffect,
   MobileWebShellSessionEvent,
   MobileWebShellSessionState,
@@ -49,7 +49,7 @@ export type MobileWebShellSessionView = {
   // Explain fallback beside the running page without replacing it.
   readonly updateNotice: MobileWebShellUpdateNotice | null
   readonly retry: () => void
-  readonly reportShellFailure: (reason: MobileWebShellFailureReason) => void
+  readonly reportShellFailure: (reason: MobileWebShellReportedFailure) => void
   readonly reportDocumentStarted: () => void
   readonly reportDocumentLoaded: () => void
   readonly reportPageReady: () => void
@@ -295,7 +295,7 @@ export function useMobileWebShellSession(args: {
   }, [dispatch, invalidate, routePathname, runtime])
 
   const reportShellFailure = useCallback(
-    (reason: MobileWebShellFailureReason) => {
+    (reason: MobileWebShellReportedFailure) => {
       evictRetainedShellSessionForHost(hostIdRef.current, routePathname)
       dispatch(epochRef.current, { type: 'shell-failed', reason })
     },

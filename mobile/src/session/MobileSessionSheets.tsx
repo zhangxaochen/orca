@@ -28,16 +28,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     worktreeName,
     sessionTabs,
     activeSessionTabId,
-    pendingDiffNotesDelivery,
-    setPendingDiffNotesDelivery,
-    showCreateTabDrawer,
-    setShowCreateTabDrawer,
-    showQuickCommands,
-    setShowQuickCommands,
-    setShowCreateBrowserModal,
-    showCreateBrowserModal,
     showHeaderMoreActions,
-    setShowHeaderMoreActions,
     actionTarget,
     setActionTarget,
     markdownActionTarget,
@@ -49,6 +40,8 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     agentSessionActionTarget,
     setAgentSessionActionTarget,
     terminalModes,
+    showDictationSetup,
+    closeDictationSetup,
     browserScreencastSupported,
     quickCommandsSupported,
     quickCommandAgentPromptMaxLength,
@@ -353,10 +346,10 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
         onManageShortcuts={controller.handleManageShortcuts}
       />
       <MobileDictationSetupSheet
-        visible={controller.showDictationSetup}
+        visible={showDictationSetup}
         client={client}
-        onClose={() => controller.setShowDictationSetup(false)}
-        onReady={() => controller.setShowDictationSetup(false)}
+        onClose={closeDictationSetup}
+        onReady={closeDictationSetup}
       />
       <ActionSheetModal
         visible={controller.deleteKeyTarget != null}

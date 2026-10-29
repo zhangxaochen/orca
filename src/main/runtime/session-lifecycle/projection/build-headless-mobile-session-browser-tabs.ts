@@ -1,3 +1,4 @@
+import type { OrcaRuntimeWithStoredMobileSnapshotHasStalePreservedTab as BrowserOwnership } from '../../session-tabs/mobile-session-publication-preservation'
 import { OrcaRuntimeWithPersistTerminalSurfaceRetirements } from '../../session-tabs/terminal-surface-retirements'
 import {
   projectHeadlessClientBrowserTab,
@@ -37,21 +38,24 @@ export abstract class OrcaRuntimeWithBuildHeadlessMobileSessionBrowserTabs exten
     terminalHandle?: string
   }): string | null
 
-  // Why: headless serve backs browser panes with offscreen WebContents that live
-  // only in the BrowserManager, never in a renderer graph. Without surfacing them
-  // as session tabs, a session.tabs snapshot (e.g. on terminal open) prunes the
-  // paired browser tab and closing it fails with tab_not_found. Synthesize browser
-  // session tabs from the live bridge so they are first-class alongside terminals.
+  protected abstract getRendererOwnedBrowserPageIds(
+    ...args: Parameters<BrowserOwnership['getRendererOwnedBrowserPageIds']>
+  ): ReturnType<BrowserOwnership['getRendererOwnedBrowserPageIds']>
+  // Offscreen browser pages live outside renderer graphs; expose session rows or snapshots prune them and close fails with tab_not_found.
   protected buildHeadlessMobileSessionBrowserTabs(
     worktreeId: string
   ): RuntimeMobileSessionBrowserTab[] {
+    const backend = this.offscreenBrowserBackend
+    const rendererPageIds = this.getRendererOwnedBrowserPageIds(worktreeId)
     // Saved tabs whose page starts on first use are listed as running ones are.
     const serverTabs =
-      this.offscreenBrowserBackend && this.agentBrowserBridge?.tabList
+      backend && this.agentBrowserBridge?.tabList
         ? [
-            ...this.agentBrowserBridge.tabList(worktreeId).tabs,
+            ...this.agentBrowserBridge
+              .tabList(worktreeId)
+              .tabs.filter((tab) => backend.ownsTab(tab.browserPageId)),
             ...this.serveBrowserTabs.listUnstarted(worktreeId)
-          ]
+          ].filter((tab) => !rendererPageIds.has(tab.browserPageId))
         : []
     const publishedServerTabs = serverTabs.map((tab) =>
       projectHeadlessServerBrowserTab(
