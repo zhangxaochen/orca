@@ -1,7 +1,6 @@
 import { canCheckoutExistingLocalBranch } from '../runtime/runtime-worktree-create-git'
 /* eslint-disable max-lines */
 
-import { selectWorktreeCreateBranchSeed } from '../worktree-create-branch-seed'
 import { worktreeCreateGit } from '../git/worktree-create-git-executor'
 import { getStoredRepoExecutionHostId } from '../repo-execution-host'
 import type { BrowserWindow } from 'electron'
@@ -368,7 +367,9 @@ async function spawnLocalStartupAndSetupTerminals(args: {
         startupCommandDelivery: sequencedStartup.startupCommandDelivery,
         telemetry: sequencedStartup.telemetry,
         // Submitting renderer owns activation; background completion must not yank users who moved on (#9944).
-        surfaceOwner: false
+        surfaceOwner: false,
+        // Only the window's own create gets here (automation creates are host-provisioned below).
+        wslUserAct: true
       },
       worktree
     )
@@ -404,7 +405,8 @@ async function spawnLocalStartupAndSetupTerminals(args: {
           command: setupCommand,
           env: setup.envVars,
           activate: false,
-          surfaceOwner: false
+          surfaceOwner: false,
+          wslUserAct: true
         },
         worktree
       )
@@ -967,7 +969,6 @@ async function performLocalWorktreeCreate(
       : {})
   })
 
-  const branchSeed = selectWorktreeCreateBranchSeed(args, settings.autoRenameBranchFromWork)
   const requestedName = args.name
   const sanitizedName = sanitizeWorktreeName(args.name)
   const displayNameRequest = resolveWorktreeCreateDisplayNameRequest(
@@ -1237,7 +1238,7 @@ async function performLocalWorktreeCreate(
         selectedExistingLocalBranchName
           ? selectedExistingLocalBranchName
           : getBranchNameOverrideCandidate(args.branchNameOverride, suffix),
-        branchSeed ? getWorktreeCreateCandidate(branchSeed, suffix) : effectiveSanitizedName,
+        effectiveSanitizedName,
         settings,
         username,
         localWorktreeGitOptions
