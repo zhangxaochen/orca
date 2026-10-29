@@ -308,6 +308,10 @@ export default function MonacoEditor({
           lineNumbers: editorLineNumbers ? 'on' : 'off',
           renderLineHighlight: 'line',
           automaticLayout: true,
+          unicodeHighlight: {
+            ambiguousCharacters: language !== 'markdown',
+            invisibleCharacters: true
+          },
           tabSize: 2,
           readOnly,
           scrollbar: autoHeight
