@@ -5040,9 +5040,6 @@
             },
             "mainWorktree": "main worktree",
             "detached": "detached"
-          },
-          "PluginsStatusSegment": {
-            "label": "Plugins"
           }
         }
       },
@@ -13871,7 +13868,10 @@
             "clearNotesFromWorkspace_one": "Clear {{count}} note from this workspace?",
             "clearNotesFromWorkspace_other": "Clear {{count}} notes from this workspace?",
             "clearNotesFromFile_one": "Clear {{count}} note from {{path}}?",
-            "clearNotesFromFile_other": "Clear {{count}} notes from {{path}}?"
+            "clearNotesFromFile_other": "Clear {{count}} notes from {{path}}?",
+            "markResolved": "Mark as resolved",
+            "keepFile": "Keep file",
+            "keepDeletion": "Keep deletion"
           },
           "SourceControlAgentActionDialog": {
             "8e856842d1": "Could not start the selected agent.",
@@ -14453,7 +14453,8 @@
                     "edc2d82a2b": "Merge in progress",
                     "5c3707aa44": "Rebase in progress",
                     "ffe53a1da6": "Cherry-pick in progress",
-                    "35eb76d323": "Operation in progress"
+                    "35eb76d323": "Operation in progress",
+                    "completeMerge": "Complete merge"
                   }
                 }
               },
@@ -14482,7 +14483,8 @@
                   "e7876a2bde": "Stage at least one file to generate a message.",
                   "0904be2505": "Clear the message to regenerate.",
                   "1ea9ba37aa": "Pick an agent in Settings -> Git -> Source Control AI."
-                }
+                },
+                "completeMergeFailed": "Complete merge failed"
               }
             }
           },
@@ -14521,8 +14523,7 @@
             "permanentlyDeleteItems_one": "Permanently delete {{count}} item?"
           },
           "useFileExplorerHandlers": {
-            "32cd9fd991": "Cannot open symlink target",
-            "folderLinksOutsideProject": "This folder links outside the project, so it can't be opened here."
+            "32cd9fd991": "Cannot open symlink target"
           },
           "useFileExplorerImport": {
             "importFailedCount_one": "Failed to import {{count}} file.",
@@ -18919,7 +18920,7 @@
         },
         "list": {
           "PluginsSectionDescription": {
-            "openWith": "Open anytime with"
+            "openWith": "Open with (when focus is not in an editable field)"
           }
         }
       }
@@ -18969,6 +18970,9 @@
       "forgeCredentialTarget": {
         "unknownHost": "The machine that owns this repository is not known yet. Reconnect it and try again.",
         "thisComputer": "this computer"
+      },
+      "runtimeGitSyncClient": {
+        "completeMergeNeedsNewerHost": "Completing a merge needs a newer Orca on this host. Update Orca on that host."
       }
     },
     "ssh": {
