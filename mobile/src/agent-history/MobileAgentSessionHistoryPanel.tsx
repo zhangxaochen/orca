@@ -1,10 +1,11 @@
 import { loadMobileResumeMetadata } from './mobile-agent-history-resume-metadata'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft, RefreshCw } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { MobileSearchField } from '../components/MobileSearchField'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
@@ -414,14 +415,10 @@ function MobileAgentSessionHistoryPanelContent({
             })}
           </View>
           <View style={styles.searchRow}>
-            <TextInput
-              style={styles.searchInput}
+            <MobileSearchField
               value={query}
               onChangeText={setQuery}
               placeholder={t('agentHistory.panel.placeholder', 'Search sessions, repo:, path:')}
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
             />
           </View>
           {issues.length > 0 ? (

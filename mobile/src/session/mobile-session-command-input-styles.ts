@@ -1,10 +1,8 @@
 import { StyleSheet } from 'react-native'
 
 import { colors, spacing, radii, typography } from '../theme/mobile-theme'
-import { TEXT_INPUT_FONT_SIZE } from '../platform/text-input-font-size'
 import { themedStyleSheet } from '../theme/themed-styles'
 
-/** Command dock styles. The field grows with the draft and stops at 120px. */
 export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
   createWarningBanner: {
     flexDirection: 'row',
@@ -66,10 +64,6 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     color: colors.textPrimary,
     fontSize: typography.bodySize,
     fontWeight: '600'
-  },
-  commandDock: {
-    zIndex: 20,
-    backgroundColor: colors.bgPanel
   },
   accessoryBar: {
     flexDirection: 'row',
@@ -134,32 +128,8 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     fontSize: 12,
     fontFamily: typography.monoFamily
   },
-  accessoryKeyTextActive: {
-    color: colors.bgBase,
-    fontWeight: '700'
-  },
   accessoryKeyTextDisabled: {
     color: colors.textMuted
-  },
-  // Same box as accessoryKey, named apart so these icons can change without resizing every shortcut.
-  accessoryActionsCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginRight: spacing.sm
-  },
-  accessoryActionButton: {
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
-    borderRadius: radii.button,
-    minWidth: 36,
-    minHeight: 26,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  accessoryActionButtonActive: {
-    backgroundColor: colors.textPrimary
   },
   keyboardDismissKey: {
     alignItems: 'center',
@@ -174,35 +144,6 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     minWidth: 36,
     height: 26
   },
-  // The Duo side rail column: full-width keys with room for a thumb.
-  accessoryRail: {
-    flex: 1,
-    minHeight: 0
-  },
-  accessoryScrollVertical: {
-    flex: 1
-  },
-  // Keys span the 84pt rail less 4pt each side, so the widest label (Shift+Tab) fits.
-  accessoryContentVertical: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
-    gap: spacing.sm
-  },
-  accessoryKeyVertical: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    borderRadius: radii.composerItem
-  },
-  keyboardDismissKeyVertical: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
-    minHeight: 44,
-    backgroundColor: colors.bgRaised,
-    borderRadius: radii.composerItem
-  },
   keyboardDismissGlyph: {
     alignItems: 'center',
     height: 18,
@@ -214,103 +155,11 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     bottom: -2,
     position: 'absolute'
   },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 2,
-    minHeight: 44,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    backgroundColor: colors.bgPanel
-  },
-  textInput: {
-    flex: 1,
-    minHeight: 34,
-    maxHeight: 120,
-    backgroundColor: colors.bgRaised,
-    color: colors.textPrimary,
-    borderRadius: radii.input,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: spacing.xs + 1,
-    paddingBottom: spacing.xs + 1,
-    fontSize: TEXT_INPUT_FONT_SIZE,
-    fontFamily: typography.monoFamily,
-    lineHeight: 20,
-    includeFontPadding: false
-  },
-  liveInputBar: {
-    gap: 2
-  },
-  liveInputFocusTarget: {
-    flex: 1,
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.bgRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.input,
-    paddingHorizontal: spacing.sm + 2
-  },
-  liveInputFocusTargetPressed: {
-    backgroundColor: colors.borderSubtle
-  },
-  liveInputFocusTargetDisabled: {
-    opacity: 0.45
-  },
-  commandField: {
-    flex: 1,
-    flexDirection: 'row',
-    marginRight: spacing.sm
-  },
-  commandFieldInput: {
-    marginRight: 0
-  },
-  // Dictation's preview draws the draft instead while it is hidden.
-  commandFieldInputHidden: {
-    color: 'transparent'
-  },
-  liveInputField: {
-    flex: 1,
-    marginRight: spacing.sm
-  },
   liveInputCaptureDisabled: {
     opacity: 0.45
   },
-  liveInputCapture: {
-    position: 'absolute',
-    opacity: 0,
-    width: 1,
-    height: 1,
-    color: colors.textPrimary
-  },
-  sendButton: {
-    backgroundColor: colors.bgRaised,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  dictationButton: {
-    backgroundColor: colors.bgRaised,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
   dictationButtonActive: {
-    backgroundColor: colors.bgPanel,
+    borderWidth: 1,
     borderColor: colors.textSecondary
-  },
-  sendButtonDisabled: {
-    opacity: 0.35
   }
 }))
