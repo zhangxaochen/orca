@@ -10,6 +10,7 @@ import {
   GitCommit,
   GitCommitCompare,
   GitFilePath,
+  GitResolveConflict,
   GitForkSync,
   GitHistory,
   GitPush,
@@ -229,6 +230,13 @@ export const GIT_METHODS = [
     params: GitBulkStage,
     handler: async (params, { runtime }) =>
       runtime.bulkStageRuntimeGitPaths(params.worktree, params.filePaths, params.scope)
+  }),
+  defineMethod({
+    name: 'git.resolveConflict',
+    permission: 'workspace',
+    params: GitResolveConflict,
+    handler: async (params, { runtime }) =>
+      runtime.resolveRuntimeGitConflict(params.worktree, params.filePath, params.resolution)
   }),
   defineMethod({
     name: 'git.unstage',
