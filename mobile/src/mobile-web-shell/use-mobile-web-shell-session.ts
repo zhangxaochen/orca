@@ -30,6 +30,7 @@ import {
   createMobileWebShellSession,
   reduceMobileWebShellSession
 } from './mobile-web-shell-session'
+import { sessionFlowFloor } from './mobile-web-shell-session-step'
 import type {
   MobileWebShellReportedFailure,
   MobileWebShellSessionEffect,
@@ -126,9 +127,11 @@ export function useMobileWebShellSession(args: {
     ((epoch: number, flow: number, effect: MobileWebShellSessionEffect) => void) | null
   >(null)
 
-  const cancelPending = useCallback((): void => {
-    downloadsRef.current.forEach((controller) => controller.abort())
-    downloadsRef.current.clear()
+  const cancelPending = useCallback((downloads = true): void => {
+    if (downloads) {
+      downloadsRef.current.forEach((controller) => controller.abort())
+      downloadsRef.current.clear()
+    }
     timersRef.current.forEach((cancel) => cancel())
     timersRef.current.clear()
   }, [])
@@ -148,7 +151,7 @@ export function useMobileWebShellSession(args: {
       sessionRef.current = stepped.session
       recordSessionInRetainedStore(hostIdRef.current, clientRef.current, stepped.session)
       if (stepped.session.flow !== previous.flow) {
-        cancelPending()
+        cancelPending(sessionFlowFloor(stepped.session) !== sessionFlowFloor(previous))
       }
       const next = stepped.session.state
       if (next.kind === 'fetching') {
