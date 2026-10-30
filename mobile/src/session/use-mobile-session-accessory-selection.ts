@@ -119,6 +119,37 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
     },
     [accessoryRepeat]
   )
+  const prepareAccessoryPress = useCallback(
+    (input: ReturnType<typeof createTerminalLiveAccessoryInput>) => {
+      const pressedClient = clientRef.current
+      const pressedGeneration = pressedClient?.getGeneration?.() ?? 0
+      const pressedRevision = repeatOwnerRevisionRef.current
+      const sender = createTerminalAccessoryRepeatSender<
+        ReturnType<typeof createTerminalLiveAccessoryInput>
+      >(
+        activeHandleRef.current,
+        (handle) =>
+          repeatOwnerRevisionRef.current === pressedRevision &&
+          focusedRef.current &&
+          AppState.currentState === 'active' &&
+          clientRef.current === pressedClient &&
+          (pressedClient?.getGeneration?.() ?? 0) === pressedGeneration &&
+          connStateRef.current === 'connected' &&
+          activeHandleRef.current === handle &&
+          activeSessionTabTypeRef.current === 'terminal',
+        (...args) => handleAccessoryKeyRef.current(...args)
+      )
+      let holdStarted = false
+      return {
+        tap: () => (holdStarted ? Promise.resolve(false) : sender(input)),
+        hold: (firstRepeatDelayMs?: number) => {
+          holdStarted = true
+          accessoryRepeat.start(input, sender, firstRepeatDelayMs)
+        }
+      }
+    },
+    [accessoryRepeat]
+  )
   const consumeAccessoryRepeatHandled = useCallback((): boolean => {
     const didRepeat = didRepeatRef.current
     didRepeatRef.current = false
@@ -272,6 +303,8 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
   }, [clipboardContents, setCanPaste])
   return {
     stopAccessoryRepeat,
+    cancelAccessoryRepeat,
+    prepareAccessoryPress,
     startAccessoryRepeat,
     consumeAccessoryRepeatHandled,
     setMobileSessionRootRef,

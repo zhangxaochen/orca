@@ -1,24 +1,23 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('react-native', () => ({ Keyboard: { dismiss: vi.fn() } }))
-
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useMobileSessionTerminalInput } from './use-mobile-session-terminal-input'
+
+vi.mock('../terminal/mobile-terminal-operations', () => ({
+  terminalInputSend: {},
+  terminalBufferClear: {}
+}))
+vi.mock('../terminal/worker-terminal-takeover-report', () => ({
+  reportWorkerTerminalUserInput: vi.fn()
+}))
 
 type InputNode = {
   focus: ReturnType<typeof vi.fn>
   blur: ReturnType<typeof vi.fn>
-  isFocused: () => boolean
+  isFocused?: () => boolean
 }
 
-function inputNode(focused: boolean): InputNode {
-  return {
-    focus: vi.fn(),
-    blur: vi.fn(),
-    isFocused: () => focused
-  }
-}
+const renderers: ReactTestRenderer[] = []
 
 function mountToggle(options: {
   keyboardHeight?: number
@@ -26,130 +25,127 @@ function mountToggle(options: {
   liveFocused?: boolean
   commandFocused?: boolean
 }) {
-  const live = inputNode(options.liveFocused ?? false)
-  const command = inputNode(options.commandFocused ?? false)
-  const toggleTerminalLiveInput = vi.fn(() => options.nextEnabled)
-  let toggleLiveInput: (() => void) | undefined
-  let renderer: ReactTestRenderer | null = null
-
+  const liveInput: InputNode = {
+    focus: vi.fn(),
+    blur: vi.fn(),
+    isFocused: () => options.liveFocused ?? false
+  }
+  const commandInput: InputNode = {
+    focus: vi.fn(),
+    blur: vi.fn(),
+    isFocused: () => options.commandFocused ?? false
+  }
+  const scope = {
+    activeHandle: 'terminal-a',
+    keyboardHeight: options.keyboardHeight ?? 0,
+    toggleTerminalLiveInput: () => options.nextEnabled,
+    clearPendingLiveInputCommit: vi.fn(),
+    liveInputRef: { current: liveInput },
+    commandInputRef: { current: commandInput },
+    liveInputFocusTimerRef: { current: null }
+  }
+  let toggle = (): void => {}
   function Harness(): null {
-    const model = useMobileSessionTerminalInput(
-      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: toggleLiveInput reads only these members; the rest of the session model stays unused.
-      {
-        activeHandle: 'terminal-1',
-        clearPendingLiveInputCommit: vi.fn(),
-        commandInputRef: { current: command },
-        keyboardHeight: options.keyboardHeight ?? 0,
-        liveInputFocusTimerRef: { current: null },
-        liveInputRef: { current: live },
-        toggleTerminalLiveInput
-      } as never
+    const actions = useMobileSessionTerminalInput(
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: only toggleLiveInput runs; all fields it reads are supplied above.
+      scope as unknown as Parameters<typeof useMobileSessionTerminalInput>[0]
     )
-    toggleLiveInput = model.toggleLiveInput
+    toggle = actions.toggleLiveInput
     return null
   }
-
   act(() => {
-    renderer = create(createElement(Harness))
+    renderers.push(create(createElement(Harness)))
   })
-  if (!toggleLiveInput) {
-    throw new Error('toggleLiveInput did not mount')
-  }
-  const toggle = toggleLiveInput
-
-  return {
-    command,
-    live,
-    toggle() {
-      act(() => {
-        toggle()
-      })
-    },
-    unmount() {
-      act(() => renderer?.unmount())
-    }
-  }
+  return { toggle, liveInput, commandInput }
 }
 
-describe('toggleLiveInput keyboard handoff', () => {
-  beforeEach(() => {
+afterEach(() => {
+  act(() => renderers.splice(0).forEach((renderer) => renderer.unmount()))
+  vi.clearAllTimers()
+  vi.useRealTimers()
+})
+
+describe('Live input keyboard handoff', () => {
+  it.each([
+    {
+      liveFocused: true,
+      commandFocused: false,
+      keyboardHeight: 0,
+      nextEnabled: false,
+      target: 'command'
+    },
+    {
+      liveFocused: false,
+      commandFocused: true,
+      keyboardHeight: 0,
+      nextEnabled: true,
+      target: 'live'
+    },
+    {
+      liveFocused: false,
+      commandFocused: false,
+      keyboardHeight: 280,
+      nextEnabled: false,
+      target: 'command'
+    },
+    {
+      liveFocused: false,
+      commandFocused: false,
+      keyboardHeight: 280,
+      nextEnabled: true,
+      target: 'live'
+    }
+  ] as const)(
+    'hands focus off synchronously with Live input $nextEnabled and keyboard height $keyboardHeight',
+    ({ liveFocused, commandFocused, keyboardHeight, nextEnabled, target }) => {
+      vi.useFakeTimers()
+      const { toggle, liveInput, commandInput } = mountToggle({
+        liveFocused,
+        commandFocused,
+        keyboardHeight,
+        nextEnabled
+      })
+
+      act(toggle)
+
+      const focused = target === 'live' ? liveInput : commandInput
+      const other = target === 'live' ? commandInput : liveInput
+      expect(focused.focus).toHaveBeenCalledTimes(1)
+      expect(other.focus).not.toHaveBeenCalled()
+      expect(liveInput.blur).not.toHaveBeenCalled()
+      expect(commandInput.blur).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
+
+  it('schedules live input focus when the keyboard is closed and neither field is focused', () => {
     vi.useFakeTimers()
-  })
+    const { toggle, liveInput, commandInput } = mountToggle({ nextEnabled: true })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+    act(toggle)
 
-  it('focuses live input immediately and on the scheduled retry when the keyboard is open', () => {
-    const harness = mountToggle({ keyboardHeight: 320, nextEnabled: true })
-
-    harness.toggle()
-
-    expect(harness.live.focus).toHaveBeenCalledTimes(1)
-    expect(harness.live.blur).not.toHaveBeenCalled()
-    expect(harness.command.focus).not.toHaveBeenCalled()
+    expect(liveInput.focus).not.toHaveBeenCalled()
+    expect(liveInput.blur).not.toHaveBeenCalled()
+    expect(commandInput.focus).not.toHaveBeenCalled()
     act(() => {
       vi.runOnlyPendingTimers()
     })
-    expect(harness.live.focus).toHaveBeenCalledTimes(2)
-    harness.unmount()
-  })
-
-  it('focuses live input immediately when the command field is focused and the keyboard height is still 0', () => {
-    const harness = mountToggle({ commandFocused: true, keyboardHeight: 0, nextEnabled: true })
-
-    harness.toggle()
-
-    expect(harness.live.focus).toHaveBeenCalledTimes(1)
-    act(() => {
-      vi.runOnlyPendingTimers()
-    })
-    expect(harness.live.focus).toHaveBeenCalledTimes(2)
-    expect(harness.command.focus).not.toHaveBeenCalled()
-    harness.unmount()
-  })
-
-  it('keeps the keyboard by focusing the command field instead of blurring live input', () => {
-    const harness = mountToggle({ keyboardHeight: 320, nextEnabled: false })
-
-    harness.toggle()
-
-    expect(harness.live.blur).not.toHaveBeenCalled()
-    expect(harness.live.focus).not.toHaveBeenCalled()
-    expect(harness.command.focus).toHaveBeenCalledTimes(1)
-    act(() => {
-      vi.runOnlyPendingTimers()
-    })
-    expect(harness.command.focus).toHaveBeenCalledTimes(2)
-    harness.unmount()
-  })
-
-  it('focuses the command field when live input is focused and the keyboard height is still 0', () => {
-    const harness = mountToggle({ keyboardHeight: 0, liveFocused: true, nextEnabled: false })
-
-    harness.toggle()
-
-    expect(harness.live.blur).not.toHaveBeenCalled()
-    expect(harness.command.focus).toHaveBeenCalledTimes(1)
-    act(() => {
-      vi.runOnlyPendingTimers()
-    })
-    expect(harness.command.focus).toHaveBeenCalledTimes(2)
-    harness.unmount()
+    expect(liveInput.focus).toHaveBeenCalledTimes(1)
   })
 
   it('blurs live input when the keyboard is closed and neither field is focused', () => {
-    const harness = mountToggle({ keyboardHeight: 0, nextEnabled: false })
+    vi.useFakeTimers()
+    const { toggle, liveInput, commandInput } = mountToggle({ nextEnabled: false })
 
-    harness.toggle()
+    act(toggle)
 
-    expect(harness.live.blur).toHaveBeenCalledTimes(1)
-    expect(harness.command.focus).not.toHaveBeenCalled()
+    expect(liveInput.blur).toHaveBeenCalledTimes(1)
+    expect(liveInput.focus).not.toHaveBeenCalled()
+    expect(commandInput.focus).not.toHaveBeenCalled()
     act(() => {
       vi.runOnlyPendingTimers()
     })
-    expect(harness.command.focus).not.toHaveBeenCalled()
-    expect(harness.live.focus).not.toHaveBeenCalled()
-    harness.unmount()
+    expect(commandInput.focus).not.toHaveBeenCalled()
+    expect(liveInput.focus).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable } from 'react-native'
 import {
   ChevronDown,
@@ -12,7 +12,7 @@ import {
 
 import { triggerMediumImpact } from '../platform/haptics'
 import { createTerminalLiveAccessoryInput } from '../terminal/terminal-live-accessory-input'
-import { keepHeldPressThroughLongPress } from './held-press-long-press'
+import { TERMINAL_ACCESSORY_REPEAT_DELAY_MS } from '../terminal/terminal-accessory-repeat'
 import { isTerminalPhoneDisplayMode } from './mobile-session-route-helpers'
 import { colors } from '../theme/mobile-theme'
 import { styles } from './mobile-session-styles'
@@ -40,12 +40,15 @@ export function MobileSessionCommandAccessoryBar({
     dismissSoftwareKeyboard,
     toggleLiveInput,
     stopAccessoryRepeat,
-    startAccessoryRepeat,
-    consumeAccessoryRepeatHandled,
+    cancelAccessoryRepeat,
+    prepareAccessoryPress,
     handlePaste,
     keyboardLift
   } = controller
   const [isAccessoryRowsCollapsed, setIsAccessoryRowsCollapsed] = useState(false)
+  const accessoryPresses = useRef(new Map<string, ReturnType<typeof prepareAccessoryPress>>())
+  // An unmounting Pressable never fires onPressOut, so a held key would outlive its strip.
+  useEffect(() => cancelAccessoryRepeat, [cancelAccessoryRepeat])
   const safeAccessoryRows = visibleAccessoryRows ?? []
   const hasMultipleAccessoryRows = safeAccessoryRows.length > 1
   const displayedAccessoryRows =
@@ -118,7 +121,7 @@ export function MobileSessionCommandAccessoryBar({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.accessoryContent}
                 keyboardShouldPersistTaps="always"
-                onScrollBeginDrag={stopAccessoryRepeat}
+                onScrollBeginDrag={cancelAccessoryRepeat}
               >
                 {isFirstRow && (
                   <>
@@ -210,9 +213,16 @@ export function MobileSessionCommandAccessoryBar({
                         !canSend && styles.accessoryKeyDisabled
                       ]}
                       disabled={!canSend}
-                      onPressIn={() => {
-                        if (item.key.repeatable) {
-                          startAccessoryRepeat(createTerminalLiveAccessoryInput(item.key))
+                      onPressIn={(event) => {
+                        if (!item.key.repeatable) {
+                          return
+                        }
+                        const press = prepareAccessoryPress(
+                          createTerminalLiveAccessoryInput(item.key)
+                        )
+                        accessoryPresses.current.set(item.key.id, press)
+                        if (event.type === 'keydown') {
+                          press.hold(TERMINAL_ACCESSORY_REPEAT_DELAY_MS)
                         }
                       }}
                       onPressOut={() => {
@@ -220,13 +230,28 @@ export function MobileSessionCommandAccessoryBar({
                           stopAccessoryRepeat()
                         }
                       }}
-                      onPress={() => {
-                        if (item.key.repeatable && consumeAccessoryRepeatHandled()) {
+                      onPress={(event) => {
+                        if (item.key.repeatable) {
+                          // Accessibility clicks have no touch-down to prepare a sender.
+                          const accessibilityClick =
+                            event.type === 'click' &&
+                            'detail' in event.nativeEvent &&
+                            event.nativeEvent.detail === 0
+                          const press =
+                            (!accessibilityClick && accessoryPresses.current.get(item.key.id)) ||
+                            prepareAccessoryPress(createTerminalLiveAccessoryInput(item.key))
+                          accessoryPresses.current.delete(item.key.id)
+                          void press.tap()
                           return
                         }
                         void handleAccessoryKey(createTerminalLiveAccessoryInput(item.key))
                       }}
-                      onLongPress={item.key.repeatable ? keepHeldPressThroughLongPress : undefined}
+                      onLongPress={
+                        item.key.repeatable
+                          ? () => accessoryPresses.current.get(item.key.id)?.hold()
+                          : undefined
+                      }
+                      delayLongPress={TERMINAL_ACCESSORY_REPEAT_DELAY_MS}
                       accessibilityLabel={item.key.accessibilityLabel ?? `Send ${item.key.label}`}
                     >
                       <Text

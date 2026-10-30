@@ -144,12 +144,20 @@ function accessibilityLabels(node: ReactTestInstance): string[] {
   return labels
 }
 
-function dockHierarchy(): string[] {
-  const field = commandField()
-  const bar = field.parent
-  if (!bar) {
+function inputBar(field: ReactTestInstance): ReactTestInstance {
+  let node = field.parent
+  while (node && node.props.style !== styles.inputBar) {
+    node = node.parent
+  }
+  if (!node) {
     throw new Error('input bar missing')
   }
+  return node
+}
+
+function dockHierarchy(): string[] {
+  const field = commandField()
+  const bar = inputBar(field)
   expect(bar.props.style).toBe(styles.inputBar)
   expect(bar.props.style).toMatchObject({ flexDirection: 'row', alignItems: 'flex-end' })
   expect(styles.textInput).toMatchObject({ flex: 1, maxHeight: 120 })
@@ -159,6 +167,7 @@ function dockHierarchy(): string[] {
   expect(actions?.props.buttonStyle).toBe(styles.dictationButton)
   expect(styles.dictationButton).toMatchObject({ width: 32, height: 32 })
   expect(accessibilityLabels(bar)).toEqual([
+    'Live terminal input',
     'Attach a photo',
     'Start voice dictation',
     'Send command'
@@ -199,7 +208,7 @@ describe('multiline command input', () => {
     expect(commandField().props.value).toBe('echo first')
     expect(dockHierarchy()).toEqual(hierarchy)
     expect(commandField().props.style).toEqual(expect.arrayContaining([{ height: 48 }]))
-    expect(commandField().parent?.props.style).toBe(styles.inputBar)
+    expect(inputBar(commandField()).props.style).toBe(styles.inputBar)
 
     act(() => {
       commandField().props.onContentSizeChange({ nativeEvent: { contentSize: { height: 34 } } })

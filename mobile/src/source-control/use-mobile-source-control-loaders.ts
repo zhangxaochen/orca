@@ -187,6 +187,7 @@ export function useMobileSourceControlLoaders(params: Params): MobileSourceContr
           for (let attempt = 0; attempt <= SELECTOR_RETRY_COUNT; attempt += 1) {
             const reply = await gitStatusHostPayloadRead.request(client, {
               worktree: `id:${worktreeId}`,
+              // Changes rows never show line counts; older hosts strip the unknown key.
               includeLineStats: false
             })
             if (!isCurrentLoad()) {

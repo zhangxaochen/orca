@@ -73,26 +73,18 @@ export function useMobileSessionTerminalInput(scope: MobileSessionFileActionsMod
     if (!activeHandle) {
       return
     }
-    const shouldKeepKeyboard =
+    const keepKeyboard =
       (keyboardHeight ?? 0) > 0 ||
       isInputNodeFocused(liveInputRef.current) ||
       isInputNodeFocused(commandInputRef?.current)
+    clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
     const nextEnabled = toggleTerminalLiveInput(activeHandle)
     clearPendingLiveInputCommit()
-    clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
-    if (nextEnabled) {
-      // Why: focus the already-mounted capture before React unmounts the command field.
-      if (shouldKeepKeyboard) {
-        liveInputRef.current?.focus()
-      }
+    if (keepKeyboard) {
+      const target = nextEnabled ? liveInputRef : commandInputRef
+      target?.current?.focus()
+    } else if (nextEnabled) {
       scheduleTerminalLiveInputFocus(liveInputFocusTimerRef, () => liveInputRef.current?.focus())
-    } else if (shouldKeepKeyboard) {
-      commandInputRef?.current?.focus()
-      scheduleTerminalLiveInputFocus(
-        liveInputFocusTimerRef,
-        () => commandInputRef?.current?.focus(),
-        0
-      )
     } else {
       liveInputRef.current?.blur()
     }

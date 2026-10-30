@@ -274,6 +274,13 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
   commandFieldInputHidden: {
     color: 'transparent'
   },
+  liveInputField: {
+    flex: 1,
+    marginRight: spacing.sm
+  },
+  liveInputCaptureDisabled: {
+    opacity: 0.45
+  },
   liveInputCapture: {
     position: 'absolute',
     opacity: 0,
