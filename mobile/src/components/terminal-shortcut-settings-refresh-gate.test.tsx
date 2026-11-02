@@ -79,6 +79,10 @@ vi.mock('./DragReorderList', () => ({
   DragReorderList: hosts.DragReorderList
 }))
 
+vi.mock('./MobileSwitch', () => ({
+  MobileSwitch: hosts.Switch
+}))
+
 vi.mock('./CustomKeyModal', () => ({
   CustomKeyModal: hosts.CustomKeyModal,
   loadCustomKeys: () => mocks.loadCustomQueue.shift() ?? Promise.resolve([]),

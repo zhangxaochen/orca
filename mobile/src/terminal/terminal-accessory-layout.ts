@@ -13,6 +13,7 @@ export type TerminalAccessoryLayout = {
   rows?: string[][]
   orderedBuiltInIds: string[]
   visibleBuiltInIds: string[]
+  directionPadEnabled?: boolean
 }
 
 export type NormalizedTerminalAccessoryLayout = Required<TerminalAccessoryLayout>
@@ -58,7 +59,8 @@ function buildPreference(
   rowCount: number,
   visibleIds: string[],
   currentBuiltInIds: string[],
-  includeInserted = false
+  includeInserted = false,
+  directionPadEnabled = true
 ): TerminalAccessoryLayoutPreference {
   const builtInSet = new Set(currentBuiltInIds)
   const rows: string[][] = Array.from({ length: rowCount }, () => [])
@@ -103,23 +105,32 @@ function buildPreference(
     rowCount,
     rows,
     orderedBuiltInIds,
-    visibleBuiltInIds: orderedBuiltInIds.filter((id) => visibleSet.has(id))
+    visibleBuiltInIds: orderedBuiltInIds.filter((id) => visibleSet.has(id)),
+    directionPadEnabled
   }
 }
 
-const defaultPreference = (ids = builtInIds()): TerminalAccessoryLayoutPreference =>
-  buildPreference([ids], MIN_TERMINAL_ACCESSORY_ROWS, ids, ids)
+const defaultPreference = (
+  ids = builtInIds(),
+  directionPadAvailable = false
+): TerminalAccessoryLayoutPreference => {
+  const visibleIds = directionPadAvailable ? ids.filter((id) => !id.startsWith('arrow')) : ids
+  return buildPreference([ids], MIN_TERMINAL_ACCESSORY_ROWS, visibleIds, ids)
+}
 
 export const getDefaultTerminalAccessoryBuiltInIds = (): string[] => builtInIds()
 
-export const getDefaultTerminalAccessoryLayout = (): NormalizedTerminalAccessoryLayout =>
-  stripVersion(defaultPreference())
+export const getDefaultTerminalAccessoryLayout = (
+  directionPadAvailable = false
+): NormalizedTerminalAccessoryLayout =>
+  stripVersion(defaultPreference(builtInIds(), directionPadAvailable))
 
 export function normalizeTerminalAccessoryLayoutPreference(
   value: unknown,
-  currentBuiltInIds = builtInIds()
+  currentBuiltInIds = builtInIds(),
+  directionPadAvailable = false
 ): TerminalAccessoryLayoutPreference {
-  const fallback = defaultPreference(currentBuiltInIds)
+  const fallback = defaultPreference(currentBuiltInIds, directionPadAvailable)
   if (!value || typeof value !== 'object') {
     return fallback
   }
@@ -128,13 +139,16 @@ export function normalizeTerminalAccessoryLayoutPreference(
   if (!visibleInput) {
     return fallback
   }
+  const directionPadEnabled = candidate.directionPadEnabled !== false
 
   if (candidate.version === 3 || candidate.version === 2) {
     const ordered = stringArray(candidate.orderedBuiltInIds)
     const rows = candidate.version === 3 ? rowsArray(candidate.rows) : ordered ? [ordered] : null
     const rowCount =
       candidate.version === 3 && rows ? clampRows(candidate.rowCount ?? rows.length) : 1
-    return rows ? buildPreference(rows, rowCount, visibleInput, currentBuiltInIds, true) : fallback
+    return rows
+      ? buildPreference(rows, rowCount, visibleInput, currentBuiltInIds, true, directionPadEnabled)
+      : fallback
   }
 
   if (candidate.version === 1) {
@@ -145,7 +159,14 @@ export function normalizeTerminalAccessoryLayoutPreference(
     const knownSet = new Set(knownInput)
     const visible = [...visibleInput, ...currentBuiltInIds.filter((id) => !knownSet.has(id))]
     // Why: v1 layouts never had a custom order, so migrate to canonical order.
-    return buildPreference([currentBuiltInIds], 1, visible, currentBuiltInIds)
+    return buildPreference(
+      [currentBuiltInIds],
+      1,
+      visible,
+      currentBuiltInIds,
+      false,
+      directionPadEnabled
+    )
   }
 
   return fallback
@@ -157,7 +178,14 @@ export function createTerminalAccessoryLayoutPreference(
 ): TerminalAccessoryLayoutPreference {
   const rowCount = clampRows(layout.rowCount ?? layout.rows?.length ?? MIN_TERMINAL_ACCESSORY_ROWS)
   const rows = layout.rows && layout.rows.length > 0 ? layout.rows : [layout.orderedBuiltInIds]
-  return buildPreference(rows, rowCount, layout.visibleBuiltInIds, currentBuiltInIds)
+  return buildPreference(
+    rows,
+    rowCount,
+    layout.visibleBuiltInIds,
+    currentBuiltInIds,
+    false,
+    layout.directionPadEnabled !== false
+  )
 }
 
 export function setTerminalAccessoryBuiltInVisible(
@@ -185,7 +213,14 @@ export function reorderTerminalAccessoryBuiltInIds(
   currentBuiltInIds = builtInIds()
 ): NormalizedTerminalAccessoryLayout {
   return stripVersion(
-    buildPreference([orderedBuiltInIds], 1, layout.visibleBuiltInIds, currentBuiltInIds)
+    buildPreference(
+      [orderedBuiltInIds],
+      1,
+      layout.visibleBuiltInIds,
+      currentBuiltInIds,
+      false,
+      layout.directionPadEnabled !== false
+    )
   )
 }
 
@@ -201,7 +236,16 @@ export function setTerminalAccessoryRowCount(
       ? current.rows.slice(i).flat()
       : [...(current.rows[i] ?? [])]
   )
-  return stripVersion(buildPreference(rows, rowCount, current.visibleBuiltInIds, currentBuiltInIds))
+  return stripVersion(
+    buildPreference(
+      rows,
+      rowCount,
+      current.visibleBuiltInIds,
+      currentBuiltInIds,
+      false,
+      current.directionPadEnabled
+    )
+  )
 }
 
 export function reconcileTerminalAccessoryLayoutCustomKeys(
@@ -223,7 +267,14 @@ export function reconcileTerminalAccessoryLayoutCustomKeys(
     }
   }
   return stripVersion(
-    buildPreference(rows, current.rowCount, current.visibleBuiltInIds, currentBuiltInIds)
+    buildPreference(
+      rows,
+      current.rowCount,
+      current.visibleBuiltInIds,
+      currentBuiltInIds,
+      false,
+      current.directionPadEnabled
+    )
   )
 }
 
@@ -233,7 +284,16 @@ export function updateTerminalAccessoryRows(
   currentBuiltInIds = builtInIds()
 ): NormalizedTerminalAccessoryLayout {
   const rowCount = clampRows(rows.length > 0 ? rows.length : layout.rowCount)
-  return stripVersion(buildPreference(rows, rowCount, layout.visibleBuiltInIds, currentBuiltInIds))
+  return stripVersion(
+    buildPreference(
+      rows,
+      rowCount,
+      layout.visibleBuiltInIds,
+      currentBuiltInIds,
+      false,
+      layout.directionPadEnabled !== false
+    )
+  )
 }
 
 export function parseTerminalAccessoryReorderIds(
@@ -254,10 +314,14 @@ export function parseTerminalAccessoryReorderIds(
 }
 
 export function getVisibleTerminalAccessoryKeys(
-  visibleBuiltInIds: string[]
+  visibleBuiltInIds: string[],
+  includeDirectionKeys = false
 ): TerminalAccessoryKey[] {
+  const ids = includeDirectionKeys
+    ? [...visibleBuiltInIds, ...builtInIds().filter((id) => id.startsWith('arrow'))]
+    : visibleBuiltInIds
   const byId = new Map(TERMINAL_ACCESSORY_KEYS.map((key) => [key.id, key]))
-  return dedupeKnownIds(visibleBuiltInIds, new Set(byId.keys())).flatMap((id) => {
+  return dedupeKnownIds(ids, new Set(byId.keys())).flatMap((id) => {
     const key = byId.get(id)
     return key ? [key] : []
   })
@@ -289,12 +353,21 @@ export function getVisibleTerminalAccessoryRows<TCustom extends { id: string }>(
   )
 }
 
-export async function loadTerminalAccessoryLayout(): Promise<TerminalAccessoryLayoutPreference> {
+export async function loadTerminalAccessoryLayout(
+  directionPadAvailable = false
+): Promise<TerminalAccessoryLayoutPreference> {
   try {
     const raw = await AsyncStorage.getItem(TERMINAL_ACCESSORY_LAYOUT_STORAGE_KEY)
-    return raw ? normalizeTerminalAccessoryLayoutPreference(JSON.parse(raw)) : defaultPreference()
+    if (!raw) {
+      return defaultPreference(builtInIds(), directionPadAvailable)
+    }
+    return normalizeTerminalAccessoryLayoutPreference(
+      JSON.parse(raw),
+      builtInIds(),
+      directionPadAvailable
+    )
   } catch {
-    return defaultPreference()
+    return defaultPreference(builtInIds(), directionPadAvailable)
   }
 }
 

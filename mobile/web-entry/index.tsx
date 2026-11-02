@@ -18,7 +18,7 @@ import {
 import { storageReadResultSchema } from '../src/mobile-web-shell/bridge/bridge-native-verbs'
 import {
   publishPageStorage,
-  replacePageStorage
+  refreshPageTerminalShortcuts
 } from '../src/mobile-web-shell/bridge/page-async-storage'
 import {
   RouteScreenPaintProvider,
@@ -159,8 +159,11 @@ bootstrapShellPage({
             ).value
         : null
     )
-    client.onStorageUpdate((storage, storageOversize) => {
-      replacePageStorage(storage, storageOversize)
+    client.onStorageUpdate(() => {
+      const current = client.getShellSession()
+      if (current !== null) {
+        refreshPageTerminalShortcuts(current.storage, current.storageOversize)
+      }
     })
     // Activation settles to English on failure, so the page always mounts.
     void settleLatest(() => uiLocaleActivation).then(() =>

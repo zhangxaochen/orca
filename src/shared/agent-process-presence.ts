@@ -1,5 +1,6 @@
 import { AGENT_TYPE_MAX_LENGTH } from './agent-status-field-normalization'
 import type { AgentType } from './agent-status-types'
+import { extractAgentProviderSession } from './agent-session/lifecycle/agent-session-resume'
 
 export type AgentProcessIdentity = {
   pid: number
@@ -52,12 +53,14 @@ export function readAgentProcessIdentity(value: unknown): AgentProcessIdentity |
   return { pid, platform, startTime }
 }
 
-// Why: only Claude's hook command captures its agent's process; other hooks cannot speak for liveness.
+// Why: only Claude and Antigravity POSIX hook commands capture their agent's process; other hooks cannot speak for liveness.
 export function readHookAgentProcess(
   source: string,
   value: unknown
 ): AgentProcessIdentity | undefined {
-  return source === 'claude' ? readAgentProcessIdentity(value) : undefined
+  return source === 'claude' || source === 'antigravity'
+    ? readAgentProcessIdentity(value)
+    : undefined
 }
 
 export function readAgentProcessPresence(value: unknown): AgentProcessPresence | undefined {
@@ -73,9 +76,14 @@ export function readAgentProcessPresence(value: unknown): AgentProcessPresence |
   }
   const process = 'process' in value ? readAgentProcessIdentity(value.process) : undefined
   const session =
-    'session' in value && typeof value.session === 'string' && value.session.length <= 256
-      ? value.session
-      : undefined
+    value.agent === 'hermes' || value.agent === 'antigravity'
+      ? extractAgentProviderSession(value.agent, {
+          session_id: 'session' in value ? value.session : undefined,
+          conversationId: 'session' in value ? value.session : undefined
+        })?.id
+      : 'session' in value && typeof value.session === 'string' && value.session.length <= 256
+        ? value.session
+        : undefined
   return {
     agent: value.agent,
     ...(process ? { process } : {}),

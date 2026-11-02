@@ -1,5 +1,5 @@
 import { DiffTooLargeNotice } from './DiffTooLargeNotice'
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
 import type { editor } from 'monaco-editor'
 import { lazyWithRetry as lazy } from '@/lib/lazy-with-retry'
@@ -27,6 +27,7 @@ import {
   applyModelLanguage
 } from '@/lib/monaco-languages/plugin-syntax-editor-options'
 import { useMonacoTheme } from '@/hooks/use-monaco-theme'
+import { monacoTypographyOptions, type EditorTypography } from '@/lib/editor-typography'
 
 const ImageDiffViewer = lazy(() => import('./ImageDiffViewer'))
 
@@ -41,10 +42,9 @@ type DiffSectionBodyProps = {
   language: string
   modelPathBase: string
   isEditable: boolean
-  diffEditorFontSize: number
+  typography: EditorTypography
   diffWordWrap?: boolean
   diffShowWhitespace?: boolean
-  editorFontFamily?: string
   onRetrySection: (index: number) => void
   onLoadDeferredSection: (index: number) => void
   onSaveLimitedDiff: () => void
@@ -62,10 +62,9 @@ export function DiffSectionBody({
   language: coreLanguage,
   modelPathBase,
   isEditable,
-  diffEditorFontSize,
+  typography,
   diffWordWrap,
   diffShowWhitespace,
-  editorFontFamily,
   onRetrySection,
   onLoadDeferredSection,
   onSaveLimitedDiff,
@@ -79,6 +78,30 @@ export function DiffSectionBody({
   const wordWrapOptionsSubRef = useRef<{ dispose: () => void } | null>(null)
   const wordWrapMountFrameRef = useRef(0)
   const diffWordWrapRef = useRef(diffWordWrap)
+  // Why: @monaco-editor/react calls updateOptions whenever this object's identity changes.
+  const editorOptions = useMemo<editor.IDiffEditorConstructionOptions>(
+    () => ({
+      dropIntoEditor: { enabled: false },
+      // Native EditContext focus scrolls its hidden input into the combined viewport.
+      editContext: false,
+      readOnly: !isEditable,
+      originalEditable: false,
+      renderSideBySide: sideBySide,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      ...PLUGIN_SYNTAX_EDITOR_OPTIONS,
+      ...monacoTypographyOptions(typography),
+      lineNumbers: editorLineNumbers ? 'on' : 'off',
+      ...buildDiffEditorWordWrapOptions(diffWordWrap),
+      ...buildDiffEditorWhitespaceOptions(diffShowWhitespace),
+      automaticLayout: true,
+      renderOverviewRuler: false,
+      scrollbar: combinedDiffSectionScrollbarOptions,
+      hideUnchangedRegions: { enabled: true },
+      find: monacoFindOptions
+    }),
+    [editorLineNumbers, isEditable, sideBySide, typography, diffWordWrap, diffShowWhitespace]
+  )
   useLayoutEffect(() => {
     diffWordWrapRef.current = diffWordWrap
   }, [diffWordWrap])
@@ -235,27 +258,7 @@ export function DiffSectionBody({
           modifiedModelPath={`${modelPathBase}:modified`}
           keepCurrentOriginalModel
           keepCurrentModifiedModel
-          options={{
-            dropIntoEditor: { enabled: false },
-            // Native EditContext focus scrolls its hidden input into the combined viewport.
-            editContext: false,
-            readOnly: !isEditable,
-            originalEditable: false,
-            renderSideBySide: sideBySide,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            ...PLUGIN_SYNTAX_EDITOR_OPTIONS,
-            fontSize: diffEditorFontSize,
-            fontFamily: editorFontFamily || 'monospace',
-            lineNumbers: editorLineNumbers ? 'on' : 'off',
-            ...buildDiffEditorWordWrapOptions(diffWordWrap),
-            ...buildDiffEditorWhitespaceOptions(diffShowWhitespace),
-            automaticLayout: true,
-            renderOverviewRuler: false,
-            scrollbar: combinedDiffSectionScrollbarOptions,
-            hideUnchangedRegions: { enabled: true },
-            find: monacoFindOptions
-          }}
+          options={editorOptions}
         />
       )}
     </div>

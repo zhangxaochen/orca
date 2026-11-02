@@ -74,16 +74,22 @@ export function agentStateLabel(state: AgentDotState): string {
   }
 }
 
-// Match DashboardAgentRow fallback order; a user-requested Stop takes precedence while ending the turn.
+// Match desktop's compact row: name then message, else message → prompt → state; Stop leads while ending the turn.
 export function agentDisplayLabel(row: RuntimeWorktreeAgentRow, now: number): string {
+  const name = row.conversationName?.trim()
+  const message = row.lastAssistantMessage?.trim()
   if (row.state === 'working' && row.mainAgent?.stopping === true) {
-    return translate('worktree.agentRowDisplay.stopping', 'Stopping…')
+    const stopping = translate('worktree.agentRowDisplay.stopping', 'Stopping…')
+    return name ? `${stopping} · ${name}` : stopping
   }
+  if (name) {
+    return message ? `${name} · ${message}` : name
+  }
+  // Old hosts and local renames still put the title on these fields, not conversationName.
   const custom = row.displayName?.trim() || row.taskTitle?.trim()
   if (custom) {
     return custom
   }
-  const message = row.lastAssistantMessage?.trim()
   if (message) {
     return message
   }

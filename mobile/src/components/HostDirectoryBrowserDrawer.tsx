@@ -4,7 +4,7 @@ import { ArrowUp, File, Folder, Home } from 'lucide-react-native'
 
 import { colors } from '../theme/mobile-theme'
 import type { RpcClient } from '../transport/rpc-client'
-import { BottomDrawer } from './BottomDrawer'
+import { BottomDrawer } from './bottom-drawer/BottomDrawer'
 import { hostDirectoryBrowserStyles as styles } from './host-directory-browser-styles'
 import {
   isAtHostBrowseRoot,

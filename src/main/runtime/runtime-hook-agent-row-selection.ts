@@ -7,7 +7,7 @@ import {
   type ParsedAgentStatusPayload,
   type TurnEndDisposition
 } from '../../shared/agent-status-types'
-import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
+import type { AgentProviderSessionMetadata } from '../../shared/agent-session/lifecycle/agent-session-resume'
 import type { ProgramStatusFacet } from '../../shared/program-status/facet'
 import type { RuntimeTerminalAgentStatus } from '../../shared/runtime-types'
 import { mapExplicitAgentStateToRuntimeTerminalStatus } from './runtime-worktree-status-projection'
@@ -25,6 +25,7 @@ export type RuntimeAgentRowSnapshot = {
   updatedAt: number
   evidenceObservedAt?: number
   providerSession?: AgentProviderSessionMetadata
+  paneOwner?: { agent: string; session: string }
   programStatus?: ProgramStatusFacet
 }
 
@@ -137,6 +138,7 @@ export function selectFreshAgentRowForMobileTab(args: {
     ...pickHostTurnEnd(match),
     updatedAt: match.receivedAt,
     ...(match.providerSession ? { providerSession: match.providerSession } : {}),
+    ...(match.paneOwner ? { paneOwner: match.paneOwner } : {}),
     ...(match.programStatus ? { programStatus: match.programStatus } : {}),
     ...(match.evidenceObservedAt !== undefined
       ? { evidenceObservedAt: match.evidenceObservedAt }

@@ -78,7 +78,10 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
     agentSessionHistorySupported,
     clearDeliveredDiffComments,
     sendDiffNotesToNewAgent,
-    handleCreateTerminal
+    handleCreateTerminal,
+    setCreateError,
+    setShowQuickCommands,
+    quickCommandsSupported
   } = scope
   const noop = () => {}
   const buildAgentRows = <T,>(
@@ -189,7 +192,6 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
         hostId,
         worktreeId,
         name: worktreeName || '',
-        ...(action.panel === 'sourceControl' || action.panel === 'pr' ? { origin: 'session' } : {}),
         ...descriptor.params,
         ...workspaceRouteParams(executionHost)
       }
@@ -407,6 +409,28 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
     }
   }
   const createTabBusy = creating || creatingBrowser || creatingMarkdown
+  const handleOpenNewTab = () => {
+    setCreateError('')
+    setShowCreateTabDrawer(true)
+  }
+  const handleOpenQuickCommands = () => {
+    if (quickCommandsSupported === true) {
+      setShowQuickCommands(true)
+      return
+    }
+    showToast(
+      quickCommandsSupported === false
+        ? t(
+            'session.tabStrip.quickCommandsUpdateRequired',
+            'Desktop update required for quick commands'
+          )
+        : t(
+            'session.tabStrip.checkingCapabilities',
+            'Checking desktop capabilities — try again in a moment'
+          ),
+      1600
+    )
+  }
   return {
     createTabAgentActions,
     sendDiffNotesAgentActions,
@@ -420,7 +444,9 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
     jumpingRecentCardKey,
     handleSelectRecentSessionCard,
     showHeaderMoreButton,
-    createTabBusy
+    createTabBusy,
+    handleOpenNewTab,
+    handleOpenQuickCommands
   }
 }
 

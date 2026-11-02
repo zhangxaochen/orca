@@ -1,3 +1,4 @@
+import { keepsTerminalPaneVisible } from './mobile-terminal-pane-layout'
 import { useCallback } from 'react'
 import { STARTUP_CWD_FALLBACK_SENTENCE } from '../../../src/shared/startup-cwd-fallback'
 import { triggerSelection } from '../platform/haptics'
@@ -41,6 +42,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
     terminals,
     defaultTerminalHandlesToLiveInput,
     setActiveHandle,
+    setSplitTerminalHandles,
     setActiveSessionTabId,
     activeSessionTabId,
     markdownDocs,
@@ -50,6 +52,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
     activeHandleRef,
     activeSessionTabIdRef,
     selectedSessionTabIdRef,
+    visibleTerminalHandlesRef,
     activeSessionTabTypeRef,
     pendingSelectionRef,
     switchSessionTabRef,
@@ -86,13 +89,25 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       }
       defaultTerminalHandlesToLiveInput([handle])
       setActiveSessionTabId(matchingTab?.id ?? null)
+      const visible = visibleTerminalHandlesRef?.current
+      if (visible?.length === 2 && !visible.includes(handle)) {
+        const pair = [handle, visible[0]]
+        visibleTerminalHandlesRef.current = pair
+        setSplitTerminalHandles(pair)
+      }
       const prev = activeHandleRef.current
       activeHandleRef.current = handle
       setActiveHandle(handle)
       if (prev && prev !== handle) {
-        unsubscribeTerminal(prev)
+        if (!keepsTerminalPaneVisible(prev, visibleTerminalHandlesRef?.current)) {
+          unsubscribeTerminal(prev)
+        }
       }
-      if (terminalUnsubsRef.current.has(handle)) {
+      // Force a fresh subscribe even if eagerly subscribed without viewport
+      if (
+        terminalUnsubsRef.current.has(handle) &&
+        (visibleTerminalHandlesRef?.current.length ?? 0) < 2
+      ) {
         unsubscribeTerminal(handle)
       }
       subscribeToTerminal(handle)
@@ -119,6 +134,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       hostId,
       reportActivation,
       sessionTabs,
+      setSplitTerminalHandles,
       subscribeToTerminal,
       terminals,
       unsubscribeTerminal,
@@ -128,7 +144,7 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
   )
 
   const switchSessionTab = useCallback(
-    (tab: MobileSessionTab) => {
+    (tab: MobileSessionTab, options?: { activate?: boolean }) => {
       if (isCachedActiveDocumentRetap(tab, activeSessionTabId, { markdownDocs, fileDocs })) {
         return
       }
@@ -151,11 +167,13 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
         setActiveSessionTabId(tab.id)
         const prev = activeHandleRef.current
         if (prev) {
-          unsubscribeTerminal(prev)
+          if (!keepsTerminalPaneVisible(prev, visibleTerminalHandlesRef?.current)) {
+            unsubscribeTerminal(prev)
+          }
         }
         activeHandleRef.current = null
         setActiveHandle(null)
-        if (client) {
+        if (client && options?.activate !== false) {
           void activateMobileSessionTab(client, {
             worktree: `id:${worktreeId}`,
             tabId: tab.id,
@@ -182,11 +200,13 @@ export function useMobileSessionTabSwitching(scope: MobileSessionKeyboardStateMo
       setActiveSessionTabId(tab.id)
       const prev = activeHandleRef.current
       if (prev) {
-        unsubscribeTerminal(prev)
+        if (!keepsTerminalPaneVisible(prev, visibleTerminalHandlesRef?.current)) {
+          unsubscribeTerminal(prev)
+        }
       }
       activeHandleRef.current = null
       setActiveHandle(null)
-      if (client) {
+      if (client && options?.activate !== false) {
         void activateMobileSessionTab(client, {
           worktree: `id:${worktreeId}`,
           tabId: tab.id,

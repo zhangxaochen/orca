@@ -1,3 +1,10 @@
+import type { HostStatusReply } from '../transport/host-status-reply-schema'
+import type {
+  BridgeTerminalToolbar,
+  BridgeTerminalKeyId,
+  BridgeTerminalKeyRail
+} from './bridge/bridge-terminal-key'
+import type { BridgePageGeometry } from './bridge/bridge-page-geometry'
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type {
   MobileWebShellBridgeMessagePayload,
@@ -10,6 +17,7 @@ import { recordShellLifecycleLine } from './shell-lifecycle-line-recorder'
 import type { BridgeColorScheme, BridgeInitRoute, BridgeUiLocale } from './bridge/bridge-envelope'
 import type { BridgeClearableRouteParam } from './bridge/bridge-route-update'
 import type { BridgeSafeAreaInsets } from './bridge/bridge-safe-area-insets'
+import type { BridgeFoldDivision } from './bridge/bridge-fold-division'
 import type { BridgeHapticsKind } from './bridge/bridge-haptics-notify'
 import type { BridgeHost } from './bridge-host'
 import type { BridgeSessionBack } from './bridge-host-back'
@@ -43,11 +51,24 @@ export type MobileWebShellBridgeView = {
   readonly bridgeEnabled: boolean
   readonly viewRef: (handle: OrcaMobileWebShellViewHandle | null) => void
   readonly onBridgeMessage: (event: MobileWebShellBridgeMessageEvent) => void
-  // Without a host, drop updates; host construction reads the latest route.
+  /**
+   * Hands the mounted host a rewritten route for the screen it is already serving. Dropped when
+   * there is no host yet; the route the host is built from carries it instead.
+   */
+  readonly publishStorage: () => void
   readonly publishRoute: (route: BridgeInitRoute) => void
   readonly publishSafeAreaInsets: (insets: BridgeSafeAreaInsets) => void
   readonly publishKeyboardInset: (height: number) => void
-  // Return false if no host/document can take Back so the navigator keeps the press.
+  /** Hands the mounted host a moved fold; dropped with no host, as the insets are. */
+  readonly publishFoldDivision: (division: BridgeFoldDivision | null) => void
+  /** Tells the mounted host the key rail shows or hides; dropped with no host. */
+  readonly publishTerminalKeyRail: (keys: BridgeTerminalKeyRail) => void
+  /** Hands the page one rail press. False with no host, or a page not granted the rail. */
+  readonly sendTerminalKey: (key: BridgeTerminalKeyId, inputOwner?: string) => boolean
+  /**
+   * Hands the mounted host one Back press. False when there is no host, or when the document it
+   * serves never said it takes one — the caller then leaves the key to the navigator.
+   */
   readonly sendBack: () => boolean
 }
 
@@ -59,13 +80,21 @@ export type MobileWebShellBridgeArgs = {
   route: BridgeInitRoute
   safeAreaInsets: BridgeSafeAreaInsets
   keyboardInset: number
+  /** What the first `init` of a new host carries; later moves go through `publishFoldDivision`. */
+  pageGeometry?: BridgePageGeometry
+  foldDivision: BridgeFoldDivision | null
+  /** What the first `init` of a new host carries; later moves go through `publishTerminalKeyRail`. */
+  terminalKeyRail: BridgeTerminalKeyRail
   colorScheme: BridgeColorScheme
   uiLocale: BridgeUiLocale
+  /** The route patterns the page keeps for itself; everything else comes back as `navigate`. */
   pageRoutes: readonly string[]
   pageRouteGrants: readonly { pathname: string; grants: readonly string[] }[]
   // Effective session grants include the served-route union when this page owns the host area.
   routeGrants: readonly string[]
   ownsHostArea?: boolean
+  /** The status the shell's compatibility gate proved; null while pending or unreadable. */
+  hostStatus?: HostStatusReply | null
   onNavigate: (href: string, replace: boolean) => void
   onExternalLink: (url: string) => void
   onHaptic: (kind: BridgeHapticsKind) => void
@@ -81,6 +110,13 @@ export type MobileWebShellBridgeArgs = {
   // Document resets explicitly publish false so retired pages cannot retain Back.
   onPageBackClaim: (claimed: boolean) => void
   onPageLocation: (href: string) => void
+  /** The page shows a terminal with its key row, or stopped; false again on each new document. */
+  onTerminalKeyRailClaim: (
+    claimed: boolean,
+    inputOwner?: string,
+    toolbar?: BridgeTerminalToolbar
+  ) => void
+  /** The page applied a one-shot route param and asks for it to be erased (ruling 34). */
   onRouteParamClear: (param: BridgeClearableRouteParam, value: string) => void
   onRouteRefused: (issue: string) => void
   onBinaryFramesDropped: (total: number) => void
@@ -184,6 +220,13 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
     }
   }, [args.hostId, args.route.pathname, buildId, client, hasSnapshot, sessionId])
 
+  useEffect(() => {
+    const mounted = hostRef.current
+    if (mounted !== null && mounted.sessionId === sessionId && args.pageGeometry !== undefined) {
+      mounted.host.publishPageGeometry(args.pageGeometry)
+    }
+  }, [buildId, client, hasSnapshot, sessionId, args.pageGeometry])
+
   // A rebuilt host already starts from the latest scheme; this re-sends init when it changes under a live page.
   const colorScheme = args.colorScheme
   useEffect(() => {
@@ -244,7 +287,19 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       },
       [sessionId]
     ),
-    // Fence updates by session and change callback identity with all host inputs; callers must retry after late host construction, whose layout effect runs first.
+    // Fenced on the session the same way inbound frames are: a host left over from a session this
+    // render has moved past must not be handed this one's route.
+    //
+    // Keyed on everything the host is built from, not on the session alone: a caller that holds a
+    // route the host was not there to take retries when this identity changes, and the host's own
+    // effect is a layout effect, so by the time a passive effect sees the new identity the host
+    // behind it exists.
+    publishStorage: useCallback(() => {
+      const mounted = hostRef.current
+      if (mounted !== null && mounted.sessionId === sessionId) {
+        mounted.host.publishStorage()
+      }
+    }, [buildId, client, hasSnapshot, sessionId]),
     publishRoute: useCallback(
       (route: BridgeInitRoute) => {
         const mounted = hostRef.current
@@ -272,7 +327,38 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       },
       [buildId, client, hasSnapshot, sessionId]
     ),
-    // Keep the session fence and return false when forwarding is unavailable so hardware Back falls through to navigation.
+    publishFoldDivision: useCallback(
+      (division: BridgeFoldDivision | null) => {
+        const mounted = hostRef.current
+        if (mounted !== null && mounted.sessionId === sessionId) {
+          mounted.host.publishFoldDivision(division)
+        }
+      },
+      [buildId, client, hasSnapshot, sessionId]
+    ),
+    publishTerminalKeyRail: useCallback(
+      (keys: BridgeTerminalKeyRail) => {
+        const mounted = hostRef.current
+        if (mounted !== null && mounted.sessionId === sessionId) {
+          mounted.host.publishTerminalKeyRail(keys)
+        }
+      },
+      [buildId, client, hasSnapshot, sessionId]
+    ),
+    sendTerminalKey: useCallback(
+      (key: BridgeTerminalKeyId, inputOwner?: string) => {
+        const mounted = hostRef.current
+        return (
+          mounted !== null &&
+          mounted.sessionId === sessionId &&
+          mounted.host.sendTerminalKey(key, inputOwner)
+        )
+      },
+      [buildId, client, hasSnapshot, sessionId]
+    ),
+    // Fenced on the session the way inbound frames are, and answering false rather than throwing
+    // when there is no host: the caller is a hardware key handler, and a press it cannot forward
+    // is one the navigator has to be left to answer.
     sendBack: useCallback(() => {
       const mounted = hostRef.current
       return mounted !== null && mounted.sessionId === sessionId && mounted.host.sendBack()

@@ -12,7 +12,7 @@ import {
   normalizeAgentProviderSession,
   type SleepingAgentLaunchConfig,
   type SleepingAgentSessionRecord
-} from '../../../../shared/agent-session-resume'
+} from '../../../../shared/agent-session/lifecycle/agent-session-resume'
 import type { AgentStatusIpcPayload } from '../../../../shared/agent-status-ipc-payload'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
 import { isLocalHookConnectionId } from '../../../../shared/wsl-hook-relay-contract'
@@ -42,6 +42,7 @@ export function resumeStatusFromHookRow(
   return {
     paneKey: row.paneKey,
     agentType: row.agentType,
+    ...(row.paneOwner ? { paneOwner: row.paneOwner } : {}),
     state: row.state,
     prompt: row.prompt,
     updatedAt: row.receivedAt,

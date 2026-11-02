@@ -1,5 +1,5 @@
 import { createSessionTabsTabDeltaDecoder } from '../../../src/shared/session-tabs-tab-delta'
-import { structuredAgentSessionPaneKey, structuredAgentSessionTabId } from '../../../src/shared/structured-agent-session-projection'
+import { structuredAgentSessionPaneKey, structuredAgentSessionTabId } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 import type { BridgeClientMessage } from '../mobile-web-shell/bridge/bridge-envelope'
 import type { MobileSessionTab } from '../session/mobile-session-route-types'
 import { notificationPaneTab, sessionTabPaneKey } from '../session/notification-pane-tab'

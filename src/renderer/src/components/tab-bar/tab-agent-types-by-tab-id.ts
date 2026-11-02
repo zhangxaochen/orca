@@ -1,4 +1,8 @@
-import type { AgentStatusEntry, AgentType } from '../../../../shared/agent-status-types'
+import {
+  effectiveAgentStatusOwnerType,
+  type AgentStatusEntry,
+  type AgentType
+} from '../../../../shared/agent-status-types'
 import type { TerminalLayoutSnapshot } from '../../../../shared/terminal-tab-types'
 import {
   isNativeChatTabWideFallbackSafe,
@@ -16,11 +20,9 @@ type TabBarAgentProjectionSelectorDependencies = {
 export type TabBarAgentProjectionState = {
   agentStatusByPaneKey?: Record<string, AgentStatusEntry>
   terminalLayoutsByTabId?: Record<string, TerminalLayoutSnapshot>
-  settings?: { experimentalNativeChat?: boolean } | null
 }
 
 export type TabBarAgentProjections = {
-  nativeChatEnabled: boolean
   tabAgentTypesByTabId: Record<string, AgentType>
   nativeChatTabWideFallbackUnsafeTabsById: Record<string, true>
 }
@@ -54,7 +56,7 @@ function activeLeafAgentType(
 ): AgentType | undefined {
   const activeLeafId = resolveNativeChatActiveLayoutLeafId(layout)
   return activeLeafId
-    ? (agentStatusByPaneKey[`${tabId}:${activeLeafId}`]?.agentType ?? undefined)
+    ? (effectiveAgentStatusOwnerType(agentStatusByPaneKey[`${tabId}:${activeLeafId}`]) ?? undefined)
     : undefined
 }
 
@@ -73,7 +75,7 @@ function firstPaneAgentTypes(
     }
     const tabId = paneKey.slice(0, colon)
     if (!byTabId.has(tabId) && isUnclaimedTab(tabId)) {
-      byTabId.set(tabId, entry.agentType ?? undefined)
+      byTabId.set(tabId, effectiveAgentStatusOwnerType(entry) ?? undefined)
     }
   }
   return byTabId
@@ -124,7 +126,10 @@ function statusChangeKeepsAgentTypes(
     index += 1
     const before = previous[paneKey]
     const entry = next[paneKey]
-    if (before !== entry && before?.agentType !== entry?.agentType) {
+    if (
+      before !== entry &&
+      effectiveAgentStatusOwnerType(before) !== effectiveAgentStatusOwnerType(entry)
+    ) {
       return false
     }
   }
@@ -263,10 +268,9 @@ export function createTabBarAgentProjectionSelector(
   let cachedLayoutsByTabId = EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID
   let cachedAgentTypesByTabId = EMPTY_TAB_AGENT_TYPES_BY_TAB_ID
   let cachedUnsafeTabsById = EMPTY_UNSAFE_TABS_BY_ID
-  let cachedEnabledResult: TabBarAgentProjections | null = null
+  let cachedResult: TabBarAgentProjections | null = null
 
   return (state) => {
-    const nativeChatEnabled = state.settings?.experimentalNativeChat === true
     const statuses = state.agentStatusByPaneKey ?? EMPTY_AGENT_STATUS_BY_PANE_KEY
     const layouts = state.terminalLayoutsByTabId ?? EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID
     // Status pings and single-tab layout edits patch affected tabs instead of rescanning thousands of layouts.
@@ -306,18 +310,16 @@ export function createTabBarAgentProjectionSelector(
       cachedLayoutsByTabId = layouts
     }
     if (
-      cachedEnabledResult?.nativeChatEnabled === nativeChatEnabled &&
-      cachedEnabledResult.tabAgentTypesByTabId === cachedAgentTypesByTabId &&
-      cachedEnabledResult.nativeChatTabWideFallbackUnsafeTabsById === cachedUnsafeTabsById
+      cachedResult?.tabAgentTypesByTabId === cachedAgentTypesByTabId &&
+      cachedResult.nativeChatTabWideFallbackUnsafeTabsById === cachedUnsafeTabsById
     ) {
-      return cachedEnabledResult
+      return cachedResult
     }
-    cachedEnabledResult = {
-      nativeChatEnabled,
+    cachedResult = {
       tabAgentTypesByTabId: cachedAgentTypesByTabId,
       nativeChatTabWideFallbackUnsafeTabsById: cachedUnsafeTabsById
     }
-    return cachedEnabledResult
+    return cachedResult
   }
 }
 

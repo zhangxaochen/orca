@@ -82,12 +82,16 @@ export function acquireRetainedOrCreateBridgeHost(args: {
     route: latest.route,
     safeAreaInsets: latest.safeAreaInsets,
     keyboardInset: latest.keyboardInset,
+    pageGeometry: latest.pageGeometry,
+    foldDivision: latest.foldDivision,
+    terminalKeyRail: latest.terminalKeyRail,
     colorScheme: latest.colorScheme,
     uiLocale: latest.uiLocale,
     pageRoutes: latest.pageRoutes,
     pageRouteGrants: latest.pageRouteGrants,
     routeGrants: latest.routeGrants,
     ownsHostArea: latest.ownsHostArea === true,
+    readHostStatus: () => binding.args.hostStatus ?? null,
     sessionEstablished: latest.sessionEstablished,
     ...(sessionBack === undefined ? {} : { sessionBack }),
     host: snapshot.host,
@@ -121,7 +125,9 @@ export function acquireRetainedOrCreateBridgeHost(args: {
     onPageReady: () => binding.args.onPageReady(),
     onPagePainted: () => binding.args.onPagePainted(),
     onPageBackClaim: (claimed) => binding.args.onPageBackClaim(claimed),
-    onPageLocation: (href) => binding.args.onPageLocation(href)
+    onPageLocation: (href) => binding.args.onPageLocation(href),
+    onTerminalKeyRailClaim: (claimed, inputOwner, toolbar) =>
+      binding.args.onTerminalKeyRailClaim(claimed, inputOwner, toolbar)
   })
   latest.onBinaryFramesDropped(0)
   return { host, binding }

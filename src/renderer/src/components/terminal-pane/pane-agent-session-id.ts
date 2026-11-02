@@ -1,5 +1,5 @@
 import type { AgentStatusEntry } from '../../../../shared/agent-status-types'
-import type { SleepingAgentSessionRecord } from '../../../../shared/agent-session-resume'
+import type { SleepingAgentSessionRecord } from '../../../../shared/agent-session/lifecycle/agent-session-resume'
 import type { PaneForegroundAgentEntry } from '../../store/slices/pane-foreground-agent'
 
 export type PaneAgentSessionIdState = {
@@ -19,6 +19,9 @@ export function resolvePaneAgentSessionId(
   }
   const live = state.agentStatusByPaneKey[paneKey]
   if (live && live.restoredUnconfirmed !== true) {
+    if (live.paneOwner?.agent && live.paneOwner.agent !== live.agentType) {
+      return live.paneOwner.session || null
+    }
     return live.providerSession?.id ?? null
   }
   return state.sleepingAgentSessionsByPaneKey[paneKey]?.providerSession.id ?? null

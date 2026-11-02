@@ -55,7 +55,7 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
     borderColor: colors.borderSubtle,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm + 2,
-    borderRadius: radii.button
+    borderRadius: radii.control
   },
   createButtonDisabled: {
     opacity: 0.5
@@ -154,9 +154,6 @@ export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
   keyboardDismissChevron: {
     bottom: -2,
     position: 'absolute'
-  },
-  liveInputCaptureDisabled: {
-    opacity: 0.45
   },
   dictationButtonActive: {
     borderWidth: 1,
