@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildTerminalShortcutKey, TERMINAL_ACCESSORY_KEYS } from './terminal-accessory-keys'
+import { compactTerminalKeyLabel } from './terminal-key-definitions'
 
 describe('TERMINAL_ACCESSORY_KEYS', () => {
   it('has unique non-empty built-in ids', () => {
@@ -110,5 +111,16 @@ describe('TERMINAL_ACCESSORY_KEYS', () => {
 
   it('rejects control combinations that terminals cannot encode as control bytes', () => {
     expect(buildTerminalShortcutKey({ key: '1', modifiers: ['ctrl'] })).toBeNull()
+  })
+
+  it('formats compact terminal key labels while keeping Tab as letters', () => {
+    expect(compactTerminalKeyLabel('Ctrl+C')).toBe('^C')
+    expect(compactTerminalKeyLabel('Alt+M')).toBe('⌥M')
+    expect(compactTerminalKeyLabel('Shift+Tab')).toBe('⇧Tab')
+    expect(compactTerminalKeyLabel('Tab')).toBe('Tab')
+    expect(compactTerminalKeyLabel('Enter')).toBe('⏎')
+    expect(compactTerminalKeyLabel('Shift+Enter')).toBe('⇧⏎')
+    expect(compactTerminalKeyLabel('Space')).toBe('␣')
+    expect(compactTerminalKeyLabel('Ctrl+Space')).toBe('^␣')
   })
 })

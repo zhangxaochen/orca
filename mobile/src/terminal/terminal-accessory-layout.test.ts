@@ -2,15 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { hasTerminalDirectionPadSpace, type SideRailStrip } from '../layout/side-rail-strip'
 
 import {
+  ROW_DIVIDER_ID_PREFIX,
+  TERMINAL_ACCESSORY_LAYOUT_STORAGE_KEY,
   createTerminalAccessoryLayoutPreference,
   getDefaultTerminalAccessoryBuiltInIds,
   getDefaultTerminalAccessoryLayout,
   getVisibleTerminalAccessoryKeys,
+  getVisibleTerminalAccessoryRows,
   loadTerminalAccessoryLayout,
   normalizeTerminalAccessoryLayoutPreference,
+  parseTerminalAccessoryReorderIds,
+  reconcileTerminalAccessoryLayoutCustomKeys,
   reorderTerminalAccessoryBuiltInIds,
   saveTerminalAccessoryLayout,
-  setTerminalAccessoryBuiltInVisible
+  setTerminalAccessoryBuiltInVisible,
+  setTerminalAccessoryRowCount,
+  updateTerminalAccessoryRows
 } from './terminal-accessory-layout'
 
 const asyncStorageMock = vi.hoisted(() => ({
@@ -46,11 +53,14 @@ describe('terminal accessory layout', () => {
     )
   })
 
-  it('default layout shows every built-in in canonical order', () => {
+  it('default layout shows every built-in in canonical order on 1 row', () => {
+    const ids = getDefaultTerminalAccessoryBuiltInIds()
     expect(getDefaultTerminalAccessoryLayout()).toEqual({
-      directionPadEnabled: true,
-      orderedBuiltInIds: getDefaultTerminalAccessoryBuiltInIds(),
-      visibleBuiltInIds: getDefaultTerminalAccessoryBuiltInIds()
+      rowCount: 1,
+      rows: [ids],
+      orderedBuiltInIds: ids,
+      visibleBuiltInIds: ids,
+      directionPadEnabled: true
     })
   })
 
@@ -70,6 +80,12 @@ describe('terminal accessory layout', () => {
         visibleBuiltInIds: ['escape']
       }).visibleBuiltInIds
     ).toEqual(getDefaultTerminalAccessoryBuiltInIds())
+    expect(
+      normalizeTerminalAccessoryLayoutPreference({
+        version: 3,
+        visibleBuiltInIds: ['escape']
+      }).visibleBuiltInIds
+    ).toEqual(getDefaultTerminalAccessoryBuiltInIds())
   })
 
   it('returns defaults for corrupt or unreadable storage', async () => {
@@ -84,7 +100,7 @@ describe('terminal accessory layout', () => {
     )
   })
 
-  it('preserves a custom v2 order and its visible subset', () => {
+  it('migrates a custom v2 order and its visible subset to v3', () => {
     const reversed = [...getDefaultTerminalAccessoryBuiltInIds()].toReversed()
 
     expect(
@@ -94,10 +110,12 @@ describe('terminal accessory layout', () => {
         visibleBuiltInIds: ['tab', 'escape']
       })
     ).toEqual({
-      directionPadEnabled: true,
-      version: 2,
+      version: 3,
+      rowCount: 1,
+      rows: [reversed],
       orderedBuiltInIds: reversed,
-      visibleBuiltInIds: ['tab', 'escape']
+      visibleBuiltInIds: ['tab', 'escape'],
+      directionPadEnabled: true
     })
   })
 
@@ -114,10 +132,12 @@ describe('terminal accessory layout', () => {
         current
       )
     ).toEqual({
-      directionPadEnabled: true,
-      version: 2,
+      version: 3,
+      rowCount: 1,
+      rows: [['tab', 'escape', 'enter']],
       orderedBuiltInIds: ['tab', 'escape', 'enter'],
-      visibleBuiltInIds: ['tab', 'escape']
+      visibleBuiltInIds: ['tab', 'escape'],
+      directionPadEnabled: true
     })
   })
 
@@ -134,10 +154,37 @@ describe('terminal accessory layout', () => {
         current
       )
     ).toEqual({
-      directionPadEnabled: true,
-      version: 2,
+      version: 3,
+      rowCount: 1,
+      // Why asserted: 'space' follows its canonical predecessor 'tab' even
+      // though the user moved 'tab' into the middle of the bar.
+      rows: [['enter', 'tab', 'space', 'escape']],
       orderedBuiltInIds: ['enter', 'tab', 'space', 'escape'],
-      visibleBuiltInIds: ['enter', 'space', 'escape']
+      visibleBuiltInIds: ['enter', 'space', 'escape'],
+      directionPadEnabled: true
+    })
+  })
+
+  it('inserts new built-ins into the same row as their canonical neighbor in v3 multi-row layout', () => {
+    const current = ['escape', 'tab', 'space', 'enter']
+
+    expect(
+      normalizeTerminalAccessoryLayoutPreference(
+        {
+          version: 3,
+          rowCount: 2,
+          rows: [['enter'], ['custom-1', 'tab', 'escape']],
+          visibleBuiltInIds: ['enter', 'escape']
+        },
+        current
+      )
+    ).toEqual({
+      version: 3,
+      rowCount: 2,
+      rows: [['enter'], ['custom-1', 'tab', 'space', 'escape']],
+      orderedBuiltInIds: ['enter', 'tab', 'space', 'escape'],
+      visibleBuiltInIds: ['enter', 'space', 'escape'],
+      directionPadEnabled: true
     })
   })
 
@@ -156,18 +203,21 @@ describe('terminal accessory layout', () => {
     ).toEqual(['escape', 'enter', 'tab'])
   })
 
-  it('migrates v1 layouts to canonical order', () => {
+  it('migrates v1 layouts to canonical order on v3', () => {
+    const ids = getDefaultTerminalAccessoryBuiltInIds()
     expect(
       normalizeTerminalAccessoryLayoutPreference({
         version: 1,
         visibleBuiltInIds: ['tab', 'escape'],
-        knownBuiltInIds: getDefaultTerminalAccessoryBuiltInIds()
+        knownBuiltInIds: ids
       })
     ).toEqual({
-      directionPadEnabled: true,
-      version: 2,
-      orderedBuiltInIds: getDefaultTerminalAccessoryBuiltInIds(),
-      visibleBuiltInIds: ['escape', 'tab']
+      version: 3,
+      rowCount: 1,
+      rows: [ids],
+      orderedBuiltInIds: ids,
+      visibleBuiltInIds: ['escape', 'tab'],
+      directionPadEnabled: true
     })
   })
 
@@ -221,7 +271,7 @@ describe('terminal accessory layout', () => {
     ).toEqual(['space'])
   })
 
-  it('keeps hidden built-ins hidden across v2 round-trips', () => {
+  it('keeps hidden built-ins hidden across v3 round-trips', () => {
     const visibleBuiltInIds = getDefaultTerminalAccessoryBuiltInIds().filter((id) => id !== 'space')
     const persisted = createTerminalAccessoryLayoutPreference({
       orderedBuiltInIds: getDefaultTerminalAccessoryBuiltInIds(),
@@ -249,13 +299,15 @@ describe('terminal accessory layout', () => {
     ).toEqual([])
   })
 
-  it('toggles visibility while preserving the custom order', () => {
+  it('toggles visibility while preserving the custom order and rows', () => {
     const layout = { orderedBuiltInIds: ['tab', 'escape'], visibleBuiltInIds: ['tab'] }
 
     expect(setTerminalAccessoryBuiltInVisible(layout, 'escape', true, ['escape', 'tab'])).toEqual({
-      directionPadEnabled: true,
+      rowCount: 1,
+      rows: [['tab', 'escape']],
       orderedBuiltInIds: ['tab', 'escape'],
-      visibleBuiltInIds: ['tab', 'escape']
+      visibleBuiltInIds: ['tab', 'escape'],
+      directionPadEnabled: true
     })
     expect(
       setTerminalAccessoryBuiltInVisible(
@@ -266,9 +318,11 @@ describe('terminal accessory layout', () => {
       ).visibleBuiltInIds
     ).toEqual(['escape'])
     expect(setTerminalAccessoryBuiltInVisible(layout, 'unknown', true, ['escape', 'tab'])).toEqual({
-      directionPadEnabled: true,
+      rowCount: 1,
+      rows: [['tab', 'escape']],
       orderedBuiltInIds: ['tab', 'escape'],
-      visibleBuiltInIds: ['tab']
+      visibleBuiltInIds: ['tab'],
+      directionPadEnabled: true
     })
   })
 
@@ -285,9 +339,11 @@ describe('terminal accessory layout', () => {
         ['escape', 'tab', 'enter']
       )
     ).toEqual({
-      directionPadEnabled: true,
+      rowCount: 1,
+      rows: [['enter', 'escape', 'tab']],
       orderedBuiltInIds: ['enter', 'escape', 'tab'],
-      visibleBuiltInIds: ['enter', 'escape']
+      visibleBuiltInIds: ['enter', 'escape'],
+      directionPadEnabled: true
     })
 
     // Stale drag results must not drop missing ids from the layout.
@@ -297,6 +353,126 @@ describe('terminal accessory layout', () => {
     ).toEqual(['enter', 'escape', 'tab'])
   })
 
+  it('increments rowCount up to 4 and merges trailing rows when decremented', () => {
+    const current = ['escape', 'tab', 'enter']
+    const initial = {
+      rowCount: 1,
+      rows: [['escape', 'tab', 'enter']],
+      orderedBuiltInIds: current,
+      visibleBuiltInIds: current
+    }
+
+    const threeRows = setTerminalAccessoryRowCount(initial, 3, current)
+    expect(threeRows).toEqual({
+      rowCount: 3,
+      rows: [['escape', 'tab', 'enter'], [], []],
+      orderedBuiltInIds: current,
+      visibleBuiltInIds: current,
+      directionPadEnabled: true
+    })
+
+    const clampedMax = setTerminalAccessoryRowCount(threeRows, 9, current)
+    expect(clampedMax.rowCount).toBe(4)
+    expect(clampedMax.rows).toHaveLength(4)
+
+    const distributed = updateTerminalAccessoryRows(
+      threeRows,
+      [['custom-a', 'escape'], ['tab'], ['custom-b', 'enter']],
+      current
+    )
+    expect(distributed).toEqual({
+      rowCount: 3,
+      rows: [['custom-a', 'escape'], ['tab'], ['custom-b', 'enter']],
+      orderedBuiltInIds: ['escape', 'tab', 'enter'],
+      visibleBuiltInIds: ['escape', 'tab', 'enter'],
+      directionPadEnabled: true
+    })
+
+    const twoRows = setTerminalAccessoryRowCount(distributed, 2, current)
+    expect(twoRows).toEqual({
+      rowCount: 2,
+      rows: [
+        ['custom-a', 'escape'],
+        ['tab', 'custom-b', 'enter']
+      ],
+      orderedBuiltInIds: ['escape', 'tab', 'enter'],
+      visibleBuiltInIds: ['escape', 'tab', 'enter'],
+      directionPadEnabled: true
+    })
+
+    const oneRow = setTerminalAccessoryRowCount(twoRows, 0, current)
+    expect(oneRow).toEqual({
+      rowCount: 1,
+      rows: [['custom-a', 'escape', 'tab', 'custom-b', 'enter']],
+      orderedBuiltInIds: ['escape', 'tab', 'enter'],
+      visibleBuiltInIds: ['escape', 'tab', 'enter'],
+      directionPadEnabled: true
+    })
+  })
+
+  it('reconciles custom keys and resolves unified multi-row bar items with custom keys before built-ins', () => {
+    const current = ['escape', 'tab', 'enter']
+    const layout = updateTerminalAccessoryRows(
+      {
+        rowCount: 2,
+        rows: [
+          ['custom-first', 'escape', 'custom-removed'],
+          ['tab', 'enter']
+        ],
+        orderedBuiltInIds: current,
+        visibleBuiltInIds: ['escape', 'enter']
+      },
+      [
+        ['custom-first', 'escape', 'custom-removed'],
+        ['tab', 'enter']
+      ],
+      current
+    )
+
+    const customKeys = [
+      { id: 'custom-first', label: ':wq', bytes: ':wq\r' },
+      { id: 'custom-new', label: 'gst', bytes: 'git status\r' }
+    ]
+
+    const reconciled = reconcileTerminalAccessoryLayoutCustomKeys(
+      layout,
+      customKeys.map((k) => k.id),
+      current
+    )
+    expect(reconciled.rows).toEqual([
+      ['custom-first', 'escape'],
+      ['tab', 'enter', 'custom-new']
+    ])
+
+    const visibleRows = getVisibleTerminalAccessoryRows(layout, customKeys, current)
+    expect(visibleRows).toHaveLength(2)
+    expect(visibleRows[0]!.map((item) => `${item.kind}:${item.key.id}`)).toEqual([
+      'custom:custom-first',
+      'built-in:escape'
+    ])
+    expect(visibleRows[1]!.map((item) => `${item.kind}:${item.key.id}`)).toEqual([
+      'built-in:enter',
+      'custom:custom-new'
+    ])
+  })
+
+  it('parses flat drag-reorder sequences across row divider markers', () => {
+    const orderedIds = [
+      'custom-1',
+      'escape',
+      `${ROW_DIVIDER_ID_PREFIX}1__`,
+      'tab',
+      `${ROW_DIVIDER_ID_PREFIX}2__`,
+      'enter',
+      'custom-2'
+    ]
+    expect(parseTerminalAccessoryReorderIds(orderedIds, 3)).toEqual([
+      ['custom-1', 'escape'],
+      ['tab'],
+      ['enter', 'custom-2']
+    ])
+  })
+
   it('keeps visible terminal keys in the order of their ids', () => {
     expect(getVisibleTerminalAccessoryKeys(['enter', 'escape']).map((key) => key.id)).toEqual([
       'enter',
@@ -304,7 +480,7 @@ describe('terminal accessory layout', () => {
     ])
   })
 
-  it('saves the sanitized v2 preference', async () => {
+  it('saves the sanitized v3 preference', async () => {
     asyncStorageMock.setItem.mockResolvedValueOnce(undefined)
 
     await saveTerminalAccessoryLayout({
@@ -313,12 +489,14 @@ describe('terminal accessory layout', () => {
     })
 
     expect(asyncStorageMock.setItem).toHaveBeenCalledWith(
-      'orca:terminal-accessory-layout',
+      TERMINAL_ACCESSORY_LAYOUT_STORAGE_KEY,
       JSON.stringify({
-        version: 2,
-        directionPadEnabled: true,
+        version: 3,
+        rowCount: 1,
+        rows: [getDefaultTerminalAccessoryBuiltInIds()],
         orderedBuiltInIds: getDefaultTerminalAccessoryBuiltInIds(),
-        visibleBuiltInIds: ['tab']
+        visibleBuiltInIds: ['tab'],
+        directionPadEnabled: true
       })
     )
   })

@@ -35,6 +35,7 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 const ESC = '\x1b'
 
 // Both fields must remain focusable during the tap that hands the keyboard to the other mode.
+// Return inserts a newline; the send button submits the whole buffer.
 const inactiveFieldStyle = { position: 'absolute', left: 0, right: 0, opacity: 0 } as const
 
 // Keys mode types straight into the terminal; Message mode writes in the chat composer and sends on tap.
@@ -111,6 +112,15 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
         { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
       ]}
     >
+      {rail.keysInRail ? (
+        <MobileTerminalMoreKeysSheet
+          controller={controller}
+          visible={rail.moreKeysVisible}
+          onClose={rail.closeMoreKeys}
+        />
+      ) : (
+        <MobileSessionAccessoryKeys controller={controller} />
+      )}
       <View>
         <View
           style={[dockStyles.keysBar, !liveInputEnabled && inactiveFieldStyle]}
@@ -261,15 +271,6 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
           />
         </View>
       </View>
-      {rail.keysInRail ? (
-        <MobileTerminalMoreKeysSheet
-          controller={controller}
-          visible={rail.moreKeysVisible}
-          onClose={rail.closeMoreKeys}
-        />
-      ) : (
-        <MobileSessionAccessoryKeys controller={controller} />
-      )}
     </View>
   )
 }

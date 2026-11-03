@@ -2,12 +2,12 @@ import { StyleSheet } from 'react-native'
 import { colors, feedback, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 
-const KEY_HEIGHT = 32
-const KEY_ROW_HEIGHT = 46
-const KEY_GAP = spacing.sm
+const KEY_HEIGHT = 28
+const KEY_ROW_HEIGHT = 32
+const KEY_GAP = 4
 const KEY_RADIUS = radii.control
 
-/** Grows each 32 pt key to the row's height and halfway into its neighbours' gaps. */
+/** Grows each 28 pt key to the row's height and halfway into its neighbours' gaps. */
 export const TERMINAL_KEY_HIT_SLOP = {
   top: (KEY_ROW_HEIGHT - KEY_HEIGHT) / 2,
   bottom: (KEY_ROW_HEIGHT - KEY_HEIGHT) / 2,
@@ -17,13 +17,13 @@ export const TERMINAL_KEY_HIT_SLOP = {
 
 const key = {
   height: KEY_HEIGHT,
-  minWidth: 34,
-  paddingHorizontal: 9,
+  minWidth: 28,
+  paddingHorizontal: 7,
   borderRadius: KEY_RADIUS,
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 5
+  gap: 3
 } as const
 
 export const terminalDockStyles = themedStyleSheet(() => ({
@@ -49,15 +49,33 @@ export const terminalDockStyles = themedStyleSheet(() => ({
     marginTop: spacing.sm,
     marginBottom: spacing.sm
   },
+  keyRowsStack: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle,
+    paddingVertical: 2,
+    backgroundColor: colors.bgPanel
+  },
   keyRow: {
     height: KEY_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: KEY_GAP,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSubtle,
     backgroundColor: colors.bgPanel
+  },
+  keyRowSecondary: {
+    height: KEY_ROW_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: KEY_GAP,
+    paddingHorizontal: 6,
+    backgroundColor: colors.bgPanel
+  },
+  customKey: {
+    borderColor: colors.composerBorder,
+    backgroundColor: colors.composerSurface
   },
   keyScroll: {
     flex: 1,
@@ -77,7 +95,7 @@ export const terminalDockStyles = themedStyleSheet(() => ({
   },
   keyText: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     fontFamily: typography.monoFamily
   },
@@ -105,27 +123,28 @@ export const terminalDockStyles = themedStyleSheet(() => ({
   },
   iconKey: {
     ...key,
-    width: 34,
+    width: 28,
     paddingHorizontal: 0,
     backgroundColor: 'transparent'
   },
   modeKey: {
     ...key,
-    paddingHorizontal: 10,
+    width: 30,
+    paddingHorizontal: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.composerBorder,
     backgroundColor: colors.composerSurface
   },
   modeKeyText: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600'
   },
   disabled: {
     opacity: feedback.disabledOpacity
   },
   arrowPad: {
-    width: 66,
+    width: 58,
     height: KEY_HEIGHT,
     borderRadius: radii.control,
     backgroundColor: colors.bgRaised
@@ -135,23 +154,23 @@ export const terminalDockStyles = themedStyleSheet(() => ({
   },
   arrowLeft: {
     position: 'absolute',
-    left: 6,
-    top: 10
+    left: 5,
+    top: 8
   },
   arrowRight: {
     position: 'absolute',
-    right: 6,
-    top: 10
+    right: 5,
+    top: 8
   },
   arrowUp: {
     position: 'absolute',
-    left: 27.5,
-    top: 2
+    left: 23.5,
+    top: 1
   },
   arrowDown: {
     position: 'absolute',
-    left: 27.5,
-    bottom: 2
+    left: 23.5,
+    bottom: 1
   },
   liveInputCapture: {
     position: 'absolute',
