@@ -35,31 +35,29 @@ export function TerminalShortcutSettings({
 
   return (
     <>
-      {editor.hasPad ? (
-        <SettingsSection
-          title={editor.t('components.terminalShortcutSettings.directionPad', 'DIRECTION PAD')}
-        >
-          <ListRow
-            key="directionPad"
-            title={editor.t('components.terminalShortcutSettings.showDirectionPad', 'Show D-pad')}
-            subtitle={editor.t(
-              'components.terminalShortcutSettings.showDirectionPadDescription',
-              'Pin the arrow pad in the side rail. Without it, the rail lists the arrow keys.'
-            )}
-            accessory={
-              <MobileSwitch
-                accessibilityLabel={editor.t(
-                  'components.terminalShortcutSettings.showDirectionPad',
-                  'Show D-pad'
-                )}
-                disabled={!editor.canEdit}
-                value={editor.directionPadEnabled}
-                onValueChange={editor.toggleDirectionPad}
-              />
-            }
-          />
-        </SettingsSection>
-      ) : null}
+      <SettingsSection
+        title={editor.t('components.terminalShortcutSettings.directionPad', 'DIRECTION PAD')}
+      >
+        <ListRow
+          key="directionPad"
+          title={editor.t('components.terminalShortcutSettings.showDirectionPad', 'Show D-pad')}
+          subtitle={editor.t(
+            'components.terminalShortcutSettings.showDirectionPadDescription',
+            'Show the compact arrow pad on the shortcut bar instead of separate arrow keys.'
+          )}
+          accessory={
+            <MobileSwitch
+              accessibilityLabel={editor.t(
+                'components.terminalShortcutSettings.showDirectionPad',
+                'Show D-pad'
+              )}
+              disabled={!editor.canEdit}
+              value={editor.directionPadEnabled}
+              onValueChange={editor.toggleDirectionPad}
+            />
+          }
+        />
+      </SettingsSection>
       <SettingsSection
         title={editor.t('components.terminalShortcutSettings.shortcutBar', 'SHORTCUT BAR')}
         footer={editor.t(

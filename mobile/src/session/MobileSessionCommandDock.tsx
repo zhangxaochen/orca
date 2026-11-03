@@ -19,7 +19,6 @@ import {
 } from './MobileTerminalInputActions'
 import { MobileNativeChatStopButton } from './native-chat/input/MobileNativeChatStopButton'
 import { MobileSessionAccessoryKeys } from './MobileSessionAccessoryKeys'
-import { MobileSessionCommandAccessoryBar } from './MobileSessionCommandAccessoryBar'
 import { MobileTerminalMoreKeysSheet } from './MobileTerminalMoreKeysSheet'
 import { sessionCommandDockShown } from './mobile-session-command-dock-shown'
 import { useSessionTerminalKeyRail } from './use-session-terminal-key-rail'
@@ -113,7 +112,6 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
         { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
       ]}
     >
-      {rail.keysInRail ? null : <MobileSessionCommandAccessoryBar controller={controller} />}
       <View>
         <View
           style={[dockStyles.keysBar, !liveInputEnabled && inactiveFieldStyle]}

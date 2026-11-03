@@ -1,3 +1,4 @@
+import type { Translate } from '../i18n/mobile-i18n'
 import {
   buildTerminalShortcutKey,
   normalizeShortcutKeyInput,
@@ -93,28 +94,58 @@ export function customKeyEditDraft(editingKey: CustomKeyFields | null): CustomKe
 
 export function customKeyModalTitle(
   step: 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro',
-  editing: boolean
+  editing: boolean,
+  t: Translate = (_key, fallback) => fallback
 ): string {
+  if (step === 'special-keys') {
+    return t('components.customKeyModal.pickKey', 'Pick a key')
+  }
   if (editing) {
-    return 'Edit Shortcut'
+    return t('components.customKeyModal.editShortcut', 'Edit Shortcut')
   }
   if (step === 'choose-type') {
-    return 'Add Shortcut'
+    return t('components.customKeyModal.addShortcut', 'Add Shortcut')
   }
   if (step === 'shortcut-combo') {
-    return 'Shortcut Combo'
+    return t('components.customKeyModal.shortcutCombo', 'Shortcut Combo')
   }
-  if (step === 'special-keys') {
-    return 'Pick a key'
-  }
-  return 'Text Macro'
+  return t('components.customKeyModal.textMacro', 'Text Macro')
 }
 
-export function customKeySaveLabel(editing: boolean, kind: 'combo' | 'macro'): string {
+export function customKeySaveLabel(
+  editing: boolean,
+  kind: 'combo' | 'macro',
+  t: Translate = (_key, fallback) => fallback
+): string {
   if (editing) {
-    return 'Save Changes'
+    return t('components.customKeyModal.saveChanges', 'Save Changes')
   }
-  return kind === 'combo' ? 'Add' : 'Add Shortcut'
+  return kind === 'combo'
+    ? t('components.customKeyModal.add', 'Add')
+    : t('components.customKeyModal.addShortcut', 'Add Shortcut')
+}
+
+export function specialKeyGroups(t: Translate) {
+  return [
+    {
+      id: 'editing',
+      title: t('components.customKeyModal.editing', 'Editing'),
+      ids: ['escape', 'tab', 'enter', 'backspace', 'delete', 'insert', 'space'],
+      columns: 4
+    },
+    {
+      id: 'navigation',
+      title: t('components.customKeyModal.navigation', 'Navigation'),
+      ids: ['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight', 'home', 'end', 'pageUp', 'pageDown'],
+      columns: 4
+    },
+    {
+      id: 'function',
+      title: t('components.customKeyModal.function', 'Function'),
+      ids: ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'],
+      columns: 6
+    }
+  ]
 }
 
 export function replaceCustomKeyPreservingId<T extends { id: string }>(
@@ -127,7 +158,7 @@ export function replaceCustomKeyPreservingId<T extends { id: string }>(
       return item
     }
     found = true
-    return next
+    return { ...item, ...next }
   })
   return found ? updated : [...existing, next]
 }

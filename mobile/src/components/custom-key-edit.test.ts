@@ -113,16 +113,16 @@ describe('custom key edit chrome', () => {
 })
 
 describe('replaceCustomKeyPreservingId', () => {
-  it('replaces the matching id without moving neighbors', () => {
+  it('replaces the matching id without moving neighbors and preserves existing visibility', () => {
     const existing = [
-      { id: 'custom-a', label: 'A' },
-      { id: 'custom-b', label: 'B' },
-      { id: 'custom-c', label: 'C' }
+      { id: 'custom-a', label: 'A', visible: true },
+      { id: 'custom-b', label: 'B', visible: false },
+      { id: 'custom-c', label: 'C', visible: true }
     ]
     expect(replaceCustomKeyPreservingId(existing, { id: 'custom-b', label: 'B2' })).toEqual([
-      { id: 'custom-a', label: 'A' },
-      { id: 'custom-b', label: 'B2' },
-      { id: 'custom-c', label: 'C' }
+      { id: 'custom-a', label: 'A', visible: true },
+      { id: 'custom-b', label: 'B2', visible: false },
+      { id: 'custom-c', label: 'C', visible: true }
     ])
   })
 

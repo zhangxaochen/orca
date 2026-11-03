@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+import { TERMINAL_ACCESSORY_KEYS } from '../terminal/terminal-accessory-keys'
 import { SPECIAL_KEY_LABELS } from '../terminal/terminal-key-definitions'
 import { createTerminalLiveAccessoryInput } from '../terminal/terminal-live-accessory-input'
 import { isTerminalPhoneDisplayMode } from './mobile-session-route-helpers'
@@ -6,7 +8,7 @@ import { TerminalMoreKeysSheet } from './TerminalMoreKeysSheet'
 import type { MobileSessionController } from './use-mobile-session-controller'
 
 const ARROW_IDS = ['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight']
-// Built-in keys each row already shows; the ⋯ sheet offers the rest.
+// Built-in keys each row already shows when no custom layout is configured; the ⋯ sheet offers the rest.
 const SHELL_ROW_KEY_IDS: ReadonlySet<string> = new Set(['escape', 'tab', ...ARROW_IDS])
 const AGENT_ROW_KEY_IDS: ReadonlySet<string> = new Set([
   'escape',
@@ -33,6 +35,8 @@ export function MobileTerminalMoreKeysSheet({
     setShowCustomKeyModal,
     setDeleteKeyTarget,
     visibleBuiltInAccessoryKeys,
+    visibleAccessoryRows,
+    directionPadEnabled = true,
     terminalModes,
     canPaste,
     canSend,
@@ -45,6 +49,21 @@ export function MobileTerminalMoreKeysSheet({
   } = controller
   const runsAgent =
     activeSessionTab?.type === 'terminal' && isMobileTerminalTabRunningAgent(activeSessionTab)
+  const hasConfiguredRows = Boolean(
+    visibleAccessoryRows && visibleAccessoryRows.some((row) => row.length > 0)
+  )
+  const rowKeyIds = useMemo<ReadonlySet<string>>(() => {
+    if (!hasConfiguredRows) {
+      return runsAgent ? AGENT_ROW_KEY_IDS : SHELL_ROW_KEY_IDS
+    }
+    const ids = new Set<string>(visibleBuiltInAccessoryKeys.map((k) => k.id))
+    if (directionPadEnabled) {
+      for (const id of ARROW_IDS) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [directionPadEnabled, hasConfiguredRows, runsAgent, visibleBuiltInAccessoryKeys])
   return (
     <TerminalMoreKeysSheet
       visible={visible}
@@ -53,8 +72,8 @@ export function MobileTerminalMoreKeysSheet({
       canPaste={canPaste}
       isAttaching={isAttaching}
       phoneDisplay={isTerminalPhoneDisplayMode(activeHandle, terminalModes)}
-      rowKeyIds={runsAgent ? AGENT_ROW_KEY_IDS : SHELL_ROW_KEY_IDS}
-      builtInKeys={visibleBuiltInAccessoryKeys}
+      rowKeyIds={rowKeyIds}
+      builtInKeys={hasConfiguredRows ? TERMINAL_ACCESSORY_KEYS : visibleBuiltInAccessoryKeys}
       customKeys={customKeys}
       onPaste={() => void handlePaste()}
       onAttachImage={() => void attachImage('library')}
