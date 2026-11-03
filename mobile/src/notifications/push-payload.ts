@@ -1,7 +1,7 @@
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
-} from '../../../src/shared/structured-agent-session-projection'
+} from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 
 // Why two shapes: APNs nests Orca's fields under `orca` beside `aps`, while FCM
 // carries them flat in `data` as strings. Both reach JS as the notification's

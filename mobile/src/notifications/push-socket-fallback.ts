@@ -38,7 +38,7 @@ import { isHostPushRegistered } from './push-registration'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
-} from '../../../src/shared/structured-agent-session-projection'
+} from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 
 const URGENT_TEXT_PATTERN = /\b(waiting for input|needs input|permission|approval|blocked)\b/i
 
