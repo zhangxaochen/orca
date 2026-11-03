@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable } from 'react-native'
-import { ChevronDown, ChevronUp, Ellipsis, Keyboard as KeyboardIcon, PenLine } from 'lucide-react-native'
+import {
+  ChevronDown,
+  ChevronUp,
+  Ellipsis,
+  Keyboard as KeyboardIcon,
+  PenLine
+} from 'lucide-react-native'
 import { triggerMediumImpact } from '../platform/haptics'
-import type { TerminalAccessoryKey, TerminalShortcutModifier } from '../terminal/terminal-accessory-keys'
+import type {
+  TerminalAccessoryKey,
+  TerminalShortcutModifier
+} from '../terminal/terminal-accessory-keys'
 import type { TerminalAccessoryBarItem } from '../terminal/terminal-accessory-layout'
 import type { CustomKey } from '../terminal/terminal-custom-keys'
-import { SPECIAL_KEY_LABELS } from '../terminal/terminal-key-definitions'
+import { compactTerminalKeyLabel, SPECIAL_KEY_LABELS } from '../terminal/terminal-key-definitions'
 import { createTerminalLiveAccessoryInput } from '../terminal/terminal-live-accessory-input'
 import { TERMINAL_ACCESSORY_REPEAT_DELAY_MS } from '../terminal/terminal-accessory-repeat'
 import { isMobileTerminalTabRunningAgent } from './mobile-terminal-tab-agent'
@@ -26,18 +35,12 @@ const SHELL_CHARACTERS = ['/', '|', '~', '-', ':']
 const AGENT_CHARACTERS = ['/', '@', '!']
 const ARROW_KEY_IDS = new Set(['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight'])
 
-function compactKeyLabel(label: string): string {
-  return label
-    .replace(/\bCtrl\+/gi, '^')
-    .replace(/\bAlt\+/gi, '⌥')
-    .replace(/\bShift\+/gi, '⇧')
-    .replace(/Enter$/i, '⏎')
-    .replace(/Tab$/i, '⇥')
-    .replace(/^Space$/i, '␣')
-}
-
 // The terminal's key rows above the input; the Duo's side rail shows the same keys. Every key goes straight to the terminal.
-export function MobileSessionAccessoryKeys({ controller }: { controller: MobileSessionController }) {
+export function MobileSessionAccessoryKeys({
+  controller
+}: {
+  controller: MobileSessionController
+}) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const {
@@ -60,15 +63,24 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
   const [sheetVisible, setSheetVisible] = useState(false)
   const [rowsCollapsed, setRowsCollapsed] = useState(false)
   const repeatablePresses = useRef(new Map<string, ReturnType<typeof prepareAccessoryPress>>())
-  const padPressRef = useRef<{ modifiers: StickyModifiers; tap: (() => Promise<boolean>) | null } | null>(null)
+  const padPressRef = useRef<{
+    modifiers: StickyModifiers
+    tap: (() => Promise<boolean>) | null
+  } | null>(null)
   // An unmounting row never sees a held arrow lift.
   useEffect(() => cancelAccessoryRepeat, [cancelAccessoryRepeat])
 
-  const runsAgent = activeSessionTab?.type === 'terminal' && isMobileTerminalTabRunningAgent(activeSessionTab)
+  const runsAgent =
+    activeSessionTab?.type === 'terminal' && isMobileTerminalTabRunningAgent(activeSessionTab)
   const keyStyle = styles.key
   const sendBytes = (bytes: string) => void handleAccessoryKey({ bytes })
 
-  const keyButton = (id: string, label: string, accessibilityLabel: string, onPress: () => void) => (
+  const keyButton = (
+    id: string,
+    label: string,
+    accessibilityLabel: string,
+    onPress: () => void
+  ) => (
     <Pressable
       key={id}
       style={({ pressed }) => [keyStyle, pressed && styles.keyPressed, !canSend && styles.disabled]}
@@ -81,7 +93,8 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
       <Text style={styles.keyText}>{label}</Text>
     </Pressable>
   )
-  const sendKeyLabel = (label: string) => t('session.accessoryKeys.sendKey', 'Send {{label}}', { label })
+  const sendKeyLabel = (label: string) =>
+    t('session.accessoryKeys.sendKey', 'Send {{label}}', { label })
   const specialKey = (id: string, label: string, name: string) =>
     keyButton(id, label, sendKeyLabel(name), () => keys.sendKey(id))
   const modifierKey = (modifier: TerminalShortcutModifier, label: string, name: string) => {
@@ -101,10 +114,19 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
         onPress={() => keys.tapModifier(modifier)}
         accessibilityRole="button"
         accessibilityLabel={name}
-        accessibilityHint={t('session.accessoryKeys.modifierHint', 'Applies to the next key. Double tap to keep it on.')}
+        accessibilityHint={t(
+          'session.accessoryKeys.modifierHint',
+          'Applies to the next key. Double tap to keep it on.'
+        )}
         accessibilityState={{ selected: latch !== 'off' }}
       >
-        <Text style={[styles.keyText, latch === 'once' && styles.keyOnceText, latch === 'locked' && styles.keyLockedText]}>
+        <Text
+          style={[
+            styles.keyText,
+            latch === 'once' && styles.keyOnceText,
+            latch === 'locked' && styles.keyLockedText
+          ]}
+        >
           {label}
         </Text>
       </Pressable>
@@ -153,7 +175,7 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
 
   const renderBuiltInItem = (item: TerminalAccessoryKey): React.JSX.Element => {
     const a11y = sendKeyLabel(item.accessibilityLabel ?? item.label)
-    const displayLabel = compactKeyLabel(item.label)
+    const displayLabel = compactTerminalKeyLabel(item.label)
     if (item.repeatable) {
       const input = createTerminalLiveAccessoryInput(item)
       return (
@@ -225,7 +247,7 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
           accessibilityRole="button"
           accessibilityLabel={sendKeyLabel(custom.label)}
         >
-          <Text style={styles.keyText}>{compactKeyLabel(custom.label)}</Text>
+          <Text style={styles.keyText}>{compactTerminalKeyLabel(custom.label)}</Text>
         </Pressable>
       )
     }
@@ -242,10 +264,10 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
 
   const fallbackRowKeys = runsAgent
     ? [
-        specialKey('escape', 'esc', t('session.accessoryKeys.escape', 'Escape')),
+        specialKey('escape', 'Esc', t('session.accessoryKeys.escape', 'Escape')),
         keyButton(
           'shiftTab',
-          '⇧tab',
+          '⇧Tab',
           sendKeyLabel(t('session.accessoryKeys.shiftTab', 'Shift Tab')),
           () => sendBytes(`${ESC}[Z`)
         ),
@@ -258,9 +280,9 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
         ...chars
       ]
     : [
-        specialKey('escape', 'esc', t('session.accessoryKeys.escape', 'Escape')),
+        specialKey('escape', 'Esc', t('session.accessoryKeys.escape', 'Escape')),
         ctrlKey,
-        specialKey('tab', 'tab', t('session.accessoryKeys.tab', 'Tab')),
+        specialKey('tab', 'Tab', t('session.accessoryKeys.tab', 'Tab')),
         ...(directionPadEnabled ? [arrowPad] : []),
         altKey,
         shiftKey,

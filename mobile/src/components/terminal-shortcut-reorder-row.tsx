@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { Minus, X } from 'lucide-react-native'
+import { compactTerminalKeyLabel } from '../terminal/terminal-key-definitions'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import type { UnifiedShortcutItem } from './terminal-shortcut-settings-layout'
@@ -130,7 +131,7 @@ function ShortcutIdentity({
   return (
     <>
       <View style={styles.keycap}>
-        <Text style={styles.keycapText}>{keycap}</Text>
+        <Text style={styles.keycapText}>{compactTerminalKeyLabel(keycap)}</Text>
       </View>
       <View style={styles.rowContent}>
         <Text style={styles.rowLabel}>{title}</Text>

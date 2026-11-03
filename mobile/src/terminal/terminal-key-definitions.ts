@@ -232,3 +232,12 @@ export const TERMINAL_ACCESSORY_KEY_DEFINITIONS: TerminalAccessoryKey[] = [
     }
   }
 ]
+
+export function compactTerminalKeyLabel(label: string): string {
+  return label
+    .replace(/\bCtrl\+/gi, '^')
+    .replace(/\bAlt\+/gi, '⌥')
+    .replace(/\bShift\+/gi, '⇧')
+    .replace(/(^|[\^⌥⇧])Enter$/i, '$1⏎')
+    .replace(/(^|[\^⌥⇧])Space$/i, '$1␣')
+}
