@@ -8,6 +8,7 @@ import { triggerMediumImpact } from '../platform/haptics'
 import type { TerminalAccessoryKey } from '../terminal/terminal-accessory-keys'
 import { TERMINAL_SHORTCUT_SPECIAL_KEYS } from '../terminal/terminal-accessory-keys'
 import type { CustomKey } from '../terminal/terminal-custom-keys'
+import { compactTerminalKeyLabel } from '../terminal/terminal-key-definitions'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -126,7 +127,7 @@ export function TerminalMoreKeysSheet({
         label: accessibilityLabel
       })}
     >
-      <Text style={styles.keyText}>{label}</Text>
+      <Text style={styles.keyText}>{compactTerminalKeyLabel(label)}</Text>
     </Pressable>
   )
 
@@ -222,7 +223,7 @@ export function TerminalMoreKeysSheet({
                   'Long press to delete this key'
                 )}
               >
-                <Text style={styles.keyText}>{custom.label}</Text>
+                <Text style={styles.keyText}>{compactTerminalKeyLabel(custom.label)}</Text>
               </Pressable>
             ))}
             <Pressable

@@ -12,6 +12,7 @@ import {
   type TerminalShortcutModifier,
   type TerminalShortcutSpecialKey
 } from '../terminal/terminal-accessory-keys'
+import { compactTerminalKeyLabel } from '../terminal/terminal-key-definitions'
 import { customKeyModalStyles as styles } from './CustomKeyModal.styles'
 import {
   customKeyEditDraft,
@@ -28,11 +29,11 @@ import { FieldTextInput } from './composer-input/FieldTextInput'
 
 type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
 
-// Alt/Option emits terminal-readable ESC prefix; Cmd is absent because macOS swallows it before shell. Render Alt as ⌥.
+// Alt/Option emits terminal-readable ESC prefix; Cmd is absent because macOS swallows it before shell. Render Ctrl/Alt/Shift with compact symbols.
 const SHORTCUT_MODIFIERS: { id: TerminalShortcutModifier; label: string; glyph?: string }[] = [
-  { id: 'ctrl', label: 'Ctrl' },
+  { id: 'ctrl', label: 'Ctrl', glyph: '^' },
   { id: 'alt', label: 'Alt', glyph: '⌥' },
-  { id: 'shift', label: 'Shift' }
+  { id: 'shift', label: 'Shift', glyph: '⇧' }
 ]
 
 const SPECIAL_KEY_BY_ID: Record<string, TerminalShortcutSpecialKey> = Object.fromEntries(
@@ -114,7 +115,7 @@ export function CustomKeyModal({
   const previewKeyLabel = useMemo(() => {
     const special = SPECIAL_KEY_BY_ID[shortcutKey]
     if (special) {
-      return special.label
+      return compactTerminalKeyLabel(special.label)
     }
     return shortcutKey.length === 1 ? shortcutKey.toUpperCase() : shortcutKey
   }, [shortcutKey])
@@ -236,7 +237,7 @@ export function CustomKeyModal({
               <View key={modifier.id} style={styles.previewKeycapRow}>
                 {index > 0 ? <Text style={styles.previewPlus}>+</Text> : null}
                 <View style={[styles.keycap, styles.keycapModifier]}>
-                  <Text style={styles.keycapModifierText}>{modifier.label}</Text>
+                  <Text style={styles.keycapModifierText}>{modifier.glyph ?? modifier.label}</Text>
                 </View>
               </View>
             ))}
@@ -287,7 +288,11 @@ export function CustomKeyModal({
               style={styles.keyInput}
               value={shortcutKey.length === 1 ? shortcutKey.toUpperCase() : ''}
               onChangeText={handleShortcutKeyInput}
-              placeholder={SPECIAL_KEY_BY_ID[shortcutKey]?.label ?? 'C'}
+              placeholder={
+                SPECIAL_KEY_BY_ID[shortcutKey]
+                  ? compactTerminalKeyLabel(SPECIAL_KEY_BY_ID[shortcutKey].label)
+                  : 'C'
+              }
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={1}
@@ -346,7 +351,7 @@ export function CustomKeyModal({
                         accessibilityState={{ selected }}
                       >
                         <Text style={[styles.keyCellText, selected && styles.keyCellTextSelected]}>
-                          {key.label}
+                          {compactTerminalKeyLabel(key.label)}
                         </Text>
                       </Pressable>
                     </View>
