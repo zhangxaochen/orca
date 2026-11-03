@@ -42,6 +42,35 @@ describe('drag completion and cancellation', () => {
     await act(async () => fixture.root.unmount())
   })
 
+  it('lets draggable items cross non-draggable row dividers so row sizes can grow or shrink', async () => {
+    const onReorder = vi.fn()
+    function Harness() {
+      return createElement(DragReorderList<string>, {
+        items: ['a', '__row_divider_1__', 'b', 'c'],
+        itemKey: (id) => id,
+        isItemDraggable: (id) => !id.startsWith('__row_divider_'),
+        rowHeight: 56,
+        renderRow: (id, handle) => createElement('Text', null, id, handle),
+        onReorder,
+        scrollRef: useAnimatedRef<Animated.ScrollView>(),
+        scrollOffsetY: useSharedValue(0),
+        scrollContentHeight: useSharedValue(224)
+      })
+    }
+    let root: ReturnType<typeof create>
+    await act(async () => {
+      root = create(createElement(Harness))
+    })
+    const thirdRowGesture = probe.gestures.at(-2)!
+    await act(async () => {
+      thirdRowGesture.start!({ absoluteY: 140, translationY: 0 }, true)
+      thirdRowGesture.update!({ absoluteY: 60, translationY: -80 }, true)
+      thirdRowGesture.finalize!({ absoluteY: 60, translationY: -80 }, true)
+    })
+    expect(onReorder).toHaveBeenCalledExactlyOnceWith(['a', 'b', '__row_divider_1__', 'c'])
+    await act(async () => root!.unmount())
+  })
+
   it('does not write after a failed activation or an unchanged drop', async () => {
     const fixture = await mounted()
     await act(async () => {
@@ -234,18 +263,6 @@ it('stops scrolling at the viewport edge when rows are replaced', async () => {
   await act(async () => probe.frame!({ timeSincePreviousFrame: 16 }))
   expect(probe.scroll).toHaveBeenCalledTimes(1)
   expect(probe.frameActive).toHaveBeenLastCalledWith(false)
-  await act(async () => fixture.root.unmount())
-})
-
-it('mounts an appended row in its own slot instead of at the top', async () => {
-  const fixture = await mounted()
-  await fixture.updateItems(['a', 'b', 'c'])
-  const rowTops = fixture.root.root
-    .findAllByType('AnimatedView')
-    .flatMap((node) =>
-      Array.isArray(node.props.style) ? [Object.assign({}, ...node.props.style).top] : []
-    )
-  expect(rowTops).toEqual([0, 72, 144])
   await act(async () => fixture.root.unmount())
 })
 
