@@ -224,6 +224,8 @@ vi.mock('react-native-reanimated', async () => {
 vi.mock('lucide-react-native', () => ({
   GripVertical: () => null,
   ChevronRight: () => null,
+  Minus: () => null,
+  Plus: () => null,
   X: () => null
 }))
 vi.mock('expo-router', () => ({ useFocusEffect: () => {} }))

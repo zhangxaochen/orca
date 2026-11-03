@@ -101,7 +101,8 @@ export function TerminalShortcutSettings({
           items={editor.unifiedItems}
           itemKey={(item) => item.id}
           rowHeight={TERMINAL_SHORTCUT_REORDER_ROW_HEIGHT}
-          isItemDraggable={(item) => editor.canEdit && item.kind !== 'row-divider'}
+          isItemDraggable={(item) => item.kind !== 'row-divider'}
+          isMoveDisabled={() => !editor.canEdit}
           scrollRef={scrollRef}
           scrollOffsetY={scrollOffsetY}
           scrollContentHeight={scrollContentHeight}
