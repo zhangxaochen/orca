@@ -49,6 +49,11 @@ export const terminalDockStyles = themedStyleSheet(() => ({
     marginTop: spacing.sm,
     marginBottom: spacing.sm
   },
+  keyRowsStack: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle,
+    backgroundColor: colors.bgPanel
+  },
   keyRow: {
     height: KEY_ROW_HEIGHT,
     flexDirection: 'row',
@@ -58,6 +63,18 @@ export const terminalDockStyles = themedStyleSheet(() => ({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSubtle,
     backgroundColor: colors.bgPanel
+  },
+  keyRowSecondary: {
+    height: KEY_ROW_HEIGHT - 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: KEY_GAP,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.bgPanel
+  },
+  customKey: {
+    borderColor: colors.composerBorder,
+    backgroundColor: colors.composerSurface
   },
   keyScroll: {
     flex: 1,

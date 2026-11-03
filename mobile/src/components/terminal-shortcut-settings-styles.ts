@@ -3,6 +3,8 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { LIST_ROW_PADDING } from './list/ListGroup'
 
 // Drag-reorder rows keep their own layout: the reorder list fixes their height and adds the grip.
+export const TERMINAL_SHORTCUT_REORDER_ROW_HEIGHT = 56
+
 export const styles = themedStyleSheet(() => ({
   reorderRowContent: {
     flex: 1,
@@ -48,5 +50,51 @@ export const styles = themedStyleSheet(() => ({
   },
   deleteButtonPressed: {
     opacity: feedback.pressedOpacity
+  },
+  editTarget: {
+    flex: 1,
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md
+  },
+  rowDividerContent: {
+    height: TERMINAL_SHORTCUT_REORDER_ROW_HEIGHT,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md + 2,
+    backgroundColor: colors.bgBase
+  },
+  rowHeaderText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    letterSpacing: 0.5
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
+  },
+  stepperButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.control,
+    backgroundColor: colors.bgRaised,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  stepperButtonPressed: {
+    backgroundColor: colors.borderSubtle
+  },
+  stepperButtonDisabled: {
+    opacity: 0.35
+  },
+  stepperValue: {
+    minWidth: 20,
+    textAlign: 'center',
+    fontSize: typography.bodySize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: typography.monoFamily
   }
 }))
