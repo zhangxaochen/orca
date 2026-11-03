@@ -26,14 +26,12 @@ const accepted: Awaited<ReturnType<typeof terminalInputSend.request>> = {
   result: { send: { accepted: true } }
 }
 
-/** A tap's press and release as the WebView reports it to an SGR-tracking TUI. */
-const click = '\x1b[<0;9;31M\x1b[<0;9;31m'
-
 function fixture() {
   const client = {}
-  const sendLiveInputClick = vi.fn(async () => true)
-  const sendLiveTerminalInput = vi.fn(async () => true)
+  const legacySend: typeof terminalInputSend.request = (rpc, params, options) =>
+    terminalInputSend.request(rpc, params, options)
   const scope = {
+    sendTerminalOrderedInput: legacySend,
     client,
     clientRef: ref<object | null>(client),
     connState: 'connected',
@@ -45,10 +43,7 @@ function fixture() {
     terminalGestureInputBucketsRef: ref(new Map()),
     terminalGestureInputQueuesRef: ref(new Map()),
     terminalGestureInputInFlightRef: ref(new Set()),
-    deviceTokenRef: ref('synthetic-device'),
-    liveInputTerminalHandlesRef: ref(new Set<string>()),
-    sendLiveInputClick,
-    sendLiveTerminalInputRef: ref(sendLiveTerminalInput)
+    deviceTokenRef: ref('synthetic-device')
   }
   let actions!: ReturnType<typeof useMobileSessionTerminalInput>
   function Harness() {
@@ -61,7 +56,7 @@ function fixture() {
   act(() => {
     renderers.push(create(createElement(Harness)))
   })
-  return { actions, scope, sendLiveInputClick, sendLiveTerminalInput }
+  return { actions, scope }
 }
 
 function holdFirstRequest() {
@@ -139,22 +134,6 @@ it.each(['disconnected', 'inactive', 'expired'] as const)(
     expect(scope.terminalGestureInputQueuesRef.current.size).toBe(0)
   }
 )
-
-it('delivers a deliberate click in order after wheel events empty the gesture bucket', async () => {
-  const release = holdFirstRequest()
-  const { actions, sendLiveTerminalInput } = fixture()
-  await actions.handleTerminalInput(handle, up.repeat(32))
-  await actions.handleTerminalInput(handle, down.repeat(32))
-  await actions.handleTerminalInput(handle, click, { click: true })
-  expect(request).toHaveBeenCalledTimes(1)
-  expect(sendLiveTerminalInput).toHaveBeenCalledWith(handle, click)
-  release()
-  await settle()
-  expect(request.mock.calls.map((call) => call[1])).toEqual([
-    expect.objectContaining({ text: up.repeat(32) }),
-    expect.objectContaining({ text: down.repeat(32) })
-  ])
-})
 
 it('retains gesture validation and the per-sequence rate limit', async () => {
   const release = holdFirstRequest()
