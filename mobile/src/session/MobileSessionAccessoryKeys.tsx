@@ -26,7 +26,17 @@ const SHELL_CHARACTERS = ['/', '|', '~', '-', ':']
 const AGENT_CHARACTERS = ['/', '@', '!']
 const ARROW_KEY_IDS = new Set(['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight'])
 
-// The terminal's key rows under the input; the Duo's side rail shows the same keys. Every key goes straight to the terminal.
+function compactKeyLabel(label: string): string {
+  return label
+    .replace(/\bCtrl\+/gi, '^')
+    .replace(/\bAlt\+/gi, '⌥')
+    .replace(/\bShift\+/gi, '⇧')
+    .replace(/Enter$/i, '⏎')
+    .replace(/Tab$/i, '⇥')
+    .replace(/^Space$/i, '␣')
+}
+
+// The terminal's key rows above the input; the Duo's side rail shows the same keys. Every key goes straight to the terminal.
 export function MobileSessionAccessoryKeys({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
@@ -40,14 +50,10 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
     setDeleteKeyTarget,
     handleAccessoryKey,
     dockKeys: keys,
-    dismissSoftwareKeyboard,
-    liveInputRef,
-    commandInputRef,
     toggleLiveInput,
     stopAccessoryRepeat,
     cancelAccessoryRepeat,
-    prepareAccessoryPress,
-    keyboardLift
+    prepareAccessoryPress
   } = controller
   const keepsKeyboard = useKeyboardPersistingTaps('always')
   const [padHeld, setPadHeld] = useState(false)
@@ -59,7 +65,6 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
   useEffect(() => cancelAccessoryRepeat, [cancelAccessoryRepeat])
 
   const runsAgent = activeSessionTab?.type === 'terminal' && isMobileTerminalTabRunningAgent(activeSessionTab)
-  const keyboardUp = keyboardLift > 0
   const keyStyle = styles.key
   const sendBytes = (bytes: string) => void handleAccessoryKey({ bytes })
 
@@ -142,12 +147,13 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
       onHoldChange={setPadHeld}
     />
   )
-  const ctrlKey = modifierKey('ctrl', 'ctrl', t('session.accessoryKeys.control', 'Control'))
-  const altKey = modifierKey('alt', 'alt', t('session.accessoryKeys.alt', 'Alt'))
+  const ctrlKey = modifierKey('ctrl', '^', t('session.accessoryKeys.control', 'Control'))
+  const altKey = modifierKey('alt', '⌥', t('session.accessoryKeys.alt', 'Alt'))
   const shiftKey = modifierKey('shift', '⇧', t('session.accessoryKeys.shift', 'Shift'))
 
   const renderBuiltInItem = (item: TerminalAccessoryKey): React.JSX.Element => {
     const a11y = sendKeyLabel(item.accessibilityLabel ?? item.label)
+    const displayLabel = compactKeyLabel(item.label)
     if (item.repeatable) {
       const input = createTerminalLiveAccessoryInput(item)
       return (
@@ -183,11 +189,11 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
           accessibilityRole="button"
           accessibilityLabel={a11y}
         >
-          <Text style={styles.keyText}>{item.label}</Text>
+          <Text style={styles.keyText}>{displayLabel}</Text>
         </Pressable>
       )
     }
-    return keyButton(item.id, item.label, a11y, () =>
+    return keyButton(item.id, displayLabel, a11y, () =>
       SPECIAL_KEY_LABELS[item.id]
         ? keys.sendKey(item.id)
         : void handleAccessoryKey(createTerminalLiveAccessoryInput(item))
@@ -219,7 +225,7 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
           accessibilityRole="button"
           accessibilityLabel={sendKeyLabel(custom.label)}
         >
-          <Text style={styles.keyText}>{custom.label}</Text>
+          <Text style={styles.keyText}>{compactKeyLabel(custom.label)}</Text>
         </Pressable>
       )
     }
@@ -283,7 +289,6 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
     return [...leading, ...configuredNodes, ...(isLastRow ? chars : [])]
   }
 
-  const showKeyboard = () => (liveInputEnabled ? liveInputRef : commandInputRef).current?.focus()
   const moreKeysButton = (
     <Pressable
       key="more-keys"
@@ -293,7 +298,7 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
       accessibilityRole="button"
       accessibilityLabel={t('session.accessoryKeys.moreKeys', 'More keys and actions')}
     >
-      <Ellipsis size={18} color={colors.textSecondary} strokeWidth={2.2} />
+      <Ellipsis size={17} color={colors.textSecondary} strokeWidth={2.2} />
     </Pressable>
   )
 
@@ -332,15 +337,10 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
                 }
               >
                 {liveInputEnabled ? (
-                  <KeyboardIcon size={15} color={colors.textPrimary} strokeWidth={2} />
+                  <KeyboardIcon size={14} color={colors.textPrimary} strokeWidth={2} />
                 ) : (
-                  <PenLine size={15} color={colors.textPrimary} strokeWidth={2} />
+                  <PenLine size={14} color={colors.textPrimary} strokeWidth={2} />
                 )}
-                <Text style={styles.modeKeyText}>
-                  {liveInputEnabled
-                    ? t('session.accessoryKeys.keysMode', 'Keys')
-                    : t('session.accessoryKeys.messageMode', 'Message')}
-                </Text>
               </Pressable>
             ) : null}
             {/* Why: default tap handling makes the first key tap dismiss the keyboard and get swallowed (#5106). */}
@@ -368,34 +368,9 @@ export function MobileSessionAccessoryKeys({ controller }: { controller: MobileS
                 }
               >
                 {rowsCollapsed ? (
-                  <ChevronUp size={16} color={colors.textSecondary} strokeWidth={2.2} />
+                  <ChevronUp size={15} color={colors.textSecondary} strokeWidth={2.2} />
                 ) : (
-                  <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.2} />
-                )}
-              </Pressable>
-            ) : null}
-            {/* Why: fixed keyboard escape hatch outside the scroll view, so it can't scroll away (#5106). */}
-            {isFirstRow ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.iconKey,
-                  pressed && styles.keyPressed,
-                  !keyboardUp && !canCompose && styles.disabled
-                ]}
-                disabled={!keyboardUp && !canCompose}
-                onPress={keyboardUp ? dismissSoftwareKeyboard : showKeyboard}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  keyboardUp
-                    ? t('session.accessoryKeys.dismissKeyboard', 'Dismiss keyboard')
-                    : t('session.accessoryKeys.showKeyboard', 'Show keyboard')
-                }
-              >
-                {keyboardUp ? (
-                  <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.2} />
-                ) : (
-                  <KeyboardIcon size={17} color={colors.textSecondary} strokeWidth={2} />
+                  <ChevronDown size={15} color={colors.textSecondary} strokeWidth={2.2} />
                 )}
               </Pressable>
             ) : null}

@@ -112,6 +112,15 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
         { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
       ]}
     >
+      {rail.keysInRail ? (
+        <MobileTerminalMoreKeysSheet
+          controller={controller}
+          visible={rail.moreKeysVisible}
+          onClose={rail.closeMoreKeys}
+        />
+      ) : (
+        <MobileSessionAccessoryKeys controller={controller} />
+      )}
       <View>
         <View
           style={[dockStyles.keysBar, !liveInputEnabled && inactiveFieldStyle]}
@@ -262,15 +271,6 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
           />
         </View>
       </View>
-      {rail.keysInRail ? (
-        <MobileTerminalMoreKeysSheet
-          controller={controller}
-          visible={rail.moreKeysVisible}
-          onClose={rail.closeMoreKeys}
-        />
-      ) : (
-        <MobileSessionAccessoryKeys controller={controller} />
-      )}
     </View>
   )
 }
