@@ -1,16 +1,15 @@
 import { resolveAgentPaneAuthorityKey } from '@/store/slices/agent-pane-authority'
 import type { AppState } from '../../store/types'
-import { titleHasAgentName } from '../../../../shared/agent-detection'
+import { titleHasAgentName } from '../../../../shared/agent-status/title/agent-name-token-match'
 import type {
   AgentStatusEntry,
-  AgentStatusIpcPayload,
   AgentType,
   ParsedAgentStatusPayload
-} from '../../../../shared/agent-status-types'
-import { resolveAgentStatusIdentity } from '../../../../shared/agent-status-identity'
-import { sameAgentStatusTerminalOwner } from '../../../../shared/agent-status-terminal-owner'
-import { makePaneKey, parsePaneKey } from '../../../../shared/stable-pane-id'
-import type { PaneForegroundAgentEntry } from '../../store/slices/pane-foreground-agent'
+} from '../../../../shared/agent-status/contracts/agent-status-types'
+import type { AgentStatusIpcPayload } from '../../../../shared/agent-status/contracts/agent-status-ipc-payload'
+import { resolveAgentStatusIdentity } from '../../../../shared/agent-status/identity/agent-status-identity'
+import { sameAgentStatusTerminalOwner } from '../../../../shared/agent-status/identity/agent-status-terminal-owner'
+import { makePaneKey, parsePaneKey } from '../../../../shared/workspace-layout/stable-pane-id'
 import type { useAppStore } from '../../store'
 
 export function isAgentStatusForRecentlyClosedTab(
@@ -140,11 +139,7 @@ export function isInheritedFromActivePane(
   existing: AgentStatusEntry,
   data: AgentStatusIpcPayload,
   incoming: AgentType | undefined,
-  owner: {
-    connectionId: string | null | undefined
-    worktreeId: string | undefined
-    foreground?: PaneForegroundAgentEntry
-  }
+  owner: { connectionId: string | null | undefined; worktreeId: string | undefined }
 ): boolean {
   const sameTerminal = sameAgentStatusTerminalOwner(
     { connectionId: existing.connectionId ?? null, worktreeId: existing.worktreeId },
@@ -154,38 +149,15 @@ export function isInheritedFromActivePane(
       worktreeId: data.worktreeId ?? owner.worktreeId ?? existing.worktreeId
     }
   )
-  if (!sameTerminal) {
-    return false
-  }
-  const existingOwnerAgent = existing.paneOwner?.agent ?? existing.agentType
-  const fg = owner.foreground
-  const foregroundLeftExistingOwner = Boolean(
-    fg &&
-    (fg.shellForeground ||
-      (fg.agentEvidence === 'process-read' && fg.agent !== null && fg.agent !== existingOwnerAgent))
+  return (
+    sameTerminal &&
+    resolveAgentStatusIdentity({
+      existing: { ...existing, agentPresence: data.paneOwner },
+      incoming,
+      incomingSession: data.providerSession?.id,
+      now: data.receivedAt
+    }).inheritedFromActivePane
   )
-  if (
-    !foregroundLeftExistingOwner &&
-    existingOwnerAgent &&
-    existingOwnerAgent !== 'unknown' &&
-    incoming &&
-    incoming !== 'unknown' &&
-    incoming !== existingOwnerAgent &&
-    (data.paneOwner?.agent === existingOwnerAgent ||
-      (fg &&
-        !fg.shellForeground &&
-        !fg.routingRevoked &&
-        fg.agent === existingOwnerAgent &&
-        data.paneOwner?.agent !== incoming))
-  ) {
-    return true
-  }
-  return resolveAgentStatusIdentity({
-    existing: { ...existing, agentPresence: data.paneOwner },
-    incoming,
-    incomingSession: data.providerSession?.id,
-    now: data.receivedAt
-  }).inheritedFromActivePane
 }
 
 export { resolvePaneKey } from '../../lib/agent-status-pane-ownership'

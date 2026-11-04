@@ -1,14 +1,14 @@
 import { useMemo } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { ChevronDown, LocateFixed, Play, Square } from 'lucide-react-native'
+import { ChevronDown, Play } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { AutoHeight } from '../components/AutoHeight'
 import { DisclosureChevron } from '../components/DisclosureChevron'
 import { MobileAgentIcon } from '../components/MobileAgentIcon'
-import { recentSessionConversationTurns } from '../../../src/shared/ai-vault-session-display'
-import type { AiVaultSession, AiVaultSessionOpenTab } from '../../../src/shared/ai-vault-types'
+import { recentSessionConversationTurns } from '../../../src/shared/ai-vault/session-display/ai-vault-session-display'
+import type { AiVaultSession } from '../../../src/shared/ai-vault/contracts/ai-vault-types'
 import type {
   MobileAgentHistoryCard,
   MobileAgentHistoryResumeActionState
@@ -25,11 +25,6 @@ type Props = {
   showCurrentWorktreeBadge: boolean
   resumeActionState?: MobileAgentHistoryResumeActionState
   onResume?: (session: AiVaultSession) => void | Promise<void>
-  onJumpToOpenTab?: (
-    session: AiVaultSession,
-    openTab: AiVaultSessionOpenTab
-  ) => void | Promise<void>
-  onCloseOpenTab?: (session: AiVaultSession, openTab: AiVaultSessionOpenTab) => void | Promise<void>
   onPress: () => void
 }
 
@@ -40,8 +35,6 @@ export function AgentHistorySessionRow({
   showCurrentWorktreeBadge,
   resumeActionState,
   onResume,
-  onJumpToOpenTab,
-  onCloseOpenTab,
   onPress
 }: Props) {
   useMobileColorScheme()
@@ -101,131 +94,35 @@ export function AgentHistorySessionRow({
               {session ? <PreviewTurns card={card} session={session} /> : null}
             </AutoHeight>
           </View>
-          <SessionRowActions
-            card={card}
-            session={session}
-            resumeDisabled={resumeDisabled}
-            resumeActionState={resumeActionState}
-            onResume={onResume}
-            onJumpToOpenTab={onJumpToOpenTab}
-            onCloseOpenTab={onCloseOpenTab}
-            resumeLabel={t('agentHistory.sessionHistoryList.resumeSession', 'Resume agent session')}
-          />
+          {session && onResume ? (
+            <Pressable
+              style={({ pressed: resumePressed }) => [
+                styles.resumeButton,
+                resumeDisabled && styles.resumeButtonDisabled,
+                resumePressed && !resumeDisabled && styles.resumeButtonPressed
+              ]}
+              onPress={(event) => {
+                event.stopPropagation()
+                if (!resumeDisabled) {
+                  void onResume(session)
+                }
+              }}
+              disabled={resumeDisabled}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t(
+                'agentHistory.sessionHistoryList.resumeSession',
+                'Resume agent session'
+              )}
+            >
+              {resumeActionState?.loading ? (
+                <ActivityIndicator size="small" color={colors.textPrimary} />
+              ) : (
+                <Play size={14} color={colors.textPrimary} fill={colors.textPrimary} />
+              )}
+            </Pressable>
+          ) : null}
         </View>
-      )}
-    </Pressable>
-  )
-}
-
-function SessionRowActions({
-  card,
-  session,
-  resumeDisabled,
-  resumeActionState,
-  onResume,
-  onJumpToOpenTab,
-  onCloseOpenTab,
-  resumeLabel
-}: {
-  card: MobileAgentHistoryCard
-  session: AiVaultSession | null
-  resumeDisabled: boolean
-  resumeActionState?: MobileAgentHistoryResumeActionState
-  onResume?: (session: AiVaultSession) => void | Promise<void>
-  onJumpToOpenTab?: (
-    session: AiVaultSession,
-    openTab: AiVaultSessionOpenTab
-  ) => void | Promise<void>
-  onCloseOpenTab?: (session: AiVaultSession, openTab: AiVaultSessionOpenTab) => void | Promise<void>
-  resumeLabel: string
-}) {
-  const openTab = card.openTab
-  if (session && openTab && (onJumpToOpenTab || onCloseOpenTab)) {
-    return (
-      <View style={styles.cardActionGroup}>
-        {onJumpToOpenTab ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.resumeButton,
-              resumeDisabled && styles.resumeButtonDisabled,
-              pressed && !resumeDisabled && styles.resumeButtonPressed
-            ]}
-            onPress={(event) => {
-              event.stopPropagation()
-              if (!resumeDisabled) {
-                return onJumpToOpenTab(session, openTab)
-              }
-            }}
-            disabled={resumeDisabled}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Jump to open session"
-            testID={`agent-history-jump-${card.id}`}
-          >
-            {resumeActionState?.loading ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
-            ) : (
-              <LocateFixed size={16} color={colors.textPrimary} strokeWidth={2.2} />
-            )}
-          </Pressable>
-        ) : null}
-        {onCloseOpenTab ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.stopButton,
-              resumeDisabled && styles.resumeButtonDisabled,
-              pressed && !resumeDisabled && styles.resumeButtonPressed
-            ]}
-            onPress={(event) => {
-              event.stopPropagation()
-              if (!resumeDisabled) {
-                return onCloseOpenTab(session, openTab)
-              }
-            }}
-            disabled={resumeDisabled}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Close open session"
-            testID={`agent-history-close-${card.id}`}
-          >
-            {resumeActionState?.closing ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
-            ) : (
-              <Square size={14} color={colors.textPrimary} strokeWidth={2.2} />
-            )}
-          </Pressable>
-        ) : null}
-      </View>
-    )
-  }
-
-  if (!session || !onResume) {
-    return null
-  }
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.resumeButton,
-        resumeDisabled && styles.resumeButtonDisabled,
-        pressed && !resumeDisabled && styles.resumeButtonPressed
-      ]}
-      onPress={(event) => {
-        event.stopPropagation()
-        if (!resumeDisabled) {
-          void onResume(session)
-        }
-      }}
-      disabled={resumeDisabled}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={resumeLabel}
-      testID={`agent-history-resume-${card.id}`}
-    >
-      {resumeActionState?.loading ? (
-        <ActivityIndicator size="small" color={colors.textPrimary} />
-      ) : (
-        <Play size={14} color={colors.textPrimary} fill={colors.textPrimary} />
       )}
     </Pressable>
   )

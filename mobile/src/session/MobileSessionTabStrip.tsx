@@ -15,7 +15,6 @@ import {
   latchInitialActiveTabUnread,
   resolveMobileSessionTabDotState,
   resolveMobileTerminalTabAgentId,
-  restoreLatchedUnreadTabKeys,
   seedUnreadWorktreeSessionTabs,
   subscribeCatalogWorktreesForTabStatus
 } from './mobile-terminal-tab-agent'
@@ -36,7 +35,6 @@ import { MobileSessionTab } from './MobileSessionTab'
 import type { SessionTitleCard } from './use-session-title-card'
 
 const DOUBLE_TAP_RENAME_MS = 300
-export const SESSION_TAB_DOUBLE_TAP_MS = DOUBLE_TAP_RENAME_MS
 
 export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
   controller,
@@ -99,8 +97,8 @@ export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
     latchedUnreadTabId: null
   })
   if (visitUnreadRef.current.worktreeId !== controller.worktreeId) {
-    if (!visitUnreadRef.current.userSwitchedTab && visitUnreadRef.current.latchedUnreadTabId) {
-      restoreLatchedUnreadTabKeys()
+    if (visitUnreadRef.current.latchedUnreadTabId) {
+      clearLatchedUnreadTabKeys()
     }
     visitUnreadRef.current = {
       worktreeId: controller.worktreeId,
@@ -111,8 +109,8 @@ export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
   }
   useEffect(
     () => () => {
-      if (!visitUnreadRef.current.userSwitchedTab && visitUnreadRef.current.latchedUnreadTabId) {
-        restoreLatchedUnreadTabKeys()
+      if (visitUnreadRef.current.latchedUnreadTabId) {
+        clearLatchedUnreadTabKeys()
       }
     },
     []
@@ -128,13 +126,22 @@ export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
     void catalogRevision
     void visitEpoch
     const states = new Map<string, AgentDotState>()
+    const visit = visitUnreadRef.current
+    if (
+      visit.latchedUnreadTabId !== null &&
+      activeSessionTabId !== null &&
+      activeSessionTabId !== visit.latchedUnreadTabId
+    ) {
+      visit.userSwitchedTab = true
+      visit.latchedUnreadTabId = null
+      clearLatchedUnreadTabKeys()
+    }
     if (visibleTabs.length > 0 && hasPendingWorktreeUnreadForTabCompletion(controller.worktreeId)) {
       seedUnreadWorktreeSessionTabs(controller.worktreeId, visibleTabs, now)
     }
     for (const tab of visibleTabs) {
       const tabId = tab.id
       const isActive = tabId === activeSessionTabId
-      const visit = visitUnreadRef.current
       let state: AgentDotState | undefined
       if (
         isActive &&
@@ -293,9 +300,12 @@ export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
           style={[styles.tabScroll, inTopBar && styles.tabScrollInTopBar]}
           contentContainerStyle={[styles.tabContent, inTopBar && styles.tabContentInTopBar]}
           keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={1}
-          onScroll={(e) => {
+          scrollEventThrottle={16}
+          onScrollBeginDrag={() => {
             cancelHeldTabStripReveal()
+            dismiss()
+          }}
+          onScroll={(e) => {
             tabStripOffsetRef.current = e.nativeEvent.contentOffset.x
             refreshHiddenTabs()
             refreshSource()

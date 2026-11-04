@@ -142,8 +142,6 @@ vi.mock('./MobileSessionContentRow', () => ({
   }
 }))
 vi.mock('./MobileSessionSheets', () => ({ MobileSessionSheets: () => null }))
-vi.mock('./MobileTerminalFileTapSheet', () => ({ MobileTerminalFileTapSheet: () => null }))
-vi.mock('./MobileTerminalUrlTapSheet', () => ({ MobileTerminalUrlTapSheet: () => null }))
 vi.mock('./MobileWorkerAutoCloseStrip', () => ({ MobileWorkerAutoCloseStrip: () => null }))
 vi.mock('./MobileSessionTab', async (original) => {
   const actual = await original<typeof TabModule>()
@@ -357,10 +355,9 @@ describe('MobileSessionTabStrip edge taps', () => {
     press('a')
     act(() => strip.card().props.onSettled(exiting))
     expect(strip.card().props).toMatchObject({ active: true, source: { key: 'tab:a' } })
-    strip.wait(400)
     strip.queue()
     act(() => scroll().props.onContentSizeChange(650))
-    press('a')
+    act(() => scroll().props.onScrollBeginDrag())
     strip.flush()
     expect(strip.card().props.active).toBe(false)
     strip.wait(400)
@@ -652,6 +649,44 @@ describe('MobileSessionTabStrip edge taps', () => {
         .map((dot) => dot.props.state)
     ).toEqual(['done'])
     strip.unmount()
+
+    setCatalogWorktreesForTabStatus(
+      [
+        {
+          worktreeId: 'wt-leave',
+          unread: true,
+          agents: [
+            {
+              paneKey: 'a:leaf-1',
+              state: 'done',
+              updatedAt: 2000,
+              stateStartedAt: 2000
+            }
+          ]
+        }
+      ],
+      2000
+    )
+    const enteredLater = {
+      ...entered,
+      agentStatus: { ...entered.agentStatus, updatedAt: 2000, stateStartedAt: 2000 }
+    }
+    const stripLeave = mountStrip([], [enteredLater], { worktreeId: 'wt-leave' })
+    expect(
+      stripLeave.root
+        .findAll((node) => node.props.accessibilityRole === 'tab')[0]
+        .findAllByType(AgentStateDot)
+        .map((dot) => dot.props.state)
+    ).toEqual(['unread'])
+    stripLeave.unmount()
+    const stripReenter = mountStrip([], [enteredLater], { worktreeId: 'wt-leave' })
+    expect(
+      stripReenter.root
+        .findAll((node) => node.props.accessibilityRole === 'tab')[0]
+        .findAllByType(AgentStateDot)
+        .map((dot) => dot.props.state)
+    ).toEqual(['done'])
+    stripReenter.unmount()
   })
 
   it.each([20, 200])('bounds real refresh/measurement work with %i tabs and records', (size) => {
@@ -739,7 +774,7 @@ describe('MobileSessionTabStrip edge taps', () => {
       tabs.map((tab, i) => (i === 1 ? { ...tab, title: 'Renamed current tab' } : tab))
     )
     expect(strip.card().findAllByProps({ children: 'Renamed current tab' })).toHaveLength(1)
-    strip.tapAt(150)
+    act(() => strip.root.find((node) => node.props.horizontal === true).props.onScrollBeginDrag())
     expect(vi.getTimerCount()).toBe(1)
     strip.unmount()
     expect(work.back).toBeNull()

@@ -28,7 +28,7 @@ import {
   type MarkdownTabDiskHost
 } from '../markdown-tab-disk-documents'
 import { createMarkdownTabDiskHost } from '../markdown-tab-disk-host'
-import type { WorkspaceSessionState } from '../../../shared/workspace-session-state-types'
+import type { WorkspaceSessionState } from '../../../shared/workspace-session/workspace-session-state-types'
 
 export abstract class OrcaRuntimeWithPersistHeadlessTerminalTitle extends RuntimeWorkspaceSessionCustomTitles {
   protected abstract isRendererOwnedMobileBrowserTab(

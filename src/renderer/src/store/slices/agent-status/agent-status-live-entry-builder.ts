@@ -1,14 +1,14 @@
+import { canonicalOrchestrationForRow } from '@/runtime/visible-agent-orchestration'
 import { resolveAgentSessionStartedAt } from '../../../../../shared/agent-session/lifecycle/agent-session-start-time'
-import { sameAgentStatusTerminalOwner } from '../../../../../shared/agent-status-terminal-owner'
+import { sameAgentStatusTerminalOwner } from '../../../../../shared/agent-status/identity/agent-status-terminal-owner'
 import type { AppState } from '../../types'
+import { resolveAgentStatusLiveEntryMainAgent } from './agent-status-live-entry-main-agent'
+import { resolveAgentStatusLiveEntryStateHistory } from '../../../../../shared/agent-status/lifecycle/agent-status-live-entry-state-history'
 import {
-  resolveAgentStatusLiveEntryMainAgent,
-  resolveAgentStatusLiveEntryOrchestration,
-  resolveAgentStatusLiveEntryPaneOwner
-} from './agent-status-live-entry-main-agent'
-import { resolveAgentStatusLiveEntryStateHistory } from '../../../../../shared/agent-status-live-entry-state-history'
-import { pickHostTurnEnd, type AgentStatusEntry } from '../../../../../shared/agent-status-types'
-import type { MigrationUnsupportedPtyEntry } from '../../../../../shared/agent-status-ipc-payload'
+  pickHostTurnEnd,
+  type AgentStatusEntry
+} from '../../../../../shared/agent-status/contracts/agent-status-types'
+import type { MigrationUnsupportedPtyEntry } from '../../../../../shared/agent-status/contracts/agent-status-ipc-payload'
 import {
   agentProviderSessionsEqual,
   type AgentProviderSessionMetadata,
@@ -18,7 +18,7 @@ import {
 import {
   resolveAgentStatusIdentity,
   shouldSuppressInheritedTerminalStatus
-} from '../../../../../shared/agent-status-identity'
+} from '../../../../../shared/agent-status/identity/agent-status-identity'
 import { isCommandCodeNewTurnWhileWorking } from '../../../../../shared/command-code-turn-boundary'
 import type {
   AgentStatusMetadata,
@@ -28,13 +28,14 @@ import type {
 } from './agent-status-contract'
 import { registryEntryMatchesStatus } from './agent-status-launch-config'
 import { findAgentPaneWorktreeId, getTabIdFromPaneKey } from './agent-status-pane-key-tab-binding'
+import { mergeCurrentOrchestrationContext } from './agent-status-orchestration-context'
 import { deriveAgentStatusLiveFacts } from './agent-status-live-facts'
 import { liveEntryChildFields } from './agent-status-live-entry-children'
 import {
   canReuseStatusProviderSession,
   recordLaunchConfigForStatus,
   statusRetainsResumableIdentity
-} from '../../../../../shared/agent-resume-record-from-status'
+} from '../../../../../shared/agent-session/lifecycle/agent-resume-record-from-status'
 
 export type AgentStatusLiveEntryBuild = {
   entry: AgentStatusEntry
@@ -86,26 +87,20 @@ export function buildAgentStatusLiveEntry(
   const effectiveTitle = terminalTitle ?? existing?.terminalTitle
   const { history, lastCompletedAssistantMessage, stateObservedAt } =
     resolveAgentStatusLiveEntryStateHistory(existing, payload, updatedAt)
-  const sameTerminal =
-    existing !== undefined &&
-    sameAgentStatusTerminalOwner(
-      { connectionId: existing.connectionId ?? null, worktreeId: existing.worktreeId },
-      {
-        connectionId:
-          (routing?.connectionId === undefined ? existing.connectionId : routing.connectionId) ??
-          null,
-        worktreeId: routing?.worktreeId ?? existing.worktreeId
-      }
-    )
-  const { suppressedByPaneOwner, resolvePaneOwner } = resolveAgentStatusLiveEntryPaneOwner({
-    existing,
-    sameTerminal,
-    incomingAgentType: payload.agentType,
-    incomingPaneOwner: metadata?.paneOwner,
-    foreground: state.paneForegroundAgentByPaneKey?.[paneKey]
-  })
   const identity = resolveAgentStatusIdentity({
-    existing: sameTerminal ? { ...existing, agentPresence: metadata?.paneOwner } : undefined,
+    existing:
+      existing &&
+      sameAgentStatusTerminalOwner(
+        { connectionId: existing.connectionId ?? null, worktreeId: existing.worktreeId },
+        {
+          connectionId:
+            (routing?.connectionId === undefined ? existing.connectionId : routing.connectionId) ??
+            null,
+          worktreeId: routing?.worktreeId ?? existing.worktreeId
+        }
+      )
+        ? { ...existing, agentPresence: metadata?.paneOwner }
+        : undefined,
     incoming: payload.agentType,
     incomingSession: metadata?.providerSession?.id,
     now: updatedAt
@@ -145,12 +140,25 @@ export function buildAgentStatusLiveEntry(
   if (
     existing &&
     shouldSuppressInheritedTerminalStatus({
-      inheritedFromActivePane: identity.inheritedFromActivePane || suppressedByPaneOwner
+      inheritedFromActivePane: identity.inheritedFromActivePane
     })
   ) {
     return { entry: null, reason: 'suppressed-inherited-terminal' }
   }
-  const orchestration = resolveAgentStatusLiveEntryOrchestration(state, paneKey, existing, payload)
+  const runtimeOrchestration = canonicalOrchestrationForRow(state, paneKey)
+  const runtimeMergedOrchestration = runtimeOrchestration
+    ? mergeCurrentOrchestrationContext(existing?.orchestration, runtimeOrchestration)
+    : undefined
+  const payloadMergedOrchestration = payload.orchestration
+    ? mergeCurrentOrchestrationContext(
+        runtimeMergedOrchestration ?? existing?.orchestration,
+        payload.orchestration
+      )
+    : undefined
+  const orchestration =
+    payloadMergedOrchestration ??
+    runtimeMergedOrchestration ??
+    (payload.state === 'done' ? existing?.orchestration : undefined)
   const canReuseExistingProviderSession = canReuseStatusProviderSession(existing, {
     agentType: identity.agentType,
     state: payload.state
@@ -201,7 +209,6 @@ export function buildAgentStatusLiveEntry(
       : undefined) ??
     matchedRegistryLaunchConfig ??
     matchedSleepingLaunchConfig
-  const paneOwner = resolvePaneOwner(identity.agentType)
   const mainAgent = resolveAgentStatusLiveEntryMainAgent(existing, payload, identity.agentType)
   const programStatus =
     payload.programStatus === undefined ? existing?.programStatus : payload.programStatus
@@ -251,7 +258,6 @@ export function buildAgentStatusLiveEntry(
     ...liveEntryChildFields(existing, payload),
     ...(mainAgent ? { mainAgent } : {}),
     ...(providerSession ? { providerSession } : {}),
-    ...(paneOwner ? { paneOwner } : {}),
     ...(metadata?.terminalResumeEligible === false
       ? { terminalResumeEligible: false as const }
       : {}),

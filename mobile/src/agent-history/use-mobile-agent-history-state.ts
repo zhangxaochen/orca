@@ -13,6 +13,7 @@ import { useForceReconnect } from '../transport/host-client-hooks'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
 import type { RpcClient } from '../transport/rpc-client'
 import { connectionRetryAction } from '../transport/connection-retry-action'
+import type { AiVaultScope } from '../../../src/shared/ai-vault/contracts/ai-vault-types'
 import type { Worktree } from '../worktree/workspace-list-types'
 import {
   deriveMobileAiVaultScopePaths,
@@ -20,7 +21,6 @@ import {
   mobileAiVaultScopePathsKey,
   resolveActiveHistoryWorktree
 } from './agent-history-scope-paths'
-import type { AiVaultScope } from '../../../src/shared/ai-vault-types'
 import { useAgentHistoryAssociationReload } from './use-agent-history-association-reload'
 import { agentHistoryHostStatusRead } from './mobile-agent-history-operations'
 import {
@@ -81,6 +81,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       ? hostStatusProbe.result
       : null
   const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const generationRef = useRef(0)
   const mountedRef = useRef(true)
   const lastSnapshotsRef = useRef<Map<string, AgentHistoryCachedSnapshot>>(new Map())
@@ -141,6 +142,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       if (!client || connState !== 'connected') {
         if (isCurrent()) {
           setHostStatusProbe(null)
+          setLoadingMore(false)
           const message = t('agentHistory.useAgentHistoryState.waitingForHost', 'Waiting for host…')
           // Keep stale rows visible during reconnect reloads instead of replacing them with full-screen error, matching host list.
           setScreenState((prev) => (prev.kind === 'ready' ? prev : { kind: 'error', message }))
@@ -148,6 +150,17 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
         return
       }
 
+      const { activeWorktree: scopedWorktree, worktrees: scopedWorktrees } = scopeContextRef.current
+      const derivedScopePaths = deriveMobileAiVaultScopePaths(
+        options.scope,
+        scopedWorktree,
+        scopedWorktrees
+      )
+      const scopePaths = mobileAiVaultScanScopePaths(derivedScopePaths)
+      const cacheKey = scopePaths.join('\0')
+      const previousSnapshot =
+        lastSnapshotsRef.current.get(cacheKey) ?? readCachedAgentHistorySnapshot(hostId, cacheKey)
+      setLoadingMore(!options.force && !previousSnapshot)
       setScreenState((prev) => (prev.kind === 'ready' ? prev : { kind: 'loading' }))
       activeLoads.current += 1
       try {
@@ -162,6 +175,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
         )
         setHostStatusProbe({ hostId, client, generation: clientGeneration, result: status })
         if (!status.capabilities?.includes(MOBILE_AI_VAULT_CAPABILITY)) {
+          setLoadingMore(false)
           setScreenState({ kind: 'unsupported' })
           return
         }
@@ -174,17 +188,6 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
           return
         }
 
-        const { activeWorktree: scopedWorktree, worktrees: scopedWorktrees } =
-          scopeContextRef.current
-        const derivedScopePaths = deriveMobileAiVaultScopePaths(
-          options.scope,
-          scopedWorktree,
-          scopedWorktrees
-        )
-        const scopePaths = mobileAiVaultScanScopePaths(derivedScopePaths)
-        const cacheKey = (scopePaths ?? []).join('\0')
-        const previousSnapshot =
-          lastSnapshotsRef.current.get(cacheKey) ?? readCachedAgentHistorySnapshot(hostId, cacheKey)
         const fallbackErrorMessage = t(
           'agentHistory.useAgentHistoryState.loadFailed',
           'Unable to load agent sessions'
@@ -223,6 +226,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
           lastSnapshotsRef.current.set(cacheKey, snapshot)
           writeCachedAgentHistorySnapshot(hostId, cacheKey, snapshot)
         }
+        setLoadingMore(false)
         setScreenState({
           kind: 'ready',
           hostId,
@@ -239,6 +243,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
             ? err.message
             : t('agentHistory.useAgentHistoryState.loadFailed', 'Unable to load agent sessions')
         setHostStatusProbe(null)
+        setLoadingMore(false)
         setScreenState({ kind: 'error', message })
       } finally {
         activeLoads.current -= 1
@@ -306,6 +311,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     scope,
     screenState: namedScreenState,
     refreshing,
+    loadingMore,
     hostStatusResult,
     activeWorktreePath,
     scopeFilterPaths,

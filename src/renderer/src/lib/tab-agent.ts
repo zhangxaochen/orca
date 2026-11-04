@@ -1,12 +1,9 @@
-import {
-  effectiveAgentStatusOwnerType,
-  type AgentStatusEntry
-} from '../../../shared/agent-status-types'
-import type { TerminalLayoutSnapshot } from '../../../shared/terminal-tab-types'
-import type { TerminalAgent } from '../../../shared/terminal-agent'
-import { isTerminalLeafId, makePaneKey } from '../../../shared/stable-pane-id'
+import type { AgentStatusEntry } from '../../../shared/agent-status/contracts/agent-status-types'
+import type { TerminalLayoutSnapshot } from '../../../shared/workspace-layout/terminal-tab-types'
+import type { TerminalAgent } from '../../../shared/agent-status/identity/terminal-agent'
+import { isTerminalLeafId, makePaneKey } from '../../../shared/workspace-layout/stable-pane-id'
 import type { RetainedAgentEntry } from '@/store/slices/agent-status/agent-status-contract'
-import { agentTypeToIconAgent } from './agent-status'
+import { agentTypeToIconAgent } from '../../../shared/agent-status/presentation/agent-type-icon-agent'
 import {
   firstTabAgentExcludingLeaf,
   selectCompletedTabAgentPanes,
@@ -56,7 +53,7 @@ function agentFromStatusEntry(entry: AgentStatusEntry | undefined): TerminalAgen
   if (!entry || entry.state === 'done') {
     return null
   }
-  return agentTypeToIconAgent(effectiveAgentStatusOwnerType(entry))
+  return agentTypeToIconAgent(entry.agentType)
 }
 
 export function resolveFocusedCompletedTabAgent(
@@ -99,7 +96,7 @@ function completedAgentFromStatusEntry(entry: AgentStatusEntry | undefined): Ter
   if (!entry || entry.state !== 'done') {
     return null
   }
-  return agentTypeToIconAgent(effectiveAgentStatusOwnerType(entry))
+  return agentTypeToIconAgent(entry.agentType)
 }
 
 export function resolveFocusedRetainedTabAgent(

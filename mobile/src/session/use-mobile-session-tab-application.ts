@@ -51,9 +51,7 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
     appliedSnapshotMarkerRef,
     appliedSessionTabsRevisionRef,
     closedTabTombstonesRef,
-    reconcileBufferedDraftsRef,
     setTerminalsLoaded,
-    defaultTerminalHandlesToLiveInput,
     setActiveHandle,
     setActiveSessionTabId,
     activeSessionTabIdRef,
@@ -100,9 +98,6 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       if (orphanedDraftTabs.length > 0) {
         nextTabs = [...orphanedDraftTabs, ...nextTabs]
       }
-      reconcileBufferedDraftsRef.current(currentSessionTabs, nextTabs, {
-        retainMissingSurfaces: result.tabs.length === 0
-      })
       const phoneOwnedTabIds = trackPhoneOwnedDraftTabs(
         draftOwnershipRef,
         `${hostId}\0${worktreeId}`,
@@ -153,8 +148,6 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       // Avoid identical snapshot state updates that would tear down and replay subscriptions.
       setSessionTabs((prev) => (mobileSessionTabsEqual(prev, nextTabs) ? prev : nextTabs))
       const terminalTabs = getTerminalRecordsFromSessionTabs(nextTabs)
-      const terminalTabHandles = terminalTabs.map((terminal) => terminal.handle)
-      defaultTerminalHandlesToLiveInput(terminalTabHandles)
       const mergedTerminalsForActive = mergeTerminalRecordsByCurrentOrder(
         terminalTabs,
         terminalsRef.current
@@ -291,13 +284,7 @@ export function useMobileSessionTabApplication(scope: MobileSessionTerminalListM
       })
       return outcome
     },
-    [
-      defaultTerminalHandlesToLiveInput,
-      hostId,
-      worktreeId,
-      subscribeToTerminal,
-      unsubscribeTerminal
-    ]
+    [hostId, worktreeId, subscribeToTerminal, unsubscribeTerminal]
   )
   return {
     applySessionTabs

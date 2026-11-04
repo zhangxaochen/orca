@@ -1,10 +1,6 @@
 import { useCallback } from 'react'
 import { translate } from '../i18n/mobile-i18n'
 import { terminalBufferClear } from '../terminal/mobile-terminal-operations'
-import {
-  clearTerminalLiveInputFocusTimer,
-  scheduleTerminalLiveInputFocus
-} from '../terminal/terminal-live-input'
 import { sendMobileTerminalQueryReply } from '../terminal/mobile-terminal-query-reply'
 import {
   buildTerminalSendParams,
@@ -18,33 +14,15 @@ import {
   TERMINAL_GESTURE_INPUT_MAX_QUEUE_AGE_MS,
   TERMINAL_GESTURE_INPUT_REFILL_PER_SECOND
 } from './mobile-session-route-helpers'
-import type { TerminalPointerInput } from '../terminal/terminal-webview-contract'
 import type { Terminal, TerminalGestureInputQueue } from './mobile-session-route-types'
+import type { TerminalPointerInput } from '../terminal/terminal-webview-contract'
 import type { MobileSessionFileActionsModel } from './use-mobile-session-file-actions'
-
-function hasIsFocused(node: unknown): node is { isFocused: () => boolean } {
-  return (
-    !!node &&
-    typeof node === 'object' &&
-    'isFocused' in node &&
-    typeof node.isFocused === 'function'
-  )
-}
-
-function isInputNodeFocused(node: unknown): boolean {
-  if (hasIsFocused(node) && node.isFocused()) {
-    return true
-  }
-  return typeof document !== 'undefined' && document.activeElement === node
-}
 
 export function useMobileSessionTerminalInput(scope: MobileSessionFileActionsModel) {
   const {
     client,
     sendTerminalOrderedInput,
     connState,
-    toggleTerminalLiveInput,
-    activeHandle,
     ptyModesRef,
     terminalGestureInputBucketsRef,
     terminalGestureInputQueuesRef,
@@ -52,52 +30,16 @@ export function useMobileSessionTerminalInput(scope: MobileSessionFileActionsMod
     deviceTokenRef,
     clientRef,
     connStateRef,
-    liveInputRef,
-    commandInputRef,
-    keyboardHeight,
-    liveInputFocusTimerRef,
     terminalUnsubsRef,
     activeHandleRef,
     activeSessionTabTypeRef,
-    clearPendingLiveInputCommit,
-    liveInputTerminalHandlesRef,
     sendLiveInputClick,
-    sendLiveTerminalInputRef,
     showToast,
     hostQueryReplyInputSupportedRef,
     hostProgramStatusSupportedRef,
     unsubscribeTerminal,
     subscribeToTerminal
   } = scope
-  const toggleLiveInput = useCallback(() => {
-    if (!activeHandle) {
-      return
-    }
-    const keepKeyboard =
-      (keyboardHeight ?? 0) > 0 ||
-      isInputNodeFocused(liveInputRef.current) ||
-      isInputNodeFocused(commandInputRef?.current)
-    clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
-    const nextEnabled = toggleTerminalLiveInput(activeHandle)
-    clearPendingLiveInputCommit()
-    if (keepKeyboard) {
-      const target = nextEnabled ? liveInputRef : commandInputRef
-      target?.current?.focus()
-    } else if (nextEnabled) {
-      scheduleTerminalLiveInputFocus(liveInputFocusTimerRef, () => liveInputRef.current?.focus())
-    } else {
-      liveInputRef.current?.blur()
-    }
-  }, [
-    activeHandle,
-    clearPendingLiveInputCommit,
-    commandInputRef,
-    keyboardHeight,
-    liveInputFocusTimerRef,
-    liveInputRef,
-    toggleTerminalLiveInput
-  ])
-
   const allowTerminalGestureInput = useCallback(
     (handle: string, sequenceCount: number): boolean => {
       const now = Date.now()
@@ -268,9 +210,7 @@ export function useMobileSessionTerminalInput(scope: MobileSessionFileActionsMod
       }
       if (input?.click) {
         // A deliberate click must survive wheel limits and follow text queued for the old cursor.
-        void (liveInputTerminalHandlesRef.current.has(handle)
-          ? sendLiveInputClick(handle, bytes)
-          : sendLiveTerminalInputRef.current(handle, bytes, 'pointer'))
+        void sendLiveInputClick(handle, bytes)
         return
       }
       if (!allowTerminalGestureInput(handle, sequenceCount)) {
@@ -332,7 +272,6 @@ export function useMobileSessionTerminalInput(scope: MobileSessionFileActionsMod
     }
   }
   return {
-    toggleLiveInput,
     allowTerminalGestureInput,
     flushTerminalGestureInput,
     enqueueTerminalGestureInput,

@@ -2,7 +2,7 @@ import {
   isAgentStatusState,
   normalizeMainAgentStatusField,
   type AgentStatusEntry
-} from '../../../src/shared/agent-status-types'
+} from '../../../src/shared/agent-status/contracts/agent-status-types'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
 import type { WorktreeStatus } from '../../../src/shared/worktree-status-rollup'
 import { agentDotState, type AgentDotState } from '../worktree/agent-row-display'

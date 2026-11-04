@@ -57,9 +57,7 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
     setFileDocs,
     setMarkdownDocs,
     sessionTabsRef,
-    reconcileBufferedDraftsRef,
     closedTabTombstonesRef,
-    clearTerminalLiveInputDefault,
     setActiveHandle,
     setActiveSessionTabId,
     activeSessionTabIdRef,
@@ -129,7 +127,6 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
         }
         unsubscribeTerminal(target.handle)
         terminalRefs.current.delete(target.handle)
-        clearTerminalLiveInputDefault(target.handle)
         const next = terminalsRef.current.filter((terminal) => terminal.handle !== target.handle)
         terminalsRef.current = next
         setTerminals(next)
@@ -203,7 +200,6 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
         const previousTabs = sessionTabsRef.current
         const closedIndex = previousTabs.findIndex((candidate) => candidate.id === tab.id)
         let remainingTabs = previousTabs.filter((candidate) => candidate.id !== tab.id)
-        reconcileBufferedDraftsRef.current(previousTabs, remainingTabs)
         if (tab.type === 'browser' && tab.browserPageId === pendingBrowserFocusPageIdRef.current) {
           pendingBrowserFocusPageIdRef.current = null
         }
@@ -211,7 +207,6 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
           const terminalHandle = tab.terminal
           unsubscribeTerminal(terminalHandle)
           terminalRefs.current.delete(terminalHandle)
-          clearTerminalLiveInputDefault(terminalHandle)
         }
         // Tombstone closed tabs until snapshots confirm them; immediate refetch can resurrect a pending close.
         closedTabTombstonesRef.current.set(tab.id, Date.now() + 10_000)

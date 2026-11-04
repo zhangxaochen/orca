@@ -1,5 +1,5 @@
 import type { RuntimeTerminalPathResolution } from '../../../src/shared/runtime-types'
-import { fileUriToFilesystemPath } from '../../../src/shared/file-uri-path'
+import { fileUriToFilesystemPath } from '../../../src/shared/file-links/file-uri-path'
 import { resumeWorktreeListRead } from '../agent-history/mobile-agent-history-operations'
 import { fileTapPathResolve } from './mobile-session-launch-operations'
 import type { FileTapSessionTab, OpenMobileFileTapOptions } from './mobile-file-tap-open'
