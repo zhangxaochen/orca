@@ -35,6 +35,17 @@ export function mobileAiVaultScanScopePaths(scopePaths: readonly string[]): stri
   return scopePaths.slice(0, AI_VAULT_SCOPE_PATHS_MAX_COUNT)
 }
 
+/** Stable scan identity for one scope. A new worktree array with the same paths keeps this key. */
+export function mobileAiVaultScopePathsKey(
+  scope: AiVaultScope,
+  activeWorktree: ScopeWorktree | null,
+  liveWorktrees: readonly ScopeWorktree[]
+): string {
+  return mobileAiVaultScanScopePaths(
+    deriveMobileAiVaultScopePaths(scope, activeWorktree, liveWorktrees)
+  ).join('\0')
+}
+
 function toScopePathWorktree(worktree: ScopeWorktree) {
   return {
     id: worktree.worktreeId,

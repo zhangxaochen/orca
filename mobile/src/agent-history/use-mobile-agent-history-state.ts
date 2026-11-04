@@ -17,11 +17,15 @@ import type { AiVaultScope } from '../../../src/shared/ai-vault-types'
 import type { Worktree } from '../worktree/workspace-list-types'
 import {
   deriveMobileAiVaultScopePaths,
-  mobileAiVaultScanScopePaths
+  mobileAiVaultScanScopePaths,
+  mobileAiVaultScopePathsKey
 } from './agent-history-scope-paths'
+import { useAgentHistoryAssociationReload } from './use-agent-history-association-reload'
 import { agentHistoryHostStatusRead } from './mobile-agent-history-operations'
 import {
+  readCachedAgentHistorySnapshot,
   scanMobileAgentSessions,
+  writeCachedAgentHistorySnapshot,
   type AgentHistoryCachedSnapshot,
   type AgentHistoryScreenState,
   type FetchedHistoryState
@@ -45,6 +49,7 @@ export type MobileAgentHistoryStateParams = {
   worktreesLoaded: boolean
 }
 
+/** Loads one host's agent history and keeps an in-flight scan when a new worktree array has the same paths. */
 export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams) {
   const t = useMobileTranslation()
   const { hostId, worktreeId, worktrees, worktreesLoaded } = params
@@ -82,18 +87,13 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     () => worktrees.find((worktree) => worktree.worktreeId === worktreeId) ?? null,
     [worktrees, worktreeId]
   )
-  const activeWorktreePath = activeWorktree?.path ?? null
   const hasActiveWorktree = activeWorktree !== null
-  const workspaceScopePathsKey = useMemo(
-    () => deriveMobileAiVaultScopePaths('workspace', activeWorktree, worktrees).join('\0'),
-    [activeWorktree, worktrees]
-  )
-  const projectScopePathsKey = useMemo(
-    () => deriveMobileAiVaultScopePaths('project', activeWorktree, worktrees).join('\0'),
-    [activeWorktree, worktrees]
-  )
+  // Path keys, not array identity: worktree.ps replaces the array even when every path is unchanged.
+  const workspaceScopePathsKey = mobileAiVaultScopePathsKey('workspace', activeWorktree, worktrees)
+  const projectScopePathsKey = mobileAiVaultScopePathsKey('project', activeWorktree, worktrees)
   const scopeContextRef = useRef({ activeWorktree, worktrees })
   scopeContextRef.current = { activeWorktree, worktrees }
+  const activeWorktreePath = activeWorktree?.path ?? null
   // Reuse host hint prefixes for client narrowing: host union only widens, and All leaves prefixes empty.
   const scopeFilterPaths = useMemo(
     () => deriveMobileAiVaultScopePaths(scope, activeWorktree, worktrees),
@@ -114,11 +114,24 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       clientGeneration,
       connState,
       worktreeId,
-      worktrees,
+      hasActiveWorktree,
+      workspaceScopePathsKey,
+      projectScopePathsKey,
       worktreesLoaded,
       scope
     }),
-    [hostId, client, clientGeneration, connState, worktreeId, worktrees, worktreesLoaded, scope]
+    [
+      hostId,
+      client,
+      clientGeneration,
+      connState,
+      worktreeId,
+      hasActiveWorktree,
+      workspaceScopePathsKey,
+      projectScopePathsKey,
+      worktreesLoaded,
+      scope
+    ]
   )
   const identityRef = useRef(identity)
   useLayoutEffect(() => {
@@ -176,34 +189,34 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
           return
         }
 
-        const latestContext = scopeContextRef.current
+        const { activeWorktree: scopedWorktree, worktrees: scopedWorktrees } =
+          scopeContextRef.current
         const scopePaths = mobileAiVaultScanScopePaths(
-          deriveMobileAiVaultScopePaths(
-            options.scope,
-            latestContext.activeWorktree,
-            latestContext.worktrees
-          )
+          deriveMobileAiVaultScopePaths(options.scope, scopedWorktree, scopedWorktrees)
         )
         const cacheKey = (scopePaths ?? []).join('\0')
-        const previousSnapshot = lastSnapshotsRef.current.get(cacheKey)
-        const result = await interpretOrThrowRefusalMessage(
-          () =>
-            scanMobileAgentSessions(client, {
-              scopePaths,
-              force: options.force,
-              previous: previousSnapshot
-            }),
-          t('agentHistory.useAgentHistoryState.loadFailed', 'Unable to load agent sessions')
-        )
+        const previousSnapshot =
+          lastSnapshotsRef.current.get(cacheKey) ?? readCachedAgentHistorySnapshot(hostId, cacheKey)
+        const result = await scanMobileAgentSessions(client, {
+          scopePaths,
+          force: options.force,
+          previous: previousSnapshot,
+          fallbackErrorMessage: t(
+            'agentHistory.useAgentHistoryState.loadFailed',
+            'Unable to load agent sessions'
+          )
+        })
         if (!isCurrent()) {
           return
         }
         if (result.fingerprint) {
-          lastSnapshotsRef.current.set(cacheKey, {
+          const snapshot: AgentHistoryCachedSnapshot = {
             fingerprint: result.fingerprint,
             sessions: result.sessions,
             issues: result.issues
-          })
+          }
+          lastSnapshotsRef.current.set(cacheKey, snapshot)
+          writeCachedAgentHistorySnapshot(hostId, cacheKey, snapshot)
         }
         setScreenState({
           kind: 'ready',
@@ -232,7 +245,6 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       }
     },
     [
-      activeWorktree,
       client,
       clientGeneration,
       connState,
@@ -240,10 +252,9 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       hasActiveWorktree,
       hostId,
       projectScopePathsKey,
-      t,
       workspaceScopePathsKey,
-      worktrees,
-      worktreesLoaded
+      worktreesLoaded,
+      t
     ]
   )
 
@@ -251,30 +262,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
   useEffect(() => {
     void loadSessions({ scope, force: false })
   }, [loadSessions, scope])
-
-  useEffect(() => {
-    if (!feed) {
-      return
-    }
-    let revision = feed.getAssociationRevision()
-    const stop = feed.subscribe(() => {
-      const next = feed.getAssociationRevision()
-      if (next === revision) {
-        return
-      }
-      revision = next
-      const reload = () => void loadSessions({ scope, force: false })
-      if (activeLoads.current > 0) {
-        pendingAssociationLoad.current = reload
-      } else {
-        reload()
-      }
-    })
-    return () => {
-      stop()
-      pendingAssociationLoad.current = null
-    }
-  }, [feed, loadSessions, scope])
+  useAgentHistoryAssociationReload(feed, loadSessions, scope, activeLoads, pendingAssociationLoad)
 
   const onSelectScope = useCallback((nextScope: AiVaultScope) => {
     setScope(nextScope)

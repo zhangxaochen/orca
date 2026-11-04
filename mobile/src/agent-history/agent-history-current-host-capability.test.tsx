@@ -19,6 +19,7 @@ import {
   useMobileAgentHistoryState,
   type MobileAgentHistoryState
 } from './use-mobile-agent-history-state'
+import { clearCachedAgentHistorySnapshots } from './agent-history-session-scanner'
 import {
   buildMobileAiVaultResumeLaunch,
   readMobileAiVaultResumeHost,
@@ -282,5 +283,91 @@ it.each([
     await act(async () => {
       rendered.tree?.unmount()
     })
+  }
+})
+
+it('reuses afterFingerprint across unmount and ignores worktrees array identity churn with identical paths', async () => {
+  clearCachedAgentHistorySnapshots()
+  let scanCount = 0
+  const send = vi.fn<RpcClient['sendRequest']>(async (method) => {
+    if (method === 'status.get') {
+      return { id: 'status', ok: true, result: { capabilities: ['aiVault.v1'] } }
+    }
+    scanCount += 1
+    return {
+      id: `scan-${scanCount}`,
+      ok: true,
+      result:
+        scanCount === 1
+          ? {
+              fingerprint: 'fp-warm',
+              issues: [],
+              sessions: [
+                {
+                  id: 's-warm',
+                  agent: 'claude',
+                  sessionId: 'sid-warm',
+                  title: 'Warm Session',
+                  cwd: '/repo/wt',
+                  modifiedAt: '2026-10-21',
+                  previewMessages: [],
+                  messageCount: 1
+                }
+              ]
+            }
+          : {
+              fingerprint: 'fp-warm',
+              unchanged: true,
+              issues: [],
+              sessions: []
+            }
+    }
+  })
+  connection.client = fakeClient(send)
+  connection.state = 'connected'
+  const observed: { current: MobileAgentHistoryState | null } = { current: null }
+  function Probe({ worktrees }: { worktrees: Worktree[] }) {
+    observed.current = useMobileAgentHistoryState({
+      hostId: 'host-fp',
+      worktreeId: 'wt-1',
+      worktrees,
+      worktreesLoaded: true
+    })
+    return null
+  }
+  const wtListA: Worktree[] = [{ worktreeId: 'wt-1', repoId: 'repo', path: '/repo/wt' } as Worktree]
+  const wtListB: Worktree[] = [{ worktreeId: 'wt-1', repoId: 'repo', path: '/repo/wt' } as Worktree]
+  let tree: ReactTestRenderer | undefined
+  await act(async () => {
+    tree = create(createElement(Probe, { worktrees: wtListA }))
+  })
+  try {
+    expect(observed.current?.screenState.kind).toBe('ready')
+    expect(send).toHaveBeenCalledWith(
+      'aiVault.listSessions',
+      expect.objectContaining({ afterFingerprint: null, scopePaths: ['/repo/wt'] })
+    )
+    await act(async () => {
+      tree?.update(createElement(Probe, { worktrees: wtListB }))
+    })
+    expect(scanCount).toBe(1)
+    await act(async () => {
+      tree?.unmount()
+    })
+    await act(async () => {
+      tree = create(createElement(Probe, { worktrees: wtListB }))
+    })
+    expect(scanCount).toBe(2)
+    expect(send).toHaveBeenLastCalledWith(
+      'aiVault.listSessions',
+      expect.objectContaining({ afterFingerprint: 'fp-warm', scopePaths: ['/repo/wt'] })
+    )
+    expect(observed.current?.screenState).toMatchObject({
+      kind: 'ready',
+      sessions: [expect.objectContaining({ id: 's-warm', title: 'Warm Session' })]
+    })
+  } finally {
+    clearCachedAgentHistorySnapshots()
+    await act(async () => tree?.unmount())
   }
 })

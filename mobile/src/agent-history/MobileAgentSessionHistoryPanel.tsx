@@ -1,12 +1,12 @@
 import { openMobileAgentHistoryChat } from './open-mobile-agent-history-chat'
 import { mobileStructuredSessionOpenMessage } from '../session/mobile-structured-session-open-message'
 import { prepareMobileHistoryResumeTarget } from './mobile-history-resume-target-preparation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, History, RefreshCw } from 'lucide-react-native'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { MobileSegmentedControl, type MobileSegment } from '../components/MobileSegmentedControl'
+import { MobileSegmentedControl } from '../components/MobileSegmentedControl'
 import { BottomSearchBar } from '../components/nav-bar/BottomSearchBar'
 import { NavBar } from '../components/nav-bar/NavBar'
 import { NavBarButton } from '../components/nav-bar/NavBarButton'
@@ -14,7 +14,6 @@ import { useWorkspaceClient } from '../transport/use-workspace-client'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useWorkspaceRouteHandoff } from '../navigation/workspace-route-handoff'
 import { useSessionScreenHandlers } from '../session/session-screen-handlers'
-import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { getWorktreeLabel } from '../session/worktree-label'
 import {
   buildMobileAiVaultResumeLaunch,
@@ -26,10 +25,13 @@ import {
 } from '../session/ai-vault-resume-launch'
 import { prepareMobileAiVaultSessionResume } from '../session/ai-vault-resume-preparation'
 import { triggerError, triggerSuccess } from '../platform/haptics'
-import type { AiVaultScope, AiVaultSession } from '../../../src/shared/ai-vault-types'
-import type { Worktree } from '../worktree/workspace-list-types'
+import type { AiVaultSession } from '../../../src/shared/ai-vault-types'
+import { useMobileHistoryWorktrees } from './use-agent-history-association-reload'
 import { useMobileAgentHistoryState } from './use-mobile-agent-history-state'
-import { buildMobileAgentHistorySections } from './agent-history-sections'
+import {
+  buildMobileAgentHistorySections,
+  mobileAgentHistoryScopeSegments
+} from './agent-history-sections'
 import { shouldShowMobileCurrentWorktreeBadge } from './agent-history-current-worktree-badge'
 import {
   MobileAgentSessionHistoryList,
@@ -52,7 +54,6 @@ import {
 } from './AgentHistoryNotices'
 import { useNow } from '../hooks/use-now'
 import { useMobileResumeOperationOwnership } from './use-mobile-resume-operation-ownership'
-import type { Translate } from '../i18n/mobile-i18n'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 
 export type MobileAgentSessionHistoryPanelProps = {
@@ -61,15 +62,6 @@ export type MobileAgentSessionHistoryPanelProps = {
   name?: string
   origin?: string
 }
-
-function scopeSegments(t: Translate): MobileSegment<AiVaultScope>[] {
-  return [
-    { value: 'workspace', label: t('agentHistory.panel.workspace', 'Workspace') },
-    { value: 'project', label: t('agentHistory.panel.project', 'Project') },
-    { value: 'all', label: t('agentHistory.panel.all', 'All') }
-  ]
-}
-
 
 export function MobileAgentSessionHistoryPanel(props: MobileAgentSessionHistoryPanelProps) {
   return <MobileAgentSessionHistoryPanelContent key={props.hostId} {...props} />
@@ -94,8 +86,7 @@ function MobileAgentSessionHistoryPanelContent({
     client,
     connState
   )
-  const [worktrees, setWorktrees] = useState<Worktree[]>([])
-  const [worktreesLoaded, setWorktreesLoaded] = useState(false)
+  const { worktrees, worktreesLoaded } = useMobileHistoryWorktrees(hostId, client, connState)
   const [query, setQuery] = useState('')
   const [searchBarHeight, setSearchBarHeight] = useState(0)
   const insets = useSafeAreaInsets()
@@ -121,39 +112,6 @@ function MobileAgentSessionHistoryPanelContent({
     retry
   } = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded })
 
-  // Worktree list seeds host-local scopePaths and current-worktree badge.
-  useEffect(() => {
-    if (!client || connState !== 'connected') {
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        const worktreeReply = await worktreeCatalogRead.request(client, { limit: 10000 })
-        if (cancelled) {
-          return
-        }
-        const catalog = worktreeCatalogRead.interpret(worktreeReply)
-        if (catalog.accepted) {
-          // Why `?? []`: the member is salvaged, so an envelope the host answers without rows leaves it
-          // absent, and `use-mobile-agent-history-state.ts:61` calls `.find` on it unguarded.
-          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the rows stay opaque in the reader because three screens project them differently; this panel reads only `path` off a row to seed `scopePaths`, and `matrix-aivault.history-screen-worktree.ps-1` records every partition of its own family rendering a list rather than a crash.
-          setWorktrees((catalog.value.worktrees ?? []) as Worktree[])
-        }
-      } catch {
-        // Best-effort context: failed worktree list leaves scoped tabs scanning full history.
-      } finally {
-        // Mark loaded on failure too so scoped tabs fetch unscoped instead of spinning forever.
-        if (!cancelled) {
-          setWorktreesLoaded(true)
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [client, connState])
-
   const issues = screenState.kind === 'ready' ? screenState.issues : EMPTY_ISSUES
   const openTabActions = useMobileAgentHistoryOpenTabActions({
     client,
@@ -172,10 +130,7 @@ function MobileAgentSessionHistoryPanelContent({
   const sessions = openTabActions.sessionsWithOpenTabs
   const { closingSessionId, closedSessionIds, fallbackOpenTabsPending, onJumpToOpenSession } =
     openTabActions
-  const sessionsById = useMemo(
-    () => new Map(sessions.map((session) => [session.id, session])),
-    [sessions]
-  )
+  const sessionsById = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions])
   const sections = useMemo(
     () =>
       buildMobileAgentHistorySections(sessions, {
@@ -186,18 +141,8 @@ function MobileAgentSessionHistoryPanelContent({
         now,
         closedSessionIds
       }),
-    [sessions, query, scope, scopeFilterPaths, activeWorktreePath, now, closedSessionIds, t]
+    [sessions, query, scope, scopeFilterPaths, activeWorktreePath, now, closedSessionIds]
   )
-
-  const resumeHost = useMemo(
-    () => readMobileAiVaultResumeHost(hostStatusResult),
-    [hostStatusResult]
-  )
-  const hostTerminalWindowsShell = useMemo(
-    () => readMobileRuntimeTerminalWindowsShell(hostStatusResult),
-    [hostStatusResult]
-  )
-
   const resumeActionStateBySessionId = useMemo(
     () =>
       buildMobileAgentHistoryResumeActionState(
@@ -214,6 +159,8 @@ function MobileAgentSessionHistoryPanelContent({
       if (resumeLaunchInFlightRef.current) {
         return
       }
+      const resumeHost = readMobileAiVaultResumeHost(hostStatusResult)
+      const hostTerminalWindowsShell = readMobileRuntimeTerminalWindowsShell(hostStatusResult)
       // The tab is already open; focusing it must not spawn a second terminal.
       if (session.openTab && !closedSessionIds.has(session.id)) {
         await onJumpToOpenSession(session, session.openTab)
@@ -331,11 +278,8 @@ function MobileAgentSessionHistoryPanelContent({
         )
       } catch (err) {
         triggerError()
-        setResumeMessage(
-          err instanceof Error
-            ? err.message
-            : t('agentHistory.panel.resumeFailed', 'Failed to resume session.')
-        )
+        const fallback = t('agentHistory.panel.resumeFailed', 'Failed to resume session.')
+        setResumeMessage(err instanceof Error ? err.message : fallback)
       } finally {
         resumeLaunchInFlightRef.current = false
         setResumingSessionId(null)
@@ -348,8 +292,7 @@ function MobileAgentSessionHistoryPanelContent({
       currentExecutionHost,
       origin,
       sessionBelow,
-      resumeHost,
-      hostTerminalWindowsShell,
+      hostStatusResult,
       router,
       worktreeId,
       worktrees,
@@ -384,7 +327,7 @@ function MobileAgentSessionHistoryPanelContent({
           accessory={
             screenState.kind === 'ready' ? (
               <MobileSegmentedControl
-                segments={scopeSegments(t)}
+                segments={mobileAgentHistoryScopeSegments(t)}
                 selected={scope}
                 onSelect={onSelectScope}
                 fill

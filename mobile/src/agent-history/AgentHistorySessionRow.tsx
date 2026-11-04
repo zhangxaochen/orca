@@ -109,10 +109,7 @@ export function AgentHistorySessionRow({
             onResume={onResume}
             onJumpToOpenTab={onJumpToOpenTab}
             onCloseOpenTab={onCloseOpenTab}
-            resumeLabel={t(
-              'agentHistory.sessionHistoryList.resumeSession',
-              'Resume agent session'
-            )}
+            resumeLabel={t('agentHistory.sessionHistoryList.resumeSession', 'Resume agent session')}
           />
         </View>
       )}
