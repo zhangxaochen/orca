@@ -80,6 +80,7 @@ vi.mock('react-native', () => {
   }
 })
 vi.mock('../platform/use-reduced-motion', () => ({ useReducedMotionEnabled: () => false }))
+vi.mock('../components/bottom-drawer/BottomDrawer', () => ({ BottomDrawer: () => null }))
 vi.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }))
 vi.mock('lucide-react-native', () => ({
   ChevronLeft: 'Icon',
@@ -89,7 +90,10 @@ vi.mock('lucide-react-native', () => ({
   PanelLeftOpen: 'Icon',
   Columns2: 'Icon',
   Plus: 'Icon',
-  SquareChevronRight: 'Icon'
+  SquareChevronRight: 'Icon',
+  Copy: 'Icon',
+  FileText: 'Icon',
+  Globe: 'Icon'
 }))
 vi.mock('../layout/host-sidebar-reveal', () => ({ useHostSidebarReveal: () => null }))
 vi.mock('../layout/responsive-layout', () => ({

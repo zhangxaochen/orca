@@ -22,9 +22,11 @@ import { getMobileTerminalTabHostAgentIdentity } from './mobile-terminal-tab-age
 import { mobileSessionTabCardContent } from './mobile-session-tab-card-content'
 import { MobileSessionTabCardFooter } from './MobileSessionTabCardFooter'
 import { useShellSideRail } from '../layout/use-shell-side-rail'
+import { useReducedMotionEnabled } from '../platform/use-reduced-motion'
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
+  const reducedMotion = useReducedMotionEnabled()
   const t = useMobileTranslation()
   const { setMobileSessionRootRef } = controller
   const server = useContext(WorkspaceServerContext)
@@ -113,6 +115,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
               active={details.active && !missingSource}
               obscured={obscured || missingSource}
               onSettled={details.onSettled}
+              reducedMotion={reducedMotion}
               title={
                 tabContent?.title ??
                 (controller.worktreeName || t('session.header.terminalTitle', 'Terminal'))
