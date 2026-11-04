@@ -3,18 +3,39 @@ import {
   AI_VAULT_SCOPE_PATHS_MAX_COUNT,
   type AiVaultScope
 } from '../../../src/shared/ai-vault-types'
+import { splitWorktreeIdForFilesystem } from '../../../src/shared/worktree/id'
 import type { Worktree } from '../worktree/workspace-list-types'
-
-export const MOBILE_AGENT_HISTORY_SCOPE_TABS: { scope: AiVaultScope; label: string }[] = [
-  { scope: 'workspace', label: 'Workspace' },
-  { scope: 'project', label: 'Project' },
-  { scope: 'all', label: 'All' }
-]
 
 type ScopeWorktree = Pick<Worktree, 'worktreeId' | 'path' | 'repoId' | 'priorWorktreeIds'>
 
-// Desktop's scope paths from worktree.ps rows; with no project metadata on the phone, Project is the active repo.
-// scopePaths only widen the host scan's discovery breadth; they are host-local match prefixes, never device paths.
+/** Resolves the active worktree from catalog rows, falling back to the repoId::path encoded in worktreeId before worktree.ps settles. */
+export function resolveActiveHistoryWorktree(
+  worktrees: readonly Worktree[],
+  worktreeId: string,
+  fastFirstScreen = false
+): Worktree | null {
+  const matched = worktrees.find((worktree) => worktree.worktreeId === worktreeId)
+  if (matched) {
+    return matched
+  }
+  if (!fastFirstScreen) {
+    return null
+  }
+  const parsed = splitWorktreeIdForFilesystem(worktreeId)
+  return parsed?.repoId && parsed.worktreePath
+    ? {
+        worktreeId,
+        repoId: parsed.repoId,
+        path: parsed.worktreePath,
+        repo: '',
+        branch: '',
+        displayName: '',
+        liveTerminalCount: 0
+      }
+    : null
+}
+
+/** Desktop's scope paths from worktree.ps rows; with no project metadata on the phone, Project is the active repo. */
 export function deriveMobileAiVaultScopePaths(
   scope: AiVaultScope,
   activeWorktree: ScopeWorktree | null,

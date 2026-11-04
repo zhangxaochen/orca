@@ -2,6 +2,7 @@ import { defineMethod } from '../core'
 import { getRemoteServerUpdaterSnapshot } from '../../remote-server-updater'
 import { getPublishedHostDescriptor } from '../../host-descriptor'
 import { StatusGetParams } from '../../../../shared/rpc-contract/status-params'
+import { splitWorktreeIdForFilesystem } from '../../../../shared/worktree/id'
 import { prewarmAiVaultSessionListCache } from '../../../ai-vault/cached-session-list'
 
 export const STATUS_METHODS = [
@@ -19,9 +20,16 @@ export const STATUS_METHODS = [
       const snapshot = getRemoteServerUpdaterSnapshot(runtime.getRuntimeId())
       const hostDescriptor = getPublishedHostDescriptor(runtime.getRuntimeId())
       const status = runtime.getStatus()
-      prewarmAiVaultSessionListCache(
-        status.lastActiveWorktree?.path ? [status.lastActiveWorktree.path] : undefined
-      )
+      let activePath: string | undefined
+      try {
+        const lastActiveId = runtime.getUIState?.().lastActiveWorktreeId
+        activePath = lastActiveId
+          ? splitWorktreeIdForFilesystem(lastActiveId)?.worktreePath
+          : undefined
+      } catch {
+        // Store may be uninitialized in minimal runtime test stubs.
+      }
+      prewarmAiVaultSessionListCache(activePath ? [activePath] : undefined)
       return {
         ...status,
         ...(hostDescriptor ? { hostDescriptor } : {}),

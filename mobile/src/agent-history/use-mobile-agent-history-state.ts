@@ -13,13 +13,14 @@ import { useForceReconnect } from '../transport/host-client-hooks'
 import { useWorkspaceClient } from '../transport/use-workspace-client'
 import type { RpcClient } from '../transport/rpc-client'
 import { connectionRetryAction } from '../transport/connection-retry-action'
-import type { AiVaultScope } from '../../../src/shared/ai-vault-types'
 import type { Worktree } from '../worktree/workspace-list-types'
 import {
   deriveMobileAiVaultScopePaths,
   mobileAiVaultScanScopePaths,
-  mobileAiVaultScopePathsKey
+  mobileAiVaultScopePathsKey,
+  resolveActiveHistoryWorktree
 } from './agent-history-scope-paths'
+import type { AiVaultScope } from '../../../src/shared/ai-vault-types'
 import { useAgentHistoryAssociationReload } from './use-agent-history-association-reload'
 import { agentHistoryHostStatusRead } from './mobile-agent-history-operations'
 import {
@@ -92,17 +93,18 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
   }, [])
 
   const activeWorktree = useMemo(
-    () => worktrees.find((worktree) => worktree.worktreeId === worktreeId) ?? null,
-    [worktrees, worktreeId]
+    () => resolveActiveHistoryWorktree(worktrees, worktreeId, fastFirstScreen),
+    [fastFirstScreen, worktrees, worktreeId]
   )
   const hasActiveWorktree = activeWorktree !== null
+  const effectiveWorktreesLoaded = worktreesLoaded || (fastFirstScreen && hasActiveWorktree)
   // Path keys, not array identity: worktree.ps replaces the array even when every path is unchanged.
   const workspaceScopePathsKey = mobileAiVaultScopePathsKey('workspace', activeWorktree, worktrees)
   const projectScopePathsKey = mobileAiVaultScopePathsKey('project', activeWorktree, worktrees)
   const scopeContextRef = useRef({ activeWorktree, worktrees })
   scopeContextRef.current = { activeWorktree, worktrees }
   const activeWorktreePath = activeWorktree?.path ?? null
-  // Reuse host hint prefixes for client narrowing: host union only widens, and All leaves prefixes empty.
+  // Reuse host hint prefixes for client narrowing: host union only widens; All is not narrowed.
   const scopeFilterPaths = useMemo(
     () => deriveMobileAiVaultScopePaths(scope, activeWorktree, worktrees),
     [scope, activeWorktree, worktrees]
@@ -114,8 +116,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     feed?.getNamingSnapshot ?? noNames,
     noNames
   )
-
-  const identityKey = `${hostId}\0${clientGeneration}\0${connState}\0${worktreeId}\0${hasActiveWorktree}\0${workspaceScopePathsKey}\0${projectScopePathsKey}\0${worktreesLoaded}\0${scope}`
+  const identityKey = `${hostId}\0${clientGeneration}\0${connState}\0${worktreeId}\0${hasActiveWorktree}\0${workspaceScopePathsKey}\0${projectScopePathsKey}\0${effectiveWorktreesLoaded}\0${scope}`
   const identity = useMemo(() => ({ client, identityKey }), [client, identityKey])
   const identityRef = useRef(identity)
   useLayoutEffect(() => {
@@ -166,7 +167,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
         }
 
         // Wait for worktree list before scoped fetch to avoid unrelated history flash; once loaded, proceed even if workspace is missing to avoid stuck spinner.
-        if (options.scope !== 'all' && !hasActiveWorktree && !worktreesLoaded) {
+        if (options.scope !== 'all' && !hasActiveWorktree && !effectiveWorktreesLoaded) {
           if (isCurrent()) {
             setScreenState((prev) => (prev.kind === 'ready' ? prev : { kind: 'loading' }))
           }
@@ -258,7 +259,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       hostId,
       projectScopePathsKey,
       workspaceScopePathsKey,
-      worktreesLoaded,
+      effectiveWorktreesLoaded,
       t
     ]
   )
