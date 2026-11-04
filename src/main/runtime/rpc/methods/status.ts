@@ -2,6 +2,7 @@ import { defineMethod } from '../core'
 import { getRemoteServerUpdaterSnapshot } from '../../remote-server-updater'
 import { getPublishedHostDescriptor } from '../../host-descriptor'
 import { StatusGetParams } from '../../../../shared/rpc-contract/status-params'
+import { prewarmAiVaultSessionListCache } from '../../../ai-vault/cached-session-list'
 
 export const STATUS_METHODS = [
   defineMethod({
@@ -17,8 +18,12 @@ export const STATUS_METHODS = [
       await runtime.machineNameReady()
       const snapshot = getRemoteServerUpdaterSnapshot(runtime.getRuntimeId())
       const hostDescriptor = getPublishedHostDescriptor(runtime.getRuntimeId())
+      const status = runtime.getStatus()
+      prewarmAiVaultSessionListCache(
+        status.lastActiveWorktree?.path ? [status.lastActiveWorktree.path] : undefined
+      )
       return {
-        ...runtime.getStatus(),
+        ...status,
         ...(hostDescriptor ? { hostDescriptor } : {}),
         ...(pairedDeviceId ? { pairedDeviceId } : {}),
         appVersion: snapshot.appVersion,

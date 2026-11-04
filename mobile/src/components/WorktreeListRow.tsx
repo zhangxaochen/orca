@@ -1,8 +1,10 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Bell, ChevronDown, ChevronRight, GitBranch, GitPullRequest } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { MobileRenderableRepoIcon } from '../host-screen/host-screen-reply-schema'
 import { triggerMediumImpact } from '../platform/haptics'
+import { resolveHostWorktreeRowStatus } from '../session/catalog-worktree-unread-status'
+import { subscribeTabCompletionState } from '../session/tab-completion-state'
 import { colors, feedback, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -63,6 +65,10 @@ function WorktreeListRowComponent({
   onToggleLineage
 }: Props) {
   useMobileColorScheme()
+  const [, setCompletionRev] = useState(0)
+  useEffect(() => subscribeTabCompletionState(() => setCompletionRev((rev) => rev + 1)), [])
+  const rowStatus = resolveHostWorktreeRowStatus(item, status, now)
+  const isUnread = rowStatus.unread
   const t = useMobileTranslation()
   const isFolderWorkspace = item.workspaceKind === 'folder-workspace'
   const folderMeta =
@@ -102,8 +108,8 @@ function WorktreeListRowComponent({
       delayLongPress={400}
     >
       <View style={styles.indicatorCol}>
-        <AgentSpinner status={status} workingMode={item.workingMode} />
-        {item.unread && (
+        <AgentSpinner status={rowStatus.status} workingMode={item.workingMode} />
+        {isUnread && (
           <Bell
             size={10}
             color={colors.statusAmber}
@@ -137,7 +143,7 @@ function WorktreeListRowComponent({
           <Text
             style={[
               styles.worktreeName,
-              item.unread && styles.worktreeNameUnread,
+              isUnread && styles.worktreeNameUnread,
               isReadOnly && styles.textReadOnly
             ]}
             numberOfLines={1}
@@ -214,7 +220,7 @@ function WorktreeListRowComponent({
           <WorktreeAgentList
             agents={item.agents}
             now={now}
-            unvisited={item.unread}
+            unvisited={isUnread}
             statusLive={statusLive}
             isReadOnly={isReadOnly}
             onAgentPress={onAgentPress ? (paneKey) => onAgentPress(item, paneKey) : undefined}

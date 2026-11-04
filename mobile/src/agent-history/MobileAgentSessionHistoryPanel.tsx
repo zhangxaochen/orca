@@ -26,7 +26,10 @@ import {
 import { prepareMobileAiVaultSessionResume } from '../session/ai-vault-resume-preparation'
 import { triggerError, triggerSuccess } from '../platform/haptics'
 import type { AiVaultSession } from '../../../src/shared/ai-vault-types'
-import { useMobileHistoryWorktrees } from './use-agent-history-association-reload'
+import {
+  useMobileHistoryWorktreeEffect,
+  useMobileHistoryWorktreeState
+} from './use-agent-history-association-reload'
 import { useMobileAgentHistoryState } from './use-mobile-agent-history-state'
 import {
   buildMobileAgentHistorySections,
@@ -86,7 +89,8 @@ function MobileAgentSessionHistoryPanelContent({
     client,
     connState
   )
-  const { worktrees, worktreesLoaded } = useMobileHistoryWorktrees(hostId, client, connState)
+  const worktreeState = useMobileHistoryWorktreeState(hostId, client)
+  const { worktrees, worktreesLoaded } = worktreeState
   const [query, setQuery] = useState('')
   const [searchBarHeight, setSearchBarHeight] = useState(0)
   const insets = useSafeAreaInsets()
@@ -99,18 +103,10 @@ function MobileAgentSessionHistoryPanelContent({
     createMobileAiVaultResumeMutationRegistry(createMobileAiVaultResumeMutationId)
   )
   const worktreeLabel = getWorktreeLabel(name, worktreeId)
-
-  const {
-    scope,
-    screenState,
-    refreshing,
-    hostStatusResult,
-    activeWorktreePath,
-    scopeFilterPaths,
-    onSelectScope,
-    onRefresh,
-    retry
-  } = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded })
+  const history = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded })
+  const { scope, screenState, hostStatusResult, activeWorktreePath, scopeFilterPaths, onRefresh } =
+    history
+  useMobileHistoryWorktreeEffect(hostId, client, connState, worktreeState)
 
   const issues = screenState.kind === 'ready' ? screenState.issues : EMPTY_ISSUES
   const openTabActions = useMobileAgentHistoryOpenTabActions({
@@ -258,12 +254,11 @@ function MobileAgentSessionHistoryPanelContent({
           worktrees.find((item) => item.worktreeId === target.worktreeId)?.displayName,
           target.worktreeId
         )
-        // From a session screen the same workspace is the screen below; otherwise the session takes this screen's place.
-        if (
+        const isSameSessionTarget =
           origin === 'session' &&
           target.worktreeId === worktreeId &&
           (target.targetExecutionHostId ?? null) === (currentExecutionHost ?? null)
-        ) {
+        if (isSameSessionTarget) {
           sessionBelow?.onResumedTerminal(resumed.terminal)
         }
         openHistorySession(
@@ -278,8 +273,11 @@ function MobileAgentSessionHistoryPanelContent({
         )
       } catch (err) {
         triggerError()
-        const fallback = t('agentHistory.panel.resumeFailed', 'Failed to resume session.')
-        setResumeMessage(err instanceof Error ? err.message : fallback)
+        setResumeMessage(
+          err instanceof Error
+            ? err.message
+            : t('agentHistory.panel.resumeFailed', 'Failed to resume session.')
+        )
       } finally {
         resumeLaunchInFlightRef.current = false
         setResumingSessionId(null)
@@ -329,7 +327,7 @@ function MobileAgentSessionHistoryPanelContent({
               <MobileSegmentedControl
                 segments={mobileAgentHistoryScopeSegments(t)}
                 selected={scope}
-                onSelect={onSelectScope}
+                onSelect={history.onSelectScope}
                 fill
                 style={styles.scopeTabs}
               />
@@ -353,9 +351,9 @@ function MobileAgentSessionHistoryPanelContent({
           )}
         />
       ) : screenState.kind === 'error' && connState !== 'connected' ? (
-        <MobileOfflineState onReconnect={retry} />
+        <MobileOfflineState onReconnect={history.retry} />
       ) : screenState.kind === 'error' ? (
-        <MobileLoadErrorState error={screenState.message} onRetry={retry} />
+        <MobileLoadErrorState error={screenState.message} onRetry={history.retry} />
       ) : (
         <>
           {issues.length > 0 ? <AgentHistorySkippedNotice issues={issues} /> : null}
@@ -387,7 +385,7 @@ function MobileAgentSessionHistoryPanelContent({
             <MobileAgentSessionHistoryList
               sections={sections}
               sessionsById={sessionsById}
-              refreshing={refreshing}
+              refreshing={history.refreshing}
               showCurrentWorktreeBadges={shouldShowMobileCurrentWorktreeBadge(scope)}
               resumeActionStateBySessionId={resumeActionStateBySessionId}
               onResume={onResumeSession}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AiVaultScope } from '../../../src/shared/ai-vault-types'
-import { getProvenCachedWorktrees } from '../cache/worktree-cache'
+import { getCachedWorktrees, getProvenCachedWorktrees } from '../cache/worktree-cache'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
@@ -13,20 +13,55 @@ type AssociationFeed = {
 
 type LoadSessions = (options: { scope: AiVaultScope; force: boolean }) => void
 
-/** Seeds worktrees from the proven host cache and refreshes them from worktree.ps when connected. */
-export function useMobileHistoryWorktrees(
+const clientWorktreeCache = new WeakMap<RpcClient, Map<string, Worktree[]>>()
+
+function readInitialHistoryWorktrees(
+  hostId: string,
+  client: RpcClient | null
+): { worktrees: Worktree[]; loaded: boolean } {
+  const fromClient = client ? clientWorktreeCache.get(client)?.get(hostId) : undefined
+  if (fromClient !== undefined) {
+    return { worktrees: fromClient, loaded: true }
+  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: proven cache stores the same worktree rows this panel already reads as Worktree[].
+  const proven = getProvenCachedWorktrees(hostId) as Worktree[] | null
+  if (proven && proven.length > 0) {
+    return { worktrees: proven, loaded: true }
+  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: cold-start/Continue seed rows carry worktreeId and path for initial scope derivation.
+  const seeded = getCachedWorktrees(hostId) as Worktree[] | null
+  return { worktrees: seeded ?? [], loaded: false }
+}
+
+export type MobileHistoryWorktreeState = {
+  worktrees: Worktree[]
+  worktreesLoaded: boolean
+  setWorktrees: (worktrees: Worktree[]) => void
+  setWorktreesLoaded: (loaded: boolean) => void
+}
+
+/** Seeds worktrees synchronously from the client or proven host cache before history state effects register. */
+export function useMobileHistoryWorktreeState(
+  hostId: string,
+  client: RpcClient | null
+): MobileHistoryWorktreeState {
+  const [worktrees, setWorktrees] = useState<Worktree[]>(
+    () => readInitialHistoryWorktrees(hostId, client).worktrees
+  )
+  const [worktreesLoaded, setWorktreesLoaded] = useState(
+    () => readInitialHistoryWorktrees(hostId, client).loaded
+  )
+  return { worktrees, worktreesLoaded, setWorktrees, setWorktreesLoaded }
+}
+
+/** Refreshes worktrees from worktree.ps after history state effects register so status.get dispatches first. */
+export function useMobileHistoryWorktreeEffect(
   hostId: string,
   client: RpcClient | null,
-  connState: ConnectionState
-): { worktrees: Worktree[]; worktreesLoaded: boolean } {
-  const [worktrees, setWorktrees] = useState<Worktree[]>(() => {
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: proven cache stores the same worktree rows this panel already reads as Worktree[].
-    return (getProvenCachedWorktrees(hostId) as Worktree[] | null) ?? []
-  })
-  const [worktreesLoaded, setWorktreesLoaded] = useState(
-    () => (getProvenCachedWorktrees(hostId)?.length ?? 0) > 0
-  )
-
+  connState: ConnectionState,
+  state: Pick<MobileHistoryWorktreeState, 'setWorktrees' | 'setWorktreesLoaded'>
+): void {
+  const { setWorktrees, setWorktreesLoaded } = state
   useEffect(() => {
     if (!client || connState !== 'connected') {
       return
@@ -41,7 +76,14 @@ export function useMobileHistoryWorktrees(
         const catalog = worktreeCatalogRead.interpret(worktreeReply)
         if (catalog.accepted) {
           // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: rows stay opaque in the reader; this panel reads path/worktreeId/repoId off rows.
-          setWorktrees((catalog.value.worktrees ?? []) as Worktree[])
+          const rows = (catalog.value.worktrees ?? []) as Worktree[]
+          let byHost = clientWorktreeCache.get(client)
+          if (!byHost) {
+            byHost = new Map()
+            clientWorktreeCache.set(client, byHost)
+          }
+          byHost.set(hostId, rows)
+          setWorktrees(rows)
         }
       } catch {
         // Best-effort context: failed worktree list leaves scoped tabs scanning full history.
@@ -54,9 +96,7 @@ export function useMobileHistoryWorktrees(
     return () => {
       cancelled = true
     }
-  }, [client, connState])
-
-  return { worktrees, worktreesLoaded }
+  }, [client, connState, hostId, setWorktrees, setWorktreesLoaded])
 }
 
 /** Reloads history when a structured session attaches, and holds that reload behind an in-flight scan. */

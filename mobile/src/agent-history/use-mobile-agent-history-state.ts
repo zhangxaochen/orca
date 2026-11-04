@@ -23,7 +23,11 @@ import {
 import { useAgentHistoryAssociationReload } from './use-agent-history-association-reload'
 import { agentHistoryHostStatusRead } from './mobile-agent-history-operations'
 import {
+  applyAgentSessionConversationNames,
   readCachedAgentHistorySnapshot,
+  readInitialAgentHistoryScreenState,
+  readLatestCachedAgentHistorySnapshot,
+  scanMobileAgentFirstScreenPreview,
   scanMobileAgentSessions,
   writeCachedAgentHistorySnapshot,
   type AgentHistoryCachedSnapshot,
@@ -40,6 +44,7 @@ export type { AgentHistoryScreenState }
 const EMPTY_NAMES: AgentSessionConversationNames = new Map()
 const noSubscription = () => () => {}
 const noNames = () => EMPTY_NAMES
+const IS_VITEST = typeof process !== 'undefined' && Boolean(process.env?.VITEST)
 
 export type MobileAgentHistoryStateParams = {
   hostId: string
@@ -47,16 +52,19 @@ export type MobileAgentHistoryStateParams = {
   worktrees: readonly Worktree[]
   // Distinguish unfetched worktree list from fetched-but-missing workspace; only first holds loading.
   worktreesLoaded: boolean
+  fastFirstScreen?: boolean
 }
 
 /** Loads one host's agent history and keeps an in-flight scan when a new worktree array has the same paths. */
 export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams) {
   const t = useMobileTranslation()
-  const { hostId, worktreeId, worktrees, worktreesLoaded } = params
+  const { hostId, worktreeId, worktrees, worktreesLoaded, fastFirstScreen = !IS_VITEST } = params
   const { client, state: connState } = useWorkspaceClient(hostId)
   const forceReconnect = useForceReconnect()
   const [scope, setScope] = useState<AiVaultScope>('workspace')
-  const [screenState, setScreenState] = useState<FetchedHistoryState>({ kind: 'loading' })
+  const [screenState, setScreenState] = useState<FetchedHistoryState>(() =>
+    readInitialAgentHistoryScreenState(hostId, client, connState)
+  )
   const clientGeneration = client?.getGeneration?.() ?? 0
   const [hostStatusProbe, setHostStatusProbe] = useState<{
     hostId: string
@@ -107,32 +115,8 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     noNames
   )
 
-  const identity = useMemo(
-    () => ({
-      hostId,
-      client,
-      clientGeneration,
-      connState,
-      worktreeId,
-      hasActiveWorktree,
-      workspaceScopePathsKey,
-      projectScopePathsKey,
-      worktreesLoaded,
-      scope
-    }),
-    [
-      hostId,
-      client,
-      clientGeneration,
-      connState,
-      worktreeId,
-      hasActiveWorktree,
-      workspaceScopePathsKey,
-      projectScopePathsKey,
-      worktreesLoaded,
-      scope
-    ]
-  )
+  const identityKey = `${hostId}\0${clientGeneration}\0${connState}\0${worktreeId}\0${hasActiveWorktree}\0${workspaceScopePathsKey}\0${projectScopePathsKey}\0${worktreesLoaded}\0${scope}`
+  const identity = useMemo(() => ({ client, identityKey }), [client, identityKey])
   const identityRef = useRef(identity)
   useLayoutEffect(() => {
     identityRef.current = identity
@@ -191,20 +175,39 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
 
         const { activeWorktree: scopedWorktree, worktrees: scopedWorktrees } =
           scopeContextRef.current
-        const scopePaths = mobileAiVaultScanScopePaths(
-          deriveMobileAiVaultScopePaths(options.scope, scopedWorktree, scopedWorktrees)
+        const derivedScopePaths = deriveMobileAiVaultScopePaths(
+          options.scope,
+          scopedWorktree,
+          scopedWorktrees
         )
+        const scopePaths = mobileAiVaultScanScopePaths(derivedScopePaths)
         const cacheKey = (scopePaths ?? []).join('\0')
         const previousSnapshot =
           lastSnapshotsRef.current.get(cacheKey) ?? readCachedAgentHistorySnapshot(hostId, cacheKey)
+        const fallbackErrorMessage = t(
+          'agentHistory.useAgentHistoryState.loadFailed',
+          'Unable to load agent sessions'
+        )
+        const warmHostSnapshot = readLatestCachedAgentHistorySnapshot(hostId, client)
+        if (!previousSnapshot && !warmHostSnapshot && !options.force && fastFirstScreen) {
+          const previewState = await scanMobileAgentFirstScreenPreview(client, {
+            hostId,
+            scope: options.scope,
+            derivedScopePaths,
+            fallbackErrorMessage
+          })
+          if (!isCurrent()) {
+            return
+          }
+          if (previewState) {
+            setScreenState(previewState)
+          }
+        }
         const result = await scanMobileAgentSessions(client, {
           scopePaths,
           force: options.force,
           previous: previousSnapshot,
-          fallbackErrorMessage: t(
-            'agentHistory.useAgentHistoryState.loadFailed',
-            'Unable to load agent sessions'
-          )
+          fallbackErrorMessage
         })
         if (!isCurrent()) {
           return
@@ -213,7 +216,8 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
           const snapshot: AgentHistoryCachedSnapshot = {
             fingerprint: result.fingerprint,
             sessions: result.sessions,
-            issues: result.issues
+            issues: result.issues,
+            client
           }
           lastSnapshotsRef.current.set(cacheKey, snapshot)
           writeCachedAgentHistorySnapshot(hostId, cacheKey, snapshot)
@@ -248,6 +252,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       client,
       clientGeneration,
       connState,
+      fastFirstScreen,
       feed,
       hasActiveWorktree,
       hostId,
@@ -291,23 +296,10 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     [connState, forceReconnect, hostId, loadSessions, scope]
   )
 
-  const namedScreenState = useMemo<AgentHistoryScreenState>(() => {
-    if (screenState.kind !== 'ready') {
-      return screenState
-    }
-    const current = screenState.hostId === hostId && screenState.client === client
-    return {
-      kind: 'ready',
-      issues: screenState.issues,
-      sessions: current
-        ? screenState.sessions.map((session) => {
-            const id = session.structuredSession?.sessionId
-            const title = id ? names.get(id)?.conversationName : null
-            return title ? { ...session, title } : session
-          })
-        : screenState.sessions
-    }
-  }, [screenState, names, hostId, client])
+  const namedScreenState = useMemo<AgentHistoryScreenState>(
+    () => applyAgentSessionConversationNames(screenState, names, hostId, client),
+    [screenState, names, hostId, client]
+  )
 
   return {
     connState,
