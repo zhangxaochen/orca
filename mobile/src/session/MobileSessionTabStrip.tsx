@@ -219,12 +219,9 @@ export const MobileSessionTabStrip = memo(function MobileSessionTabStrip({
           style={[styles.tabScroll, inTopBar && styles.tabScrollInTopBar]}
           contentContainerStyle={[styles.tabContent, inTopBar && styles.tabContentInTopBar]}
           keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScrollBeginDrag={() => {
-            cancelHeldTabStripReveal()
-            dismiss()
-          }}
+          scrollEventThrottle={1}
           onScroll={(e) => {
+            cancelHeldTabStripReveal()
             tabStripOffsetRef.current = e.nativeEvent.contentOffset.x
             refreshHiddenTabs()
             refreshSource()
