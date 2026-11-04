@@ -914,8 +914,13 @@
     "terminalShortcutSettings": {
       "addDescription": "Tuş birleşimi veya metin makrosu oluştur",
       "addShortcut": "Özel Kısayol Ekle…",
+      "customShortcuts": "ÖZEL KISAYOLLAR",
+      "empty": "Henüz özel kısayol tanımlanmadı.",
+      "removeShortcut": "{{label}} kısayolunu kaldır",
       "resetDefaults": "Varsayılanlara Sıfırla",
       "resetDescription": "Tüm yerleşik kısayol tuşlarını özgün sırayla göster",
+      "moreKeys": "DİĞER TUŞLAR",
+      "moreKeysDescription": "Bu tuşlar, terminal tuş satırındaki ⋯ altında bulunur. Tuşları göstermek veya gizlemek için açıp kapatın; istediğiniz sıraya sürüklemek için tutamacı basılı tutun. Esc veya oklar gibi satırda zaten bulunan tuşlar ⋯ altında gösterilmez.",
       "directionPad": "YÖN TUŞ TAKIMI",
       "showDirectionPad": "Yön tuş takımını göster",
       "showDirectionPadDescription": "Ok takımını yan çubuğa sabitleyin. Kapalıyken çubukta ayrı ok tuşları listelenir.",
@@ -1960,6 +1965,7 @@
       "copyReviewNotes": "İnceleme notlarını kopyala",
       "imageLabel": "{{title}} görseli",
       "noReviewNotes": "İnceleme notu yok",
+      "previewLabel": "{{title}} önizlemesi",
       "reviewNotes_one": "{{count}} inceleme notu",
       "reviewNotes_other": "{{count}} inceleme notu",
       "send": "Gönder",
@@ -2170,6 +2176,7 @@
       "discardChanges": "Değişiklikleri At",
       "discardMessage": "Telefondaki taslak, masaüstündeki dosyanın en güncel sürümüyle değiştirilsin mi?",
       "draftsHint": "Ayrılmadan önce telefondaki taslakları kopyalayın veya atın.",
+      "file": "Dosya",
       "markdown": "Markdown",
       "markdownNote": "Markdown Notu",
       "newBrowser": "Yeni Tarayıcı",
@@ -2481,6 +2488,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "Düzen kaydedilemedi",
       "saveFailedMessage": "Bu düzen şimdilik uygulanır. Kaydetmeyi yeniden denemek için tekrar seçin."
+    },
+    "terminalArrowPad": {
+      "label": "Ok tuşları",
+      "hint": "Bir oka bir kez basmak için bir tarafa dokunun; tekrarlamak için basılı tutup sürükleyin",
+      "up": "Yukarı",
+      "down": "Aşağı",
+      "left": "Sol",
+      "right": "Sağ"
     },
     "terminalMoreKeys": {
       "sendKey": "{{label}} gönder",

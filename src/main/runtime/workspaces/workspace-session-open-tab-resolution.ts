@@ -5,7 +5,7 @@ import type {
   RuntimeMobileSessionTabsSnapshot,
   RuntimeSyncedLeaf
 } from '../../../shared/runtime-types'
-import { parseLegacyNumericPaneKey, parsePaneKey } from '../../../shared/stable-pane-id'
+import { parseLegacyNumericPaneKey, parsePaneKey } from '../../../shared/workspace-layout/stable-pane-id'
 import type { WorkspaceSessionState } from '../../../shared/workspace-session-state-types'
 import type { RuntimePtyWorktreeRecord } from '../runtime-terminal-state-records'
 

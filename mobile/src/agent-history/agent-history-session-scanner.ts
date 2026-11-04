@@ -3,8 +3,8 @@ import {
   type AiVaultScanIssue,
   type AiVaultScope,
   type AiVaultSession
-} from '../../../src/shared/ai-vault-types'
-import { filterAiVaultSessions } from '../../../src/shared/ai-vault-session-filters'
+} from '../../../src/shared/ai-vault/contracts/ai-vault-types'
+import { filterAiVaultSessions } from '../../../src/shared/ai-vault/session-display/ai-vault-session-filters'
 import type { AgentSessionConversationNames } from '../../../src/shared/agent-session/agent-session-conversation-names'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'

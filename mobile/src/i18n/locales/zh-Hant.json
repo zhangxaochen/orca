@@ -21,7 +21,6 @@
     "panel": {
       "all": "全部",
       "emptyScope": "此範圍內沒有過往的代理程式工作階段。",
-      "loading": "正在載入代理程式工作階段…",
       "missingResumeId": "此工作階段缺少恢復識別碼。",
       "noSearchResults": "沒有符合搜尋條件的工作階段。",
       "noSessions": "沒有代理程式工作階段",
@@ -911,8 +910,13 @@
     "terminalShortcutSettings": {
       "addDescription": "建立組合鍵或文字巨集",
       "addShortcut": "新增自訂快速鍵…",
+      "customShortcuts": "自訂快速鍵",
+      "empty": "尚未設定自訂快速鍵。",
+      "removeShortcut": "移除 {{label}}",
       "resetDefaults": "還原預設值",
       "resetDescription": "依原始順序顯示所有內建快速鍵",
+      "moreKeys": "更多按鍵",
+      "moreKeysDescription": "這些按鍵位於終端機按鍵列的 ⋯ 下。切換按鍵以顯示或隱藏，按住拖曳控制柄即可調整順序。已在按鍵列中的按鍵（例如 Esc 或方向鍵）不會顯示在 ⋯ 下。",
       "directionPad": "方向鍵盤",
       "showDirectionPad": "顯示方向鍵盤",
       "showDirectionPadDescription": "將方向鍵盤固定在側邊欄。關閉後，側邊欄會列出各個方向鍵。",
@@ -1957,6 +1961,7 @@
       "copyReviewNotes": "複製審查備註",
       "imageLabel": "{{title}} 圖片",
       "noReviewNotes": "尚無審查備註",
+      "previewLabel": "{{title}} 預覽",
       "reviewNotes_one": "{{count}} 則審查備註",
       "reviewNotes_other": "{{count}} 則審查備註",
       "send": "傳送",
@@ -2167,6 +2172,7 @@
       "discardChanges": "放棄變更",
       "discardMessage": "要以電腦上的最新檔案取代手機草稿嗎？",
       "draftsHint": "離開前請先複製或放棄手機草稿。",
+      "file": "檔案",
       "markdown": "Markdown",
       "markdownNote": "Markdown 筆記",
       "newBrowser": "新瀏覽器",
@@ -2478,6 +2484,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "無法儲存版面配置",
       "saveFailedMessage": "此版面配置暫時生效。請再次選取以重試儲存。"
+    },
+    "terminalArrowPad": {
+      "label": "方向鍵",
+      "hint": "點按一側可按一次方向鍵，或按住並拖曳以重複",
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右"
     },
     "terminalMoreKeys": {
       "sendKey": "傳送 {{label}}",

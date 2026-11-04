@@ -914,8 +914,13 @@
     "terminalShortcutSettings": {
       "addDescription": "Tastenkombination oder Textmakro erstellen",
       "addShortcut": "Eigenes Tastenkürzel hinzufügen…",
+      "customShortcuts": "EIGENE TASTENKÜRZEL",
+      "empty": "Noch keine eigenen Tastenkürzel definiert.",
+      "removeShortcut": "{{label}} entfernen",
       "resetDefaults": "Auf Standard zurücksetzen",
       "resetDescription": "Alle integrierten Tastenkürzel in der ursprünglichen Reihenfolge anzeigen",
+      "moreKeys": "WEITERE TASTEN",
+      "moreKeysDescription": "Diese Tasten befinden sich unter ⋯ in der Terminal-Tastenleiste. Blende Tasten ein oder aus und halte den Griff gedrückt, um sie in die gewünschte Reihenfolge zu ziehen. Tasten, die bereits in der Leiste sind, etwa Esc oder die Pfeiltasten, erscheinen nicht unter ⋯.",
       "directionPad": "STEUERKREUZ",
       "showDirectionPad": "Steuerkreuz anzeigen",
       "showDirectionPadDescription": "Das Steuerkreuz in der Seitenleiste anheften. Andernfalls werden dort die einzelnen Pfeiltasten angezeigt.",
@@ -1960,6 +1965,7 @@
       "copyReviewNotes": "Review-Notizen kopieren",
       "imageLabel": "Bild: {{title}}",
       "noReviewNotes": "Keine Review-Notizen",
+      "previewLabel": "Vorschau: {{title}}",
       "reviewNotes_one": "{{count}} Review-Notiz",
       "reviewNotes_other": "{{count}} Review-Notizen",
       "send": "Senden",
@@ -2170,6 +2176,7 @@
       "discardChanges": "Änderungen verwerfen",
       "discardMessage": "Entwurf auf dem Smartphone durch die neueste Datei vom Desktop ersetzen?",
       "draftsHint": "Vor dem Verlassen die Entwürfe auf dem Smartphone kopieren oder verwerfen.",
+      "file": "Datei",
       "markdown": "Markdown",
       "markdownNote": "Markdown-Notiz",
       "newBrowser": "Neuen Browser öffnen",
@@ -2481,6 +2488,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "Layout konnte nicht gespeichert werden",
       "saveFailedMessage": "Dieses Layout gilt vorerst. Wähle es erneut aus, um das Speichern zu wiederholen."
+    },
+    "terminalArrowPad": {
+      "label": "Pfeiltasten",
+      "hint": "Eine Seite antippen für einen Tastendruck oder gedrückt halten und ziehen zum Wiederholen",
+      "up": "Nach oben",
+      "down": "Nach unten",
+      "left": "Nach links",
+      "right": "Nach rechts"
     },
     "terminalMoreKeys": {
       "sendKey": "{{label}} senden",

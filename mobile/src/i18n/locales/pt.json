@@ -951,8 +951,13 @@
     "terminalShortcutSettings": {
       "addDescription": "Criar combinação de teclas ou macro de texto",
       "addShortcut": "Adicionar Atalho Personalizado…",
+      "customShortcuts": "ATALHOS PERSONALIZADOS",
+      "empty": "Nenhum atalho personalizado definido ainda.",
+      "removeShortcut": "Remover {{label}}",
       "resetDefaults": "Restaurar Padrões",
       "resetDescription": "Mostrar todas as teclas de atalho integradas na ordem original",
+      "moreKeys": "MAIS TECLAS",
+      "moreKeysDescription": "Estas teclas ficam em ⋯ na linha de teclas do terminal. Ative ou desative as teclas para mostrá-las ou ocultá-las e segure a alça para arrastá-las até a ordem desejada. Uma tecla que já esteja na linha, como Esc ou as setas, não aparece em ⋯.",
       "directionPad": "DIRECIONAL",
       "showDirectionPad": "Mostrar direcional",
       "showDirectionPadDescription": "Fixe o direcional de setas na barra lateral. Sem ele, a barra lista as teclas de seta.",
@@ -2025,6 +2030,7 @@
       "copyReviewNotes": "Copiar notas de revisão",
       "imageLabel": "Imagem de {{title}}",
       "noReviewNotes": "Nenhuma nota de revisão",
+      "previewLabel": "Prévia de {{title}}",
       "reviewNotes_many": "{{count}} notas de revisão",
       "reviewNotes_one": "{{count}} nota de revisão",
       "reviewNotes_other": "{{count}} notas de revisão",
@@ -2237,6 +2243,7 @@
       "discardChanges": "Descartar alterações?",
       "discardMessage": "Substituir o rascunho do celular pela versão mais recente do arquivo no desktop?",
       "draftsHint": "Copie ou descarte os rascunhos do celular antes de sair.",
+      "file": "Arquivo",
       "markdown": "Markdown",
       "markdownNote": "Nota em Markdown",
       "newBrowser": "Novo Navegador",
@@ -2548,6 +2555,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "Não foi possível salvar o layout",
       "saveFailedMessage": "Este layout está aplicado por enquanto. Selecione-o novamente para tentar salvar."
+    },
+    "terminalArrowPad": {
+      "label": "Teclas de direção",
+      "hint": "Toque em um lado para pressionar uma seta ou mantenha pressionado e arraste para repetir",
+      "up": "Para cima",
+      "down": "Para baixo",
+      "left": "Esquerda",
+      "right": "Direita"
     },
     "terminalMoreKeys": {
       "sendKey": "Enviar {{label}}",

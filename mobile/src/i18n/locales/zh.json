@@ -21,7 +21,6 @@
     "panel": {
       "all": "全部",
       "emptyScope": "此范围内暂无历史智能体会话。",
-      "loading": "正在加载智能体会话…",
       "missingResumeId": "此会话缺少恢复 ID。",
       "noSearchResults": "没有符合搜索条件的会话。",
       "noSessions": "暂无智能体会话",
@@ -911,8 +910,13 @@
     "terminalShortcutSettings": {
       "addDescription": "创建组合键或文本宏",
       "addShortcut": "添加自定义快捷键…",
+      "customShortcuts": "自定义快捷键",
+      "empty": "尚未设置自定义快捷键。",
+      "removeShortcut": "移除 {{label}}",
       "resetDefaults": "恢复默认设置",
       "resetDescription": "按原始顺序显示所有内置快捷键",
+      "moreKeys": "更多按键",
+      "moreKeysDescription": "这些按键位于终端按键栏的 ⋯ 下。切换按键以显示或隐藏，按住拖动柄可调整顺序。已在按键栏中的按键（如 Esc 或方向键）不会显示在 ⋯ 下。",
       "directionPad": "方向键盘",
       "showDirectionPad": "显示方向键盘",
       "showDirectionPadDescription": "将方向键盘固定在侧边栏。关闭后，侧边栏会列出各个方向键。",
@@ -1957,6 +1961,7 @@
       "copyReviewNotes": "复制评审备注",
       "imageLabel": "{{title}} 图片",
       "noReviewNotes": "暂无评审备注",
+      "previewLabel": "{{title}} 预览",
       "reviewNotes_one": "{{count}} 条评审备注",
       "reviewNotes_other": "{{count}} 条评审备注",
       "send": "发送",
@@ -2167,6 +2172,7 @@
       "discardChanges": "放弃更改",
       "discardMessage": "是否用桌面上的最新文件替换手机草稿？",
       "draftsHint": "离开前，请复制或放弃手机上的草稿。",
+      "file": "文件",
       "markdown": "Markdown",
       "markdownNote": "Markdown 笔记",
       "newBrowser": "新浏览器",
@@ -2478,6 +2484,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "无法保存布局",
       "saveFailedMessage": "此布局暂时生效。请再次选择以重试保存。"
+    },
+    "terminalArrowPad": {
+      "label": "方向键",
+      "hint": "点击一侧可按一次方向键，或按住并拖动以重复",
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右"
     },
     "terminalMoreKeys": {
       "sendKey": "发送 {{label}}",

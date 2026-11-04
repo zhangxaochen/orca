@@ -951,8 +951,13 @@
     "terminalShortcutSettings": {
       "addDescription": "Créer une combinaison de touches ou une macro de texte",
       "addShortcut": "Ajouter un raccourci personnalisé…",
+      "customShortcuts": "RACCOURCIS PERSONNALISÉS",
+      "empty": "Aucun raccourci personnalisé défini pour le moment.",
+      "removeShortcut": "Supprimer {{label}}",
       "resetDefaults": "Rétablir les valeurs par défaut",
       "resetDescription": "Afficher toutes les touches de raccourci intégrées dans l'ordre initial",
+      "moreKeys": "PLUS DE TOUCHES",
+      "moreKeysDescription": "Ces touches se trouvent sous ⋯ dans la rangée de touches du terminal. Activez ou désactivez les touches pour les afficher ou les masquer, puis maintenez la poignée pour les réordonner. Les touches déjà présentes dans la rangée, comme Échap ou les flèches, ne figurent pas sous ⋯.",
       "directionPad": "PAVÉ DIRECTIONNEL",
       "showDirectionPad": "Afficher le pavé directionnel",
       "showDirectionPadDescription": "Épingler le pavé de flèches dans la barre latérale. Sinon, la barre affiche les touches fléchées.",
@@ -2025,6 +2030,7 @@
       "copyReviewNotes": "Copier les notes de revue",
       "imageLabel": "Image : {{title}}",
       "noReviewNotes": "Aucune note de revue",
+      "previewLabel": "Aperçu de {{title}}",
       "reviewNotes_many": "{{count}} notes de revue",
       "reviewNotes_one": "{{count}} note de revue",
       "reviewNotes_other": "{{count}} notes de revue",
@@ -2237,6 +2243,7 @@
       "discardChanges": "Abandonner les modifications",
       "discardMessage": "Remplacer le brouillon du téléphone par la dernière version du fichier sur l'ordinateur ?",
       "draftsHint": "Copiez ou abandonnez les brouillons du téléphone avant de quitter.",
+      "file": "Fichier",
       "markdown": "Markdown",
       "markdownNote": "Note Markdown",
       "newBrowser": "Nouveau navigateur",
@@ -2548,6 +2555,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "Impossible d’enregistrer la disposition",
       "saveFailedMessage": "Cette disposition s’applique pour le moment. Sélectionnez-la à nouveau pour réessayer de l’enregistrer."
+    },
+    "terminalArrowPad": {
+      "label": "Touches fléchées",
+      "hint": "Touchez un côté pour une pression ou maintenez et faites glisser pour répéter",
+      "up": "Haut",
+      "down": "Bas",
+      "left": "Gauche",
+      "right": "Droite"
     },
     "terminalMoreKeys": {
       "sendKey": "Envoyer {{label}}",

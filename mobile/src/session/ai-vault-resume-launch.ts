@@ -1,4 +1,4 @@
-import type { AiVaultSession } from '../../../src/shared/ai-vault-types'
+import type { AiVaultSession } from '../../../src/shared/ai-vault/contracts/ai-vault-types'
 import { requestLocalSessionTabFollow } from './mobile-session-tab-activation'
 import type {
   AgentProviderSessionMetadata,
@@ -47,8 +47,7 @@ export type MobileAiVaultResumeLaunch = {
 }
 
 export function buildMobileAiVaultResumeLaunch(args: {
-  session: AiVaultResumeCommandSession &
-    Partial<Pick<AiVaultSession, 'customTitle' | 'title'>>
+  session: AiVaultResumeCommandSession & Partial<Pick<AiVaultSession, 'customTitle' | 'title'>>
   workspacePlatform: NodeJS.Platform
   hostTerminalWindowsShell?: string | null
   settings?: AiVaultResumeLaunchSettings | null

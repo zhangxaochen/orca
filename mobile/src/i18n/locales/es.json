@@ -951,8 +951,13 @@
     "terminalShortcutSettings": {
       "addDescription": "Crear una combinación de teclas o una macro de texto",
       "addShortcut": "Añadir atajo personalizado…",
+      "customShortcuts": "ATAJOS PERSONALIZADOS",
+      "empty": "Aún no hay atajos personalizados definidos.",
+      "removeShortcut": "Eliminar {{label}}",
       "resetDefaults": "Restablecer valores predeterminados",
       "resetDescription": "Mostrar todas las teclas de atajo integradas en su orden original",
+      "moreKeys": "MÁS TECLAS",
+      "moreKeysDescription": "Estas teclas están bajo ⋯ en la fila de teclas del terminal. Activa o desactiva las teclas para mostrarlas u ocultarlas y mantén pulsado el asa para arrastrarlas al orden que quieras. Las teclas que ya están en la fila, como Esc o las flechas, no aparecen en ⋯.",
       "directionPad": "CRUCETA",
       "showDirectionPad": "Mostrar cruceta",
       "showDirectionPadDescription": "Fija la cruceta en la barra lateral. Si está desactivada, la barra muestra las teclas de flecha.",
@@ -2025,6 +2030,7 @@
       "copyReviewNotes": "Copiar notas de revisión",
       "imageLabel": "Imagen de {{title}}",
       "noReviewNotes": "Sin notas de revisión",
+      "previewLabel": "Vista previa de {{title}}",
       "reviewNotes_many": "{{count}} notas de revisión",
       "reviewNotes_one": "{{count}} nota de revisión",
       "reviewNotes_other": "{{count}} notas de revisión",
@@ -2237,6 +2243,7 @@
       "discardChanges": "Descartar cambios",
       "discardMessage": "¿Reemplazar el borrador del teléfono por la última versión del archivo del escritorio?",
       "draftsHint": "Copia o descarta los borradores del teléfono antes de salir.",
+      "file": "Archivo",
       "markdown": "Markdown",
       "markdownNote": "Nota en Markdown",
       "newBrowser": "Nuevo navegador",
@@ -2548,6 +2555,14 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "No se pudo guardar el diseño",
       "saveFailedMessage": "Este diseño se aplica por ahora. Vuelve a seleccionarlo para intentar guardarlo de nuevo."
+    },
+    "terminalArrowPad": {
+      "label": "Teclas de dirección",
+      "hint": "Toca un lado para pulsar una flecha o mantén pulsado y arrastra para repetir",
+      "up": "Arriba",
+      "down": "Abajo",
+      "left": "Izquierda",
+      "right": "Derecha"
     },
     "terminalMoreKeys": {
       "sendKey": "Enviar {{label}}",

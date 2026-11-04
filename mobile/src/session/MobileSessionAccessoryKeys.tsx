@@ -10,6 +10,7 @@ import {
   Smartphone
 } from 'lucide-react-native'
 import { triggerMediumImpact } from '../platform/haptics'
+import { hostOs } from '../platform/host-os'
 import type {
   TerminalAccessoryKey,
   TerminalShortcutModifier
@@ -26,10 +27,12 @@ import {
 } from '../terminal/terminal-live-accessory-input'
 import { createTerminalKeyChordInput } from '../terminal/terminal-key-chord-input'
 import { TERMINAL_ACCESSORY_REPEAT_DELAY_MS } from '../terminal/terminal-accessory-repeat'
+import { NO_STICKY_MODIFIERS, type StickyModifiers } from '../terminal/terminal-sticky-modifiers'
 import { useDirectionPadAvailable } from '../layout/use-shell-side-rail'
 import { isMobileTerminalTabRunningAgent } from './mobile-terminal-tab-agent'
 import { isTerminalPhoneDisplayMode } from './mobile-session-route-helpers'
 import { MobileTerminalMoreKeysSheet } from './MobileTerminalMoreKeysSheet'
+import { TerminalArrowPad } from './TerminalArrowPad'
 import { TERMINAL_KEY_HIT_SLOP, terminalDockStyles as styles } from './terminal-dock-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -62,7 +65,6 @@ export function MobileSessionAccessoryKeys({
     visibleAccessoryRows,
     directionPadEnabled = true,
     terminalModes,
-    canPaste,
     canSend,
     toggleDisplayMode,
     handleAccessoryKey,
@@ -71,12 +73,16 @@ export function MobileSessionAccessoryKeys({
     stopAccessoryRepeat,
     cancelAccessoryRepeat,
     prepareAccessoryPress,
-    handlePaste,
     keyboardLift
   } = controller
   const keepsKeyboard = useKeyboardPersistingTaps('always')
+  const [padHeld, setPadHeld] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [rowsCollapsed, setRowsCollapsed] = useState(false)
+  const padPressRef = useRef<{
+    modifiers: StickyModifiers
+    tap: (() => Promise<boolean>) | null
+  } | null>(null)
   const repeatablePresses = useRef(new Map<string, ReturnType<typeof prepareAccessoryPress>>())
   // An unmounting Pressable never fires onPressOut, so a held key would outlive its row.
   useEffect(() => cancelAccessoryRepeat, [cancelAccessoryRepeat])
@@ -104,7 +110,12 @@ export function MobileSessionAccessoryKeys({
   const sendKeyLabel = (label: string) =>
     t('session.accessoryKeys.sendKey', 'Send {{label}}', { label })
 
-  const keyButton = (id: string, label: string, accessibilityLabel: string, onPress: () => void) => (
+  const keyButton = (
+    id: string,
+    label: string,
+    accessibilityLabel: string,
+    onPress: () => void
+  ) => (
     <Pressable
       key={id}
       style={keyStyle}
@@ -159,9 +170,9 @@ export function MobileSessionAccessoryKeys({
     </Pressable>
   )
   const specialKey = (id: string, label: string, name: string) =>
-    keyButton(id, label, sendKeyLabel(name), () => keys.sendKey(id))
+    keyButton(id, label, sendKeyLabel(name), () => keys?.sendKey(id))
   const modifierKey = (modifier: TerminalShortcutModifier, label: string, name: string) => {
-    const latch = keys.modifiers[modifier]
+    const latch = keys?.modifiers[modifier] ?? 'off'
     return (
       <Pressable
         key={modifier}
@@ -174,7 +185,7 @@ export function MobileSessionAccessoryKeys({
         ]}
         disabled={!canSend}
         hitSlop={TERMINAL_KEY_HIT_SLOP}
-        onPress={() => keys.tapModifier(modifier)}
+        onPress={() => keys?.tapModifier(modifier)}
         accessibilityRole="button"
         accessibilityLabel={name}
         accessibilityHint={t(
@@ -203,21 +214,6 @@ export function MobileSessionAccessoryKeys({
         t('session.accessoryKeys.typeCharacter', 'Type {{character}}', { character }),
         () => keys.sendKey(character)
       )
-    )
-  const renderModifierArrow = (item: TerminalAccessoryKey): React.JSX.Element =>
-    repeatableKey(
-      item.id,
-      compactTerminalKeyLabel(item.label),
-      sendKeyLabel(item.accessibilityLabel ?? item.label),
-      () => {
-        const modifiers = keys.takeModifiers()
-        return createTerminalKeyChordInput({
-          key: item.id,
-          ctrl: modifiers.ctrl !== 'off',
-          alt: modifiers.alt !== 'off',
-          shift: modifiers.shift !== 'off'
-        })
-      }
     )
   const renderBuiltInItem = (item: TerminalAccessoryKey): React.JSX.Element => {
     const a11y = sendKeyLabel(item.accessibilityLabel ?? item.label)
@@ -260,7 +256,9 @@ export function MobileSessionAccessoryKeys({
         </Pressable>
       )
     }
-    return directionPadEnabled && ARROW_KEY_IDS.has(item.key.id) ? null : renderBuiltInItem(item.key)
+    return directionPadEnabled && ARROW_KEY_IDS.has(item.key.id)
+      ? null
+      : renderBuiltInItem(item.key)
   }
 
   const hasConfiguredRows = Boolean(visibleAccessoryRows?.some((row) => row.length > 0))
@@ -272,11 +270,62 @@ export function MobileSessionAccessoryKeys({
     rawRows.some((row) =>
       row.some((item) => item.kind === 'built-in' && ARROW_KEY_IDS.has(item.key.id))
     )
-  const arrowCluster = directionPadEnabled
-    ? detachedArrows.map(renderModifierArrow)
-    : padAvailable && !layoutHasArrows
-      ? detachedArrows.map(renderBuiltInItem)
-      : []
+  const chordInput = (key: string, modifiers: StickyModifiers) =>
+    createTerminalKeyChordInput({
+      key,
+      ctrl: modifiers.ctrl !== 'off',
+      alt: modifiers.alt !== 'off',
+      shift: modifiers.shift !== 'off'
+    })
+  const arrowPad = (
+    <TerminalArrowPad
+      key="arrows"
+      disabled={!canSend}
+      // Prepared on touch-down so a lift after a terminal switch cannot land on the new terminal.
+      onPressStart={(side) => {
+        const modifiers = keys?.takeModifiers() ?? NO_STICKY_MODIFIERS
+        const input = chordInput(side, modifiers)
+        padPressRef.current = {
+          modifiers,
+          tap: input ? prepareAccessoryPress(input).tap : null
+        }
+      }}
+      onTap={() => {
+        void padPressRef.current?.tap?.()
+        padPressRef.current = null
+      }}
+      onRepeatStart={(arrow) => {
+        const input = chordInput(
+          arrow,
+          padPressRef.current?.modifiers ?? keys?.modifiers ?? NO_STICKY_MODIFIERS
+        )
+        if (input) {
+          prepareAccessoryPress(input).hold(TERMINAL_ACCESSORY_REPEAT_DELAY_MS)
+        }
+      }}
+      onRepeatStop={() => {
+        padPressRef.current = null
+        stopAccessoryRepeat()
+      }}
+      onAccessibilityArrow={(arrow) => {
+        if (keys) {
+          keys.sendKey(arrow)
+          return
+        }
+        const input = chordInput(arrow, NO_STICKY_MODIFIERS)
+        if (input) {
+          void handleAccessoryKey(input)
+        }
+      }}
+      onHoldChange={setPadHeld}
+    />
+  )
+  const arrowCluster =
+    !padAvailable && directionPadEnabled
+      ? [arrowPad]
+      : padAvailable && !layoutHasArrows
+        ? detachedArrows.map(renderBuiltInItem)
+        : []
   const chars = characterKeys(runsAgent ? AGENT_CHARACTERS : SHELL_CHARACTERS)
   const ctrlKey = modifierKey('ctrl', '^', t('session.accessoryKeys.control', 'Control'))
   const altKey = modifierKey('alt', '⌥', t('session.accessoryKeys.alt', 'Alt'))
@@ -321,9 +370,7 @@ export function MobileSessionAccessoryKeys({
       .map(renderConfiguredItem)
       .filter((node): node is React.JSX.Element => node !== null)
     const leading =
-      rowIndex === 0
-        ? [ctrlKey, ...(runsAgent ? [] : [altKey, shiftKey]), ...arrowCluster]
-        : []
+      rowIndex === 0 ? [ctrlKey, ...(runsAgent ? [] : [altKey, shiftKey]), ...arrowCluster] : []
     return [...leading, ...configuredNodes, ...(isLastRow ? chars : [])]
   }
 
@@ -350,8 +397,8 @@ export function MobileSessionAccessoryKeys({
             key={`dock-key-row-${displayedRows.length}-${rowIndex}`}
             style={isFirstRow ? styles.keyRow : styles.keyRowSecondary}
           >
-            {/* Why: fixed keyboard escape hatch; outside the ScrollView so it can't scroll away (#5106). */}
-            {isFirstRow && keyboardLift > 0 ? (
+            {/* Why: fixed keyboard escape hatch on iOS; Android provides its own system IME hide control (#5106, #38164). */}
+            {isFirstRow && hostOs() !== 'android' && keyboardLift > 0 ? (
               <Pressable
                 style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
                 onPress={dismissSoftwareKeyboard}
@@ -378,6 +425,7 @@ export function MobileSessionAccessoryKeys({
             <ScrollView
               style={styles.keyScroll}
               horizontal
+              scrollEnabled={!padHeld}
               showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.keyScrollContent}
@@ -406,21 +454,6 @@ export function MobileSessionAccessoryKeys({
                   ) : (
                     <Smartphone size={15} color={colors.textPrimary} strokeWidth={2} />
                   )}
-                </Pressable>
-              ) : null}
-              {isFirstRow && canPaste ? (
-                <Pressable
-                  style={keyStyle}
-                  disabled={!canSend}
-                  hitSlop={TERMINAL_KEY_HIT_SLOP}
-                  onPress={() => void handlePaste()}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(
-                    'session.accessoryKeys.pasteFromClipboard',
-                    'Paste from clipboard'
-                  )}
-                >
-                  <Text style={styles.keyText}>{t('session.accessoryKeys.paste', 'Paste')}</Text>
                 </Pressable>
               ) : null}
               {buildRowContent(rowItems, rowIndex, isLastRow)}
