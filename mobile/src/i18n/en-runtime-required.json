@@ -144,6 +144,9 @@
       "threadsWhenInSync_one": "Its GitHub comment shows here once this branch matches the pull request.",
       "threadsWhenInSync_other": "Its {{count}} GitHub comments show here once this branch matches the pull request."
     },
+    "terminalShortcutSettings": {
+      "showDirectionPadDescription": "Pin the arrow pad in the side rail. Without it, the rail lists the arrow keys."
+    },
     "worktreeAgentList": {
       "hideChildAgents_one": "Hide {{count}} child agent",
       "hideChildAgents_other": "Hide {{count}} child agents",
@@ -166,6 +169,12 @@
     "hostBottomBar": {
       "activeFilters_one": "Workspace options ({{count}} filter active)",
       "activeFilters_other": "Workspace options ({{count}} filters active)"
+    }
+  },
+  "notifications": {
+    "notificationDeliverySection": {
+      "suppressWhileFocused": "Suppress while focused",
+      "suppressWhileFocusedHint": "Skip alerts for the workspace open on this phone."
     }
   },
   "pullRequest": {

@@ -69,7 +69,13 @@
       "defaultViewDescription": "Choose how supported agent sessions (Claude, Codex, and other chat-capable agents) open on this device. Terminal shows the raw CLI; Chat UI shows a chat interface like the desktop app. You can still switch any individual session from its long-press menu.",
       "openInChatUi": "Open sessions in Chat UI",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "decreaseMaxRecentItems": "Decrease max recent items",
+      "increaseMaxRecentItems": "Increase max recent items",
+      "recentlyUsedHeading": "RECENTLY USED",
+      "recentlyUsedDescription": "Customize how many recently visited cards appear in the session menu (default 7).",
+      "maxRecentItems": "Max recent items",
+      "recentCardsCount": "{{count}} cards"
     },
     "nativeNotificationDeliverySettings": {
       "loadFailed": "Could not load delivery settings. Reopen this screen to retry.",
@@ -830,7 +836,8 @@
       "hours_other": "{{count}}h",
       "days_one": "{{count}}d",
       "days_other": "{{count}}d",
-      "done": "Done"
+      "done": "Done",
+      "unread": "Unread"
     },
     "hostWorkspaceListStates": {
       "checkHost": "Check that your computer is awake and Orca is running",
@@ -903,7 +910,9 @@
       "labelPlaceholder": "e.g. Build",
       "command": "Command",
       "commandPlaceholder": "e.g. pnpm build",
-      "pressEnter": "Press Enter"
+      "pressEnter": "Press Enter",
+      "editShortcut": "Edit Shortcut",
+      "saveChanges": "Save Changes"
     },
     "dragReorderRow": {
       "dragToReorder": "Drag to reorder",
@@ -1123,7 +1132,8 @@
       "options": "Options",
       "createWorkspace": "Create workspace",
       "startFrom": "Start from",
-      "loadingProjects": "Loading projects…"
+      "loadingProjects": "Loading projects…",
+      "addProject": "Add project"
     },
     "newWorktreeModal": {
       "remoteRepository": "Remote repository"
@@ -1207,17 +1217,18 @@
     "terminalShortcutSettings": {
       "resetDefaults": "Reset Defaults",
       "resetDescription": "Show every built-in shortcut key in the original order",
-      "customShortcuts": "CUSTOM SHORTCUTS",
-      "empty": "No custom shortcuts defined yet.",
-      "removeShortcut": "Remove {{label}}",
       "addShortcut": "Add Custom Shortcut…",
       "addDescription": "Create key combo or text macro",
-      "moreKeys": "MORE KEYS",
-      "moreKeysDescription": "These keys sit under ⋯ on the terminal key row. Toggle keys to show or hide them, and hold the grip to drag a key into the order you want. A key already on the row, like Esc or the arrows, is left out of ⋯.",
       "directionPad": "DIRECTION PAD",
       "showDirectionPad": "Show D-pad",
       "showDirectionPadDescription": "Pin the arrow pad in the side rail. Without it, the rail lists the arrow keys.",
-      "showShortcut": "Show {{label}} shortcut"
+      "showShortcut": "Show {{label}} shortcut",
+      "shortcutBar": "SHORTCUT BAR",
+      "shortcutBarDescription": "Toggle keys to show or hide them, and hold the grip to drag built-in or custom shortcuts into any order or row on the terminal shortcut bar.",
+      "shortcutRows": "Shortcut Rows",
+      "shortcutRowsDescription": "Stack shortcut keys across 1 to 4 rows",
+      "decreaseRows": "Decrease shortcut rows",
+      "increaseRows": "Increase shortcut rows"
     },
     "voiceModelList": {
       "modelSize": "{{size}} MB",
@@ -1760,7 +1771,8 @@
     },
     "filePreviewBody": {
       "emptyFile": "Empty file",
-      "imageLabel": "{{title}} image"
+      "imageLabel": "{{title}} image",
+      "copyContent": "Copy file content"
     },
     "filePreviewEditableSource": {
       "editorLabel": "{{title}} editor"
@@ -1907,8 +1919,6 @@
       "shift": "Shift",
       "keysModeLabel": "Keys mode: typing goes straight to the terminal. Switch to Message mode",
       "messageModeLabel": "Message mode: write, then send. Switch to Keys mode",
-      "keysMode": "Keys",
-      "messageMode": "Message",
       "moreKeys": "More keys and actions",
       "showKeyboard": "Show keyboard"
     },
@@ -1948,8 +1958,8 @@
       "sendReviewNotes": "Send review notes to AI",
       "send": "Send",
       "imageLabel": "{{title}} image",
-      "previewLabel": "{{title}} preview",
-      "loading": "Loading file…"
+      "loading": "Loading file…",
+      "copyContent": "Copy file content"
     },
     "header": {
       "workspaceDetailsHint": "Shows the full workspace name and where it is",
@@ -1987,7 +1997,6 @@
       "copyNotesFailed": "Couldn't copy notes",
       "markdown": "Markdown",
       "copyPath": "Copy Path",
-      "file": "File",
       "chat": "Chat",
       "unsavedMarkdown": "Unsaved markdown changes",
       "draftsHint": "Copy or discard phone drafts before leaving.",
@@ -2727,6 +2736,14 @@
     },
     "usePrTextAction": {
       "updateFailed": "Failed to update pull request."
+    },
+    "recentSessionCards": {
+      "decreaseLimit": "Decrease recent cards limit",
+      "increaseLimit": "Increase recent cards limit",
+      "cardClosed": "Card was closed",
+      "waitingForHost": "Waiting for host…",
+      "workspaceGone": "Workspace no longer exists",
+      "cardClosedOpeningWorkspace": "Card was closed; opening workspace"
     }
   },
   "chat": {
@@ -4530,5 +4547,7 @@
         }
       }
     }
-  }
+  },
+  "recentSessionCardsSectionTitle": "Recently Used",
+  "recentSessionCardsEmpty": "No other recent cards yet"
 }

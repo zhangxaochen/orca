@@ -3,7 +3,6 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { getRepoIdFromWorktreeId } from '../../../src/shared/worktree/id'
 import { useClipboardWriter } from '../platform/clipboard'
 import { Copy, FileText, Globe, RefreshCw, SquareTerminal } from 'lucide-react-native'
-import { MobileSessionHeaderMoreActionsSheet } from './MobileSessionHeaderMoreActionsSheet'
 import { MobileSessionTerminalLayoutSheet } from './MobileSessionTerminalLayoutSheet'
 import { QuickCommandsSheet } from './QuickCommandsSheet'
 import { triggerSuccess, triggerError } from '../platform/haptics'
@@ -22,6 +21,7 @@ import { describeBulkCloseConfirmation } from './mobile-bulk-close-sheet-actions
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { useMobileAllowAutoCloseActions } from './mobile-worker-auto-close'
 import { MobileAgentSessionTabActionSheet } from './MobileAgentSessionTabActionSheet'
+import { RecentSessionCardsSheet } from './RecentSessionCardsSheet'
 
 export function MobileSessionSheets({ controller }: { controller: MobileSessionController }) {
   const t = useMobileTranslation()
@@ -31,13 +31,12 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
   )
   const {
     worktreeId,
+    activeSessionTabId,
     isFolderWorkspaceRoute,
     isFloatingWorkspaceRoute,
     client,
     worktreeName,
     sessionTabs,
-    activeSessionTabId,
-    showHeaderMoreActions,
     showTerminalLayout,
     setShowTerminalLayout,
     actionTarget,
@@ -72,27 +71,22 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     bulkCloseConfirm,
     closeWithBulkActions,
     createTabAgentActions,
-    sendDiffNotesAgentActions,
-    handlePanelTap,
-    openAgentSessionHistory
+    sendDiffNotesAgentActions
   } = controller
   const clipboard = useClipboardWriter()
   const onPairedHost = useWorkspaceOnPairedHost()
   return (
     <>
-      <MobileSessionHeaderMoreActionsSheet
-        visible={showHeaderMoreActions}
+      <RecentSessionCardsSheet
+        visible={Boolean(
+          controller.showRecentSessionCards && controller.showRecentSessionCardsAction
+        )}
+        cards={controller.recentSessionCards ?? []}
+        jumpingCardKey={controller.jumpingRecentCardKey ?? null}
         currentWorktreeId={worktreeId}
         currentTabId={activeSessionTabId}
-        showRecentSessionCards={controller.showRecentSessionCardsAction}
-        recentSessionCards={controller.recentSessionCards}
-        jumpingRecentCardKey={controller.jumpingRecentCardKey}
-        onSelectRecentSessionCard={controller.handleSelectRecentSessionCard}
-        showAgentSessionHistory={controller.showAgentSessionHistoryAction}
-        showChecks={controller.showChecksAction}
-        onOpenAgentSessionHistory={openAgentSessionHistory}
-        onOpenChecks={() => handlePanelTap('pr')}
-        onClose={() => controller.setShowHeaderMoreActions(false)}
+        onSelectCard={controller.handleSelectRecentSessionCard}
+        onClose={() => controller.setShowRecentSessionCards(false)}
       />
       <MobileSessionTerminalLayoutSheet
         controller={controller}
@@ -386,4 +380,3 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
     </>
   )
 }
-

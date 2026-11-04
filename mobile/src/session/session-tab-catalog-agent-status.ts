@@ -5,6 +5,8 @@ import {
 } from '../../../src/shared/agent-status-types'
 import { UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH } from '../../../src/shared/runtime-types'
 
+export { buildTabCompletionKeys, resolveTrackedTabCompletionState } from './tab-completion-state'
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }

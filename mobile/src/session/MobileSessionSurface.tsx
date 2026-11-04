@@ -38,6 +38,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
     !sideRail || !hasTabs || controller.showConnectionRetry || controller.connectionEscalated
   const obscured = Boolean(
     controller.showHeaderMoreActions ||
+    controller.showRecentSessionCards ||
     controller.showCreateTabDrawer ||
     controller.showTerminalLayout ||
     (controller.showQuickCommands && controller.quickCommandsSupported === true) ||

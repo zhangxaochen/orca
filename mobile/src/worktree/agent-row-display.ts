@@ -29,7 +29,7 @@ export function agentDotState(
     Pick<RuntimeWorktreeAgentRow, 'workingMode' | 'hasLivePty'> &
     Parameters<typeof isAgentStatusFresh>[0],
   now: number
-): AgentDotState {
+): Exclude<AgentDotState, 'unread'> {
   const mark = agentVerdictDisplayMark(row)
   if (mark) {
     return mark

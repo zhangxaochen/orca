@@ -35,8 +35,11 @@ vi.mock('../components/CustomKeyModal', () => ({ CustomKeyModal: () => null }))
 vi.mock('../components/MobileDictationSetupSheet', () => ({
   MobileDictationSetupSheet: () => null
 }))
-vi.mock('./MobileSessionHeaderMoreActionsSheet', () => ({
-  MobileSessionHeaderMoreActionsSheet: () => null
+vi.mock('./RecentSessionCardsSheet', () => ({
+  RecentSessionCardsSheet: () => null
+}))
+vi.mock('./MobileSessionTerminalLayoutSheet', () => ({
+  MobileSessionTerminalLayoutSheet: () => null
 }))
 vi.mock('./QuickCommandsSheet', () => ({ QuickCommandsSheet: () => null }))
 vi.mock('./mobile-terminal-action-sheet-actions', () => ({
