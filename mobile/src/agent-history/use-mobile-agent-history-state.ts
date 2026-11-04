@@ -99,8 +99,8 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
   const hasActiveWorktree = activeWorktree !== null
   const effectiveWorktreesLoaded = worktreesLoaded || (fastFirstScreen && hasActiveWorktree)
   // Path keys, not array identity: worktree.ps replaces the array even when every path is unchanged.
-  const workspaceScopePathsKey = mobileAiVaultScopePathsKey('workspace', activeWorktree, worktrees)
-  const projectScopePathsKey = mobileAiVaultScopePathsKey('project', activeWorktree, worktrees)
+  const activeScopePathsKey =
+    scope === 'all' ? '' : mobileAiVaultScopePathsKey(scope, activeWorktree, worktrees)
   const scopeContextRef = useRef({ activeWorktree, worktrees })
   scopeContextRef.current = { activeWorktree, worktrees }
   const activeWorktreePath = activeWorktree?.path ?? null
@@ -116,7 +116,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
     feed?.getNamingSnapshot ?? noNames,
     noNames
   )
-  const identityKey = `${hostId}\0${clientGeneration}\0${connState}\0${worktreeId}\0${hasActiveWorktree}\0${workspaceScopePathsKey}\0${projectScopePathsKey}\0${effectiveWorktreesLoaded}\0${scope}`
+  const identityKey = `${hostId}\0${clientGeneration}\0${connState}\0${worktreeId}\0${hasActiveWorktree}\0${activeScopePathsKey}\0${effectiveWorktreesLoaded}\0${scope}`
   const identity = useMemo(() => ({ client, identityKey }), [client, identityKey])
   const identityRef = useRef(identity)
   useLayoutEffect(() => {
@@ -250,6 +250,7 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       }
     },
     [
+      activeScopePathsKey,
       client,
       clientGeneration,
       connState,
@@ -257,8 +258,6 @@ export function useMobileAgentHistoryState(params: MobileAgentHistoryStateParams
       feed,
       hasActiveWorktree,
       hostId,
-      projectScopePathsKey,
-      workspaceScopePathsKey,
       effectiveWorktreesLoaded,
       t
     ]
