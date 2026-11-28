@@ -1,6 +1,7 @@
 import { useShellStorage } from '../platform/shell-storage/shell-storage'
 import { settleSessionPreferenceRead } from './session-preference-read'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { recomputeOn } from '../hooks/recompute-on'
 import { useFocusEffect } from 'expo-router'
 import { subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 import {
@@ -36,38 +37,42 @@ export function useMobileSessionPreferenceFocus(
   const [terminalPreferencesReady, setTerminalPreferencesReady] = useState(false)
   const readRevisionRef = useRef(0)
 
-  const refreshTerminalPreferences = useCallback(() => {
-    const revision = ++readRevisionRef.current
-    const scaleRevision = terminalTextScaleRevisionRef.current
-    const defaults = terminalFontDefaults()
-    void settleSessionPreferenceRead(
-      Promise.all([
-        loadTerminalTextScale(defaults.textScale),
-        loadLinkOpenMode(),
-        loadTerminalFontStyle(defaults.fontStyle)
-      ])
-    ).then((preferences) => {
-      if (readRevisionRef.current !== revision) {
-        return
-      }
-      if (preferences) {
-        const [scale, linkMode, fontStyle] = preferences
-        if (terminalTextScaleRevisionRef.current === scaleRevision) {
-          setTerminalTextScale(scale)
+  const refreshTerminalPreferences = useMemo(
+    () =>
+      recomputeOn([shellStorage], () => () => {
+        const revision = ++readRevisionRef.current
+        const scaleRevision = terminalTextScaleRevisionRef.current
+        const defaults = terminalFontDefaults()
+        void settleSessionPreferenceRead(
+          Promise.all([
+            loadTerminalTextScale(defaults.textScale),
+            loadLinkOpenMode(),
+            loadTerminalFontStyle(defaults.fontStyle)
+          ])
+        ).then((preferences) => {
+          if (readRevisionRef.current !== revision) {
+            return
+          }
+          if (preferences) {
+            const [scale, linkMode, fontStyle] = preferences
+            if (terminalTextScaleRevisionRef.current === scaleRevision) {
+              setTerminalTextScale(scale)
+            }
+            setTerminalFontStyle((current) =>
+              sameTerminalFontStyle(current, fontStyle) ? current : fontStyle
+            )
+            setLinkOpenMode(linkMode)
+          }
+          setTerminalPreferencesReady(true)
+        })
+        return () => {
+          if (readRevisionRef.current === revision) {
+            readRevisionRef.current += 1
+          }
         }
-        setTerminalFontStyle((current) =>
-          sameTerminalFontStyle(current, fontStyle) ? current : fontStyle
-        )
-        setLinkOpenMode(linkMode)
-      }
-      setTerminalPreferencesReady(true)
-    })
-    return () => {
-      if (readRevisionRef.current === revision) {
-        readRevisionRef.current += 1
-      }
-    }
-  }, [shellStorage])
+      }),
+    [shellStorage]
+  )
 
   // Reload on Settings return without dropping readiness or remounting terminal panes.
   useFocusEffect(refreshTerminalPreferences)
