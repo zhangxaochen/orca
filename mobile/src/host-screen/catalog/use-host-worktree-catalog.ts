@@ -10,7 +10,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import type { ConnectionState } from '../../transport/connection/connection-state'
 import { RpcIncompatibleReplyError } from '../../transport/rpc/rpc-incompatible-reply-error'
-import { startHostWorktreeRefresh } from '../../worktree/execution-hosts/host-worktree-refresh'
+import {
+  startHostWorktreeRefresh,
+  type BotsChangeScope
+} from '../../worktree/execution-hosts/host-worktree-refresh'
 import type { HostSidebarFeedTriggers } from '../sidebar-feed/host-sidebar-feed-connection'
 import { areWorktreeListsEqual } from '../../worktree/catalog/worktree-list-snapshot'
 import {
@@ -20,8 +23,11 @@ import {
 import { savePinnedIds } from '../../storage/preferences'
 import type { HostScreenState } from '../use-host-screen-state'
 import { relaysToServers } from '../../worktree/execution-hosts/execution-host-scoped-rpc-client'
-import { NO_SERVER_WORKSPACES } from '../../worktree/execution-hosts/server-workspaces'
-import { useRelayHosts } from '../../worktree/execution-hosts/relay-hosts-feed'
+import {
+  listedServerWorkspaces,
+  NO_SERVER_WORKSPACES
+} from '../../worktree/execution-hosts/server-workspaces'
+import { relayHostsFeed, useRelayHosts } from '../../worktree/execution-hosts/relay-hosts-feed'
 import { WorktreeCatalogReadError } from '../../worktree/catalog/worktree-catalog-snapshot-client'
 import { useHostQuery } from '../../query/host-query'
 import { hostReadClient } from '../../query/host-read-client'
@@ -62,6 +68,7 @@ export function useHostWorktreeCatalog(args: {
   sidebarFeed: HostSidebarFeedTriggers | null
   state: HostScreenState
   syncViewSettingsFromDesktop: (options?: { resend?: boolean }) => Promise<void>
+  onBotsChanged?: (scope: BotsChangeScope) => void
 }) {
   const {
     client,
@@ -72,7 +79,8 @@ export function useHostWorktreeCatalog(args: {
     hostId,
     sidebarFeed,
     state,
-    syncViewSettingsFromDesktop
+    syncViewSettingsFromDesktop,
+    onBotsChanged
   } = args
   const {
     catalogError,
@@ -128,7 +136,11 @@ export function useHostWorktreeCatalog(args: {
   const announcesHosts = hostCapabilities.includes(
     MOBILE_RELAY_HOSTS_CHANGED_EVENT_RUNTIME_CAPABILITY
   )
-  useRelayHosts(subscribed && relays && announcesHosts ? client : null, hostCapabilities)
+  // Its listing also re-applies server rows when only the servers this phone pairs with change.
+  const listedRelayHosts = useRelayHosts(
+    subscribed && relays && announcesHosts ? client : null,
+    hostCapabilities
+  )
   const servers = useHostQuery(
     hostServerWorkspacesQuery,
     host,
@@ -170,7 +182,7 @@ export function useHostWorktreeCatalog(args: {
       clearConfirmedActiveWorktreeIdentity(pending, confirmed)
     )
     // Clear optimistic sleep overrides once the server confirms inactive (liveTerminalCount === 0).
-    setSleptIds((prev) => retainLiveSleptWorktreeIdentities(prev, confirmed))
+    setSleptIds((prev) => retainLiveSleptWorktreeIdentities(prev, confirmed, false))
     // Sync server pins only without the feed; feed-built lists keep no local pin cache.
     if (!ORCA_SIDEBAR_INPUTS_IS_MAIN) {
       const serverPinned = new Set(confirmed.filter((w) => w.isPinned).map((w) => w.worktreeId))
@@ -223,12 +235,17 @@ export function useHostWorktreeCatalog(args: {
 
   useEffect(() => {
     if (servers.data && !relaysRuledOut) {
-      setServerWorkspaces(servers.data)
+      // The read just refreshed the feed, which knows which servers this phone pairs with directly.
+      const listed = client ? relayHostsFeed(client).getSnapshot() : null
+      setServerWorkspaces(listedServerWorkspaces(servers.data, listed))
+      const confirmed = servers.data.worktrees
+      setSleptIds((prev) => retainLiveSleptWorktreeIdentities(prev, confirmed, true))
     } else if (!relays) {
       // Also drops a previous host's rows when the sidebar switches to one with none stored.
       setServerWorkspaces(NO_SERVER_WORKSPACES)
     }
-  }, [relays, relaysRuledOut, servers.data])
+    // An unchanged reply keeps its reference, but still confirms which slept rows woke.
+  }, [client, listedRelayHosts, relays, relaysRuledOut, servers.data, servers.dataUpdatedAt])
 
   const fetchWorktrees = useCallback(
     async (options: { allowDuringModal?: boolean } = {}) => {
@@ -257,9 +274,10 @@ export function useHostWorktreeCatalog(args: {
       refreshWorktrees: () => void fetchWorktrees(),
       syncViewSettings: syncViewSettingsFromDesktop,
       sidebarFeed,
-      appState: AppState
+      appState: AppState,
+      onBotsChanged
     })
-  }, [client, connState, fetchWorktrees, syncViewSettingsFromDesktop, sidebarFeed])
+  }, [client, connState, fetchWorktrees, syncViewSettingsFromDesktop, sidebarFeed, onBotsChanged])
 
   useFocusEffect(
     useCallback(() => {

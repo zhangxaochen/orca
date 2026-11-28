@@ -1,4 +1,5 @@
 import type { SshTarget } from '../../../../../../shared/remote-runtime/ssh/ssh-types'
+import { getManagedOrcadClaimEnvironmentIds } from '../../../../../../shared/remote-runtime/ssh/managed-orcad-ssh-owner'
 import { useAppStore } from '@/store/index'
 import { useTranslate } from '@/i18n/use-translate'
 import { Button } from '../../../ui/button'
@@ -16,6 +17,25 @@ export function isManagedServerSshHost(
   target: Pick<SshTarget, 'orcadFence' | 'orcadProvisioning'>
 ): boolean {
   return target.orcadFence !== undefined || target.orcadProvisioning !== undefined
+}
+
+/**
+ * A claim naming no loaded server is abandoned setup with nothing to Stop or Forget; main decides.
+ * First setup never claims a host with direct workspaces, so those mean a conversion still needs them.
+ */
+export function refusesManagedSshHostRemoval(
+  target: Pick<SshTarget, 'orcadFence' | 'orcadProvisioning'>,
+  hasDirectWorkspaces: boolean
+): boolean {
+  const { runtimeEnvironmentCatalogHydrated, runtimeEnvironments } = useAppStore.getState()
+  return (
+    isManagedServerSshHost(target) &&
+    (hasDirectWorkspaces ||
+      !runtimeEnvironmentCatalogHydrated ||
+      getManagedOrcadClaimEnvironmentIds(target).some((id) =>
+        runtimeEnvironments.some((environment) => environment.id === id)
+      ))
+  )
 }
 
 export function SshManagedHostRemoveDialog({
@@ -55,10 +75,7 @@ export function SshManagedHostRemoveDialog({
             {t('auto.components.settings.SshDestructiveActionDialog.895b216267', 'Cancel')}
           </Button>
           <Button onClick={openManagedServers}>
-            {t(
-              'auto.components.settings.sshManagedHostRemove.2ca95e9fd7',
-              'Open remote Orca servers'
-            )}
+            {t('auto.components.settings.sshManagedHostRemove.2ca95e9fd7', 'Manage remote servers')}
           </Button>
         </DialogFooter>
       </DialogContent>

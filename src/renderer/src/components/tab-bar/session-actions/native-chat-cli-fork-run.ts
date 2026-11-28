@@ -1,22 +1,23 @@
 import { useSyncExternalStore } from 'react'
 import { useAppStore } from '@/store/index'
 import { readIpcErrorMessage } from '@/runtime/errors/ipc-error'
-import { parseExecutionHostId } from '../../../../../shared/execution-host/execution-host'
 import type { ExecutionHostId } from '../../../../../shared/execution-host/execution-host'
 import { prepareNativeChatCliFork } from '@/lib/agent-session/resume/cli-fork/native-chat-cli-fork-preparation'
 import type { NativeChatCliForkSubject } from '@/lib/agent-session/resume/cli-fork/native-chat-cli-fork-preparation'
 import {
-  assertAiVaultCopiedSessionLaunchAllowed,
-  buildAiVaultCopiedSessionStartupForWorktree,
-  buildAiVaultForkStartupForWorktree
+  rememberBoundedNativeChatCliForkOrigin,
+  takeNativeChatCliForkOrigin,
+  type NativeChatCliForkOrigin
+} from '@/lib/agent-session/resume/cli-fork/native-chat-cli-fork-origins'
+import {
+  buildAiVaultCliForkStartupForWorktree,
+  captureAiVaultCliForkOwner,
+  readAiVaultCliForkLaunchSettings
 } from '@/lib/agent-session/resume/history/ai-vault-session-fork-startup'
 import { launchAiVaultSessionAndReveal } from '@/lib/agent-session/resume/history/launch-ai-vault-session-and-reveal'
 import { notifyAiVaultSessionPreparationFailure } from '../../right-sidebar/ai-vault/session-actions/ai-vault-session-launch-feedback'
 import { describeAiVaultCliForkFailure } from '../../right-sidebar/ai-vault/session-actions/ai-vault-session-cli-fork'
-import {
-  captureWebSessionIntentOwner,
-  matchesWebSessionIntentOwner
-} from '@/runtime/web-session-tabs-sync/identity/web-runtime-session-environment'
+import { matchesWebSessionIntentOwner } from '@/runtime/web-session-tabs-sync/identity/web-runtime-session-environment'
 import {
   onRuntimeEnvironmentsRetired,
   onRuntimeEnvironmentRevisionsChanged
@@ -42,22 +43,13 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener)
 }
 
-// Session-only, keyed by the fork's own conversation: until its first message the fork has no
-// transcript, so the chat it was forked from is still that conversation.
-const forkOrigins = new Map<string, { sessionId: string; workspaceId: string }>()
-const forkOriginKey = (workspaceId: string, providerSessionId: string) =>
-  `${workspaceId}\0${providerSessionId}`
-
 /** The pane a new tab launched in; a split keeps it on the `first` side. */
 function launchedLeafId(node: TerminalPaneLayoutNode | null | undefined): string | undefined {
   return !node ? undefined : node.type === 'leaf' ? node.leafId : launchedLeafId(node.first)
 }
 
 /** Binds the chat to the first conversation the fork's own pane reports, so a later one is not mistaken for it. */
-function rememberForkOrigin(
-  terminalTabId: string,
-  origin: { sessionId: string; workspaceId: string }
-) {
+function rememberForkOrigin(terminalTabId: string, origin: NativeChatCliForkOrigin) {
   const bind = (state: AppState): boolean => {
     if (!state.unifiedTabsByWorktree[origin.workspaceId]?.some((tab) => tab.id === terminalTabId)) {
       return true
@@ -67,7 +59,7 @@ function rememberForkOrigin(
       ? state.agentStatusByPaneKey.get(`${terminalTabId}:${leafId}`)?.providerSession?.id
       : undefined
     if (fork) {
-      forkOrigins.set(forkOriginKey(origin.workspaceId, fork), origin)
+      rememberBoundedNativeChatCliForkOrigin(origin.workspaceId, fork, origin)
     }
     return !!fork
   }
@@ -95,18 +87,13 @@ export async function reopenNativeChatCliForkOrigin(
   standInChatSessionId: string | undefined,
   target: RuntimeClientTarget
 ): Promise<boolean> {
-  const key = forkOriginKey(terminal.workspaceId, terminal.providerSessionId)
-  const origin = forkOrigins.get(key)
+  const origin = takeNativeChatCliForkOrigin(terminal.workspaceId, terminal.providerSessionId)
   if (!origin) {
     return false
   }
-  forkOrigins.delete(key)
   const opened = await openDesktopStructuredSession(
     { kind: 'history', structuredSession: origin, agent: terminal.agent },
-    target,
-    undefined,
-    undefined,
-    quietOpenFeedback
+    { target, feedback: quietOpenFeedback }
   )
   if (opened.kind !== 'opened') {
     return false
@@ -137,15 +124,13 @@ export async function runNativeChatCliFork(args: {
   tab: { id: string; worktreeId: string }
   agent: AiVaultAgent
   onComplete?: () => void
-  commandOverrides?: Partial<Record<AiVaultAgent, string | null>>
 }): Promise<void> {
   const { subject, tab } = args
   const key = keyFor({ ...subject, executionHostScope: subject.request.executionHostScope })
   if (pending.has(key)) {
     return
   }
-  const host = parseExecutionHostId(subject.request.executionHostScope)
-  const owner = host?.kind === 'runtime' ? captureWebSessionIntentOwner(host.environmentId) : null
+  const owner = captureAiVaultCliForkOwner(subject.request.executionHostScope)
   const controller = new AbortController()
   const isCurrent = () => {
     if (controller.signal.aborted || (owner && !matchesWebSessionIntentOwner(owner))) {
@@ -195,6 +180,11 @@ export async function runNativeChatCliFork(args: {
     stopRevision()
   }
   try {
+    const settings = await readAiVaultCliForkLaunchSettings({
+      owner,
+      localSettings: useAppStore.getState().settings,
+      signal: controller.signal
+    })
     const prepared = await prepareNativeChatCliFork(subject, {
       pairingRevision: owner?.pairingRevision,
       isCurrent,
@@ -204,16 +194,14 @@ export async function runNativeChatCliFork(args: {
       return
     }
     const target = prepared.session
-    const startupArgs = {
+    const startup = buildAiVaultCliForkStartupForWorktree({
       state: useAppStore.getState(),
       worktreeId: subject.workspaceId,
       session: target,
-      commandOverride: args.commandOverrides?.[target.agent]
-    }
-    assertAiVaultCopiedSessionLaunchAllowed(startupArgs)
-    const startup = prepared.copied
-      ? buildAiVaultCopiedSessionStartupForWorktree(startupArgs)
-      : buildAiVaultForkStartupForWorktree(startupArgs)
+      copied: prepared.copied,
+      owner,
+      settings
+    })
     if (!startup) {
       throw new Error(
         translate(

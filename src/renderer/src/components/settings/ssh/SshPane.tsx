@@ -26,13 +26,13 @@ import { EMPTY_FORM, getEditingTargetForSshTarget } from '../../ssh-host-form/ss
 import type { EditingTarget } from '../../ssh-host-form/ssh-target-draft'
 import { buildSshTargetSavePayload } from './targets/ssh-target-save-payload'
 import { formatSshUserFacingError } from './targets/ssh-user-facing-error'
-import { HostRemoveDialog } from '../../sidebar/HostRemoveDialog'
+import { HostRemoveDialog } from '../../sidebar/host-lifecycle/HostRemoveDialog'
 import {
-  isManagedServerSshHost,
+  refusesManagedSshHostRemoval,
   SshManagedHostRemoveDialog
 } from './targets/SshManagedHostRemoveDialog'
 import { extractIpcErrorMessage } from '@/runtime/errors/ipc-error'
-import { resolveSshHostRemoval } from '../../sidebar/ssh-host-remove-resolution'
+import { resolveSshHostRemoval } from '../../sidebar/host-lifecycle/ssh-host-remove-resolution'
 import { getIndexedAllWorktrees } from '@/store/slices/worktrees/listing/worktree-catalog-index'
 import { toSshExecutionHostId } from '../../../../../shared/execution-host/execution-host'
 import { translate } from '@/i18n/i18n'
@@ -177,15 +177,15 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
     requestPlainRemove: (target: { id: string; label: string }) => void
   ): void => {
     const stored = targets.find((candidate) => candidate.id === target.id)
-    if (stored && isManagedServerSshHost(stored)) {
-      setManagedHostRemoveLabel(target.label)
-      return
-    }
     const resolution = resolveSshHostRemoval({
       targetId: target.id,
       repos: useAppStore.getState().repos,
       worktrees: getIndexedAllWorktrees(selectWorktreesByRepo(useAppStore.getState()))
     })
+    if (stored && refusesManagedSshHostRemoval(stored, resolution.workspaceCount > 0)) {
+      setManagedHostRemoveLabel(target.label)
+      return
+    }
     if (resolution.workspaceCount > 0) {
       setHostRemoveTarget({ targetId: target.id, label: target.label })
       return

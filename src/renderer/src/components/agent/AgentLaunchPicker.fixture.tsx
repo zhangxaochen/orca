@@ -61,13 +61,13 @@ function entry(
 }
 
 const claudeModels = [
-  model('claude-opus-5-5', 'Claude Opus 5.5', CLAUDE_EFFORTS, {
+  model('claude-opus-5-5', 'Opus 5.5', CLAUDE_EFFORTS, {
     isDefault: true,
     supportsFastMode: true
   }),
-  model('claude-sonnet-5-5', 'Claude Sonnet 5.5', CLAUDE_EFFORTS, { supportsFastMode: true }),
-  model('claude-fable-5', 'Claude Fable 5', CLAUDE_EFFORTS),
-  model('claude-haiku-5-5', 'Claude Haiku 5.5', CLAUDE_EFFORTS.slice(0, 3))
+  model('claude-sonnet-5-5', 'Sonnet 5.5', CLAUDE_EFFORTS, { supportsFastMode: true }),
+  model('claude-fable-5', 'Fable 5', CLAUDE_EFFORTS),
+  model('claude-haiku-5-5', 'Haiku 5.5', CLAUDE_EFFORTS.slice(0, 3))
 ]
 const fastTier = [{ value: 'fast', label: 'Fast' }]
 const codexModels = [
@@ -89,24 +89,37 @@ const ENTRIES: AgentPickerEntry[] = [
   entry('claude-agent-teams', 'Claude agent teams', ['terminal'], claudeModels),
   entry('codex', 'Codex', ['chat', 'terminal'], codexModels),
   entry('grok', 'Grok', ['terminal']),
-  entry('opencode', 'OpenCode', []),
-  entry('gemini', 'Gemini', ['terminal'])
+  entry('opencode', 'OpenCode', [])
 ]
 
-const MODEL: NewTabAgentMenuModel = {
-  state: 'settled',
-  rows: ENTRIES.flatMap((row) => row.rows),
-  detection: {
-    detectedIds: ENTRIES.map((row) => row.agent),
-    isLoading: false,
-    isRefreshing: false,
-    detectionFailed: false,
-    needsServerUpdate: false,
-    refresh: async () => ENTRIES.map((row) => row.agent)
+function menuModel(entries: AgentPickerEntry[]): NewTabAgentMenuModel {
+  return {
+    state: 'settled',
+    rows: entries.flatMap((row) => row.rows),
+    detection: {
+      detectedIds: entries.map((row) => row.agent),
+      isLoading: false,
+      isRefreshing: false,
+      detectionFailed: false,
+      needsServerUpdate: false,
+      refresh: async () => entries.map((row) => row.agent)
+    }
   }
 }
 
-function HandOffField(): React.JSX.Element {
+const MODEL = menuModel(ENTRIES)
+
+// A listing that failed offers Retry; the owner key names the picker's live acquisition.
+const FAILED_ENTRIES: AgentPickerEntry[] = [
+  ENTRIES[0],
+  {
+    ...entry('antigravity', 'Antigravity', ['chat', 'terminal']),
+    catalogRead: 'failed',
+    ownerKey: 'fixture'
+  }
+]
+
+function HandOffField({ entries = ENTRIES }: { entries?: AgentPickerEntry[] }): React.JSX.Element {
   const [pick, setPick] = useState<{ agent: TuiAgent; draft?: AgentPickerDraft }>({
     agent: 'claude',
     draft: {
@@ -120,8 +133,8 @@ function HandOffField(): React.JSX.Element {
       <div className="w-[420px] space-y-1.5">
         <label className="text-xs font-medium">Agent</label>
         <AgentLaunchPicker
-          model={MODEL}
-          entries={ENTRIES}
+          model={entries === ENTRIES ? MODEL : menuModel(entries)}
+          entries={entries}
           agent={pick.agent}
           value={pick.draft}
           cli={pick.draft?.surface !== 'chat'}
@@ -168,6 +181,72 @@ export const dropdownNotInstalled = defineFixture({
   }
 })
 
+export const dropdownModelsFailed = defineFixture({
+  width: 460,
+  render: () => <HandOffField entries={FAILED_ENTRIES} />,
+  interact: async () => {
+    await openDropdown()
+    click('[role="tab"][aria-label="Antigravity"]')
+    await settle()
+  }
+})
+
+const AGY_LEVELS = [level('low', 'low'), level('medium', 'medium'), level('high', 'high')]
+// Rows a live agy chat reported, kept beside a shorter `agy models` run; Refresh lists again.
+const AGY_ENTRIES: AgentPickerEntry[] = [
+  ENTRIES[0],
+  {
+    ...entry(
+      'antigravity',
+      'Antigravity',
+      ['chat', 'terminal'],
+      [
+        ['gemini-4-neon', 'Gemini 4 Neon'],
+        ['gemini-4-argon', 'Gemini 4 Argon'],
+        ['gemini-4-hydrogen', 'Gemini 4 Hydrogen'],
+        ['gemini-3.8-flash', 'Gemini 3.8 Flash'],
+        ['claude-opus-5-5', 'Claude Opus 5.5'],
+        ['claude-sonnet-5-5', 'Claude Sonnet 5.5'],
+        ['gpt-oss-120b-medium', 'GPT-OSS 120B (Medium)']
+      ].map(([id, label]) => model(id, label, id.startsWith('gpt') ? [] : AGY_LEVELS))
+    ),
+    ownerKey: 'fixture'
+  }
+]
+
+export const dropdownAntigravityRefresh = defineFixture({
+  width: 460,
+  render: () => <HandOffField entries={AGY_ENTRIES} />,
+  interact: async () => {
+    await openDropdown()
+    click('[role="tab"][aria-label="Antigravity"]')
+    await settle()
+  }
+})
+
+// Hand off from a conversation saved in a workspace sub-folder: no agent starts a chat there.
+function chatInSubfolder(
+  agent: TuiAgent,
+  label: string,
+  models: AgentSessionModelOption[]
+): AgentPickerEntry {
+  const base = entry(agent, label, ['terminal'], models)
+  return { ...base, rows: [...base.rows, { kind: 'chat-unavailable', agent, reason: 'subfolder' }] }
+}
+
+export const dropdownChatInSubfolder = defineFixture({
+  width: 460,
+  render: () => (
+    <HandOffField
+      entries={[
+        chatInSubfolder('claude', 'Claude', claudeModels),
+        chatInSubfolder('codex', 'Codex', codexModels)
+      ]}
+    />
+  ),
+  interact: openDropdown
+})
+
 export const dropdownSearch = defineFixture({
   width: 460,
   render: () => <HandOffField />,
@@ -204,16 +283,36 @@ export const dropdownWithBlankTerminal = defineFixture({
   interact: openDropdown
 })
 
+/** The form holds Blank Terminal: its rail tile is the selected tab. */
+export const dropdownBlankTerminalCurrent = defineFixture({
+  width: 460,
+  render: () => (
+    <div className="min-h-[200px] bg-background p-4">
+      <div className="w-[420px]">
+        <AgentLaunchPicker
+          model={MODEL}
+          entries={ENTRIES}
+          agent={null}
+          emptyLabel="Blank Terminal"
+          onSelectBlankTerminal={() => {}}
+          onPick={() => {}}
+        />
+      </div>
+    </div>
+  ),
+  interact: openDropdown
+})
+
 /** The + menu: hovering an agent row opens the same card, without tabs, over the prompt and Launch. */
-function NewTabMenu(): React.JSX.Element {
+function NewTabMenu({ entries = ENTRIES }: { entries?: AgentPickerEntry[] }): React.JSX.Element {
   return (
     <div className="min-h-[520px] bg-background p-4">
       <DropdownMenu open modal={false}>
         <DropdownMenuTrigger className="sr-only">+</DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <AgentLaunchPickerMenu
-            model={MODEL}
-            entries={ENTRIES}
+            model={entries === ENTRIES ? MODEL : menuModel(entries)}
+            entries={entries}
             hideSearch
             runLaunch={() => true}
           />
@@ -243,6 +342,23 @@ export const newTabSubmenuCodex = defineFixture({
     click('[aria-label="Configure Codex"]')
     await settle()
   }
+})
+
+/** Antigravity isn't installed, so its chat offers to install it. */
+export const newTabSetupChat = defineFixture({
+  width: 320,
+  render: () => (
+    <NewTabMenu
+      entries={[
+        ...ENTRIES.slice(0, 3),
+        {
+          ...entry('antigravity', 'Antigravity', ['chat']),
+          rows: [{ kind: 'chat', agent: 'antigravity', setup: true }],
+          defaultSurface: 'chat'
+        }
+      ]}
+    />
+  )
 })
 
 // Codex's widest effort row: every level it can advertise, then Fast.

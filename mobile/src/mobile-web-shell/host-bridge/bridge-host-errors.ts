@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import type { BridgeRefusal } from '../bridge/protocol/bridge-caps'
 
 // Use delivery-unknown: the desktop may already have executed an in-flight request before bridge disposal.
@@ -56,6 +56,8 @@ export const BRIDGE_NATIVE_REFUSAL_CODES = [
   'native_pdf_no_viewer',
   // The workspace's host predates mobile file downloads (files.stat/readChunk).
   'native_pdf_host_outdated',
+  // As native_pdf_host_outdated, for a file being shared.
+  'native_file_host_outdated',
   // The user refused Orca adding to their photo library; only Settings can undo that.
   'native_image_permission_denied'
 ] as const

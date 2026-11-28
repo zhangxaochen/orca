@@ -236,10 +236,7 @@ export function useMobileSourceControlLoaders(params: Params): MobileSourceContr
     if (statusRead?.kind === 'unavailable') {
       return {
         kind: 'unavailable',
-        message: t(
-          'sourceControl.loaders.updateDesktop',
-          'Update Orca desktop to use Source Control on mobile.'
-        )
+        message: t('sourceControl.loaders.needsNewerOrca', 'Source control needs a newer version.')
       }
     }
     if (!statusEnabled) {
@@ -256,8 +253,8 @@ export function useMobileSourceControlLoaders(params: Params): MobileSourceContr
         kind: 'error',
         message:
           connState === 'connected'
-            ? t('sourceControl.loaders.connectingToDesktop', 'Connecting to desktop...')
-            : t('sourceControl.loaders.waitingForDesktop', 'Waiting for desktop...')
+            ? t('common.connectingToHost', 'Connecting to host…')
+            : t('common.waitingForHost', 'Waiting for host…')
       }
     }
     if (empty === 'empty-error') {

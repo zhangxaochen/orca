@@ -1,13 +1,14 @@
 import { setImmediate, setTimeout as delay } from 'node:timers/promises'
 import type { OrchestrationDb } from '../orchestration-db'
 import { pruneSettledChatOutputCopies } from './settled-chat-output-copy-prune'
+import { checkpointOffMainThread } from './orchestration-checkpoint-thread'
 import {
   deleteExpiredOrchestrationRows,
-  deleteRetiredRun,
   EXPIRED_ROW_SWEEPS,
-  listRetiredRunCandidates,
-  type RunPartyLiveness
+  listRetiredRunCandidates
 } from './settled-run-retention'
+import { retireSettledRun, type RunPartyLiveness } from './settled-run-retirement'
+import type { OrchestrationDbCompaction } from './orchestration-db-compaction'
 
 const MINUTE = 60_000
 const PRUNE_INTERVAL_MS = 60 * MINUTE
@@ -23,21 +24,31 @@ export class OrchestrationDbMaintenance {
   private readonly stopped = new AbortController()
   private timer: NodeJS.Timeout | undefined
   private work = 0
+  // This session's last prune, which a bookkeeping write skipped for a waiting copy doesn't persist.
+  private prunedAt = Number.NEGATIVE_INFINITY
+  private restoreCheckpoints: (() => Promise<void>) | undefined
 
   constructor(
     private readonly orchestrationDb: OrchestrationDb,
     private readonly chatIsReadable: (dispatchId: string) => boolean,
-    private readonly runPartyLiveness: RunPartyLiveness
+    private readonly runPartyLiveness: RunPartyLiveness,
+    private readonly compaction?: OrchestrationDbCompaction
   ) {}
 
   start(): void {
+    this.restoreCheckpoints ??= checkpointOffMainThread(this.orchestrationDb)
     this.arm()
   }
 
-  stop(): void {
+  /** Resolves once the checkpoint thread, and its connection, are gone. */
+  stop(): Promise<void> {
+    const exited = this.restoreCheckpoints?.() ?? Promise.resolve()
+    this.restoreCheckpoints = undefined
     this.stopped.abort()
+    this.compaction?.stop()
     clearTimeout(this.timer)
     this.timer = undefined
+    return exited
   }
 
   private arm(): void {
@@ -58,33 +69,12 @@ export class OrchestrationDbMaintenance {
   }
 
   private async pass(): Promise<void> {
-    if (this.pruneIsDue()) {
-      const settledRuns = new Map<string, boolean>()
-      for (let after: string | null = ''; after !== null;) {
-        const page = await this.slice(() =>
-          pruneSettledChatOutputCopies(
-            this.orchestrationDb,
-            after!,
-            this.chatIsReadable,
-            settledRuns
-          )
-        )
-        if (!page) {
-          return
-        }
-        after = page.next
-      }
-      try {
-        if (!(await this.retireSettledRuns())) {
-          return
-        }
-      } catch (error) {
-        // Recorded anyway, so a lasting failure is retried hourly, not every minute.
-        console.warn('[orchestration] settled Run retention failed', error)
-      }
-      // Persisted so a restart does not rescan before the interval.
-      this.recordPrune()
+    // A copy waiting for quit would go stale on the prune's writes, so retention waits for it, for a day at most.
+    if (!this.compaction?.defersPrune && this.pruneIsDue() && !(await this.prune())) {
+      return
     }
+    // Converts a file made before incremental auto-vacuum, and clears what a past conversion left.
+    await this.compaction?.tick()
     // Only incremental files can return pages; others reuse them as they are freed.
     if (Number(this.orchestrationDb.db.pragma('auto_vacuum', { simple: true })) === 2) {
       for (let page = 0; page < RECLAIM_PAGES_PER_PASS; page += RECLAIM_PAGES_PER_STEP) {
@@ -96,6 +86,40 @@ export class OrchestrationDbMaintenance {
   }
 
   /** False when stopped mid-way. */
+  private async prune(): Promise<boolean> {
+    const changesBefore = this.totalChanges()
+    const settledRuns = new Map<string, boolean>()
+    for (let after: string | null = ''; after !== null;) {
+      const page = await this.slice(() =>
+        pruneSettledChatOutputCopies(this.orchestrationDb, after!, this.chatIsReadable, settledRuns)
+      )
+      if (!page) {
+        return false
+      }
+      after = page.next
+    }
+    try {
+      if (!(await this.retireSettledRuns())) {
+        return false
+      }
+    } catch (error) {
+      // Recorded anyway, so a lasting failure is retried hourly, not every minute.
+      console.warn('[orchestration] settled Run retention failed', error)
+    }
+    this.prunedAt = Date.now()
+    // Persisted so a restart does not rescan before the interval, unless the prune changed nothing and the
+    // write alone would make a copy waiting for quit stale.
+    if (!this.compaction?.hasCopy || this.totalChanges() !== changesBefore) {
+      this.recordPrune()
+    }
+    return true
+  }
+
+  private totalChanges(): number {
+    return Number(this.orchestrationDb.db.prepare('SELECT total_changes() AS n').get()?.n)
+  }
+
+  /** False when stopped mid-way. */
   private async retireSettledRuns(): Promise<boolean> {
     const db = this.orchestrationDb
     for (let after: string | null = ''; after !== null;) {
@@ -104,18 +128,28 @@ export class OrchestrationDbMaintenance {
       if (!page) {
         return false
       }
-      for (const runId of page.retired) {
-        const step = await this.slice(() => {
-          try {
-            deleteRetiredRun(db, runId, this.runPartyLiveness)
-          } catch (error) {
-            // One Run that cannot go must not hold back the others; the next pass retries it.
-            console.warn('[orchestration] settled Run retention failed', { runId, error })
+      for (const runId of page.candidates) {
+        const steps = retireSettledRun(db, runId, this.runPartyLiveness)
+        for (let done = false; !done;) {
+          const step = await this.slice(() => {
+            try {
+              return steps.next().done === true
+            } catch (error) {
+              // One Run that cannot go must not hold back the others; the next pass retries it.
+              console.warn('[orchestration] settled Run retention failed', { runId, error })
+              return true
+            }
+          })
+          if (step === undefined) {
+            try {
+              // Stopped mid-Run: closing the steps ends the Run's write watch.
+              steps.return(false)
+            } catch {
+              // A database closed since took its watch with it.
+            }
+            return false
           }
-          return true
-        })
-        if (!step) {
-          return false
+          done = step
         }
       }
       after = page.next
@@ -136,6 +170,9 @@ export class OrchestrationDbMaintenance {
   }
 
   private pruneIsDue(): boolean {
+    if (Date.now() - this.prunedAt < PRUNE_INTERVAL_MS) {
+      return false
+    }
     const row = this.orchestrationDb.db
       .prepare('SELECT pruned_at FROM orchestration_maintenance WHERE id = 1')
       .get()

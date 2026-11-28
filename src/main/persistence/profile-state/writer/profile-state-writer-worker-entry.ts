@@ -12,6 +12,10 @@ import {
   type ProfileStateWriterResponse
 } from './profile-state-writer-protocol'
 import { installWorkerSendLedger } from '../../../worker-threads/worker-send-ledger'
+import {
+  forgetCommittedProfileStateDomains,
+  profileStateWriterPatching
+} from '../documents/profile-state-patched-domains'
 
 installWorkerSendLedger('orca-profile-state-writer')
 
@@ -19,10 +23,42 @@ if (!parentPort) {
   throw new Error('Profile state writer requires a worker thread')
 }
 const port = parentPort
+const IDLE_TRIM_MS = 10_000
 let authority: ProfileStateSqliteAuthority | undefined
 let busy = false
 let stopping = false
 let previousId = 0
+let idleTrimTimer: ReturnType<typeof setTimeout> | undefined
+
+function clearIdleTrim(): void {
+  if (idleTrimTimer !== undefined) {
+    clearTimeout(idleTrimTimer)
+    idleTrimTimer = undefined
+  }
+}
+
+function scheduleIdleTrim(): void {
+  clearIdleTrim()
+  if (stopping) {
+    return
+  }
+  idleTrimTimer = setTimeout(() => {
+    idleTrimTimer = undefined
+    if (busy || stopping) {
+      return
+    }
+    forgetCommittedProfileStateDomains()
+    const db = authority?.openDatabase
+    if (db && !db.isTransaction) {
+      try {
+        db.pragma('shrink_memory')
+      } catch {
+        // Best-effort idle memory release.
+      }
+    }
+  }, IDLE_TRIM_MS)
+  idleTrimTimer.unref?.()
+}
 
 function reply(response: ProfileStateWriterResponse): void {
   port.postMessage(response)
@@ -30,6 +66,7 @@ function reply(response: ProfileStateWriterResponse): void {
 
 function close(): void {
   stopping = true
+  clearIdleTrim()
   try {
     authority?.close()
   } finally {
@@ -44,19 +81,27 @@ async function execute(request: ProfileStateWriterRequest): Promise<ProfileState
   let exportedRevision: number | null | undefined
   switch (request.command) {
     case 'write-state':
+      forgetCommittedProfileStateDomains()
       authority.writeSerializedState(Buffer.from(request.payload))
       break
     case 'write-complete':
-      authority.writeCompleteSerializedDomains(request.replacements)
+      authority.writeCompleteSerializedDomains(request.replacements, {
+        patches: request.patches,
+        patching: profileStateWriterPatching
+      })
       break
     case 'write-domains':
-      authority.writeSerializedDomains(request.replacements)
+      authority.writeSerializedDomains(request.replacements, {
+        patches: request.patches,
+        patching: profileStateWriterPatching
+      })
       break
     case 'write-automation':
-      authority.writeSerializedAutomationRuns(
-        request.replacements,
-        request.runPayloads.map((payload): unknown => JSON.parse(payload))
-      )
+      // Session domains written whole here must refresh the writer's committed copy too.
+      authority.writeSerializedDomains(request.replacements, {
+        automationRunsAfter: request.runPayloads.map((payload): unknown => JSON.parse(payload)),
+        patching: profileStateWriterPatching
+      })
       break
     case 'assert-revision':
       authority.assertCurrentRevision()
@@ -108,6 +153,7 @@ async function accept(value: unknown): Promise<void> {
     }
     return
   }
+  clearIdleTrim()
   busy = true
   previousId = value.id
   try {
@@ -121,6 +167,8 @@ async function accept(value: unknown): Promise<void> {
     busy = false
     if (stopping) {
       close()
+    } else {
+      scheduleIdleTrim()
     }
   }
 }
@@ -137,6 +185,7 @@ try {
   authority = new ProfileStateSqliteAuthority(initialization.databasePath, initialization.profileId)
   authority.initializeFromRevision(initialization.revision)
   reply({ id: 0, ok: true, revision: authority.revision })
+  scheduleIdleTrim()
   port.on('message', (value: unknown) => {
     void accept(value)
   })

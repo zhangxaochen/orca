@@ -1,5 +1,6 @@
 import {
   getRepoExecutionHostId,
+  isRemoteExecutionHostId,
   parseExecutionHostId,
   type ExecutionHostId
 } from '../../../shared/execution-host/execution-host'
@@ -98,11 +99,29 @@ export type TerminalNotificationBinding = {
   workspaceOwner?: NotificationWorkspaceOwner
 }
 
+// Never names this computer: a local machine mute must not silence work proven to run elsewhere.
+function remoteWorkspaceNotificationOwner(
+  state: SubjectOwnerState,
+  workspaceId: string
+): NotificationWorkspaceOwner | null {
+  const owner = resolveNotificationTabOwner(state, { worktreeId: workspaceId })
+  return owner?.runtimeEnvironmentId || isRemoteExecutionHostId(owner?.executionHostId)
+    ? owner
+    : null
+}
+
+export type TerminalNotificationOwnerOptions = {
+  /** Allow unbound/foreign remote terminals to fall back to the workspace's remote host for notification muting. */
+  allowRemoteWorkspaceFallback?: boolean
+}
+
 export function resolveTerminalNotificationOwner(
   state: SubjectOwnerState,
   workspaceId: string,
-  subject: TerminalNotificationBinding
+  subject: TerminalNotificationBinding,
+  options: TerminalNotificationOwnerOptions = {}
 ): NotificationWorkspaceOwner | null {
+  const allowRemoteWorkspaceFallback = options.allowRemoteWorkspaceFallback ?? true
   if (subject.workspaceOwner) {
     return subject.workspaceOwner
   }
@@ -130,13 +149,25 @@ export function resolveTerminalNotificationOwner(
       workspaceId,
       ptyId
     )
-    if (binding.kind !== 'owned') {
-      // A known tab still owns delayed delivery after its PTY binding disappears.
-      const tab = binding.kind === 'none' ? notificationTab : undefined
-      return tab ? resolveNotificationTabOwner(state, tab) : null
+    // A known tab still owns delayed delivery after its PTY binding disappears.
+    const tabOwner =
+      binding.kind === 'none' && notificationTab
+        ? resolveNotificationTabOwner(state, notificationTab)
+        : null
+    if (tabOwner) {
+      return tabOwner
     }
+    if (!allowRemoteWorkspaceFallback && binding.kind !== 'owned') {
+      return null
+    }
+    // A null owner bypasses machine mute, so a prefixed id names its machine even when unbound.
     const transportHost = getPtyExecutionHost(ptyId)
     if (transportHost === 'foreign') {
+      return allowRemoteWorkspaceFallback
+        ? remoteWorkspaceNotificationOwner(state, workspaceId)
+        : null
+    }
+    if (!transportHost && binding.kind !== 'owned') {
       return null
     }
     // A currently bound, unprefixed PTY belongs to this client's IPC transport.
@@ -154,5 +185,9 @@ export function resolveTerminalNotificationOwner(
       ? workspaceOwner
       : transportOwner
   }
-  return notificationTab ? resolveNotificationTabOwner(state, notificationTab) : null
+  const tabOwner = notificationTab ? resolveNotificationTabOwner(state, notificationTab) : null
+  return (
+    tabOwner ??
+    (allowRemoteWorkspaceFallback ? remoteWorkspaceNotificationOwner(state, workspaceId) : null)
+  )
 }

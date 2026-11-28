@@ -37,6 +37,7 @@ export type WorkspaceCleanupKeepCause =
   | 'archive-unavailable'
   | 'archive-script'
   | 'removing'
+  | 'folder-workspace-sibling'
 
 export type WorkspaceCleanupWaiting = { elapsedDays: number; afterDays: number }
 
@@ -190,4 +191,39 @@ export function evaluateWorkspaceCleanup(
   return policy.inactiveActionSupported
     ? { action: 'archive', reason }
     : { action: 'keep', cause: 'archive-unavailable', reason }
+}
+
+export type WorkspaceCleanupFolderVerdict = {
+  /** Host identity: a same-id worktree on another host is a different sibling. */
+  identity: string
+  /** The other worktrees listed under the same folder workspace, by host identity. */
+  folderSiblings: readonly string[]
+  evaluation: WorkspaceCleanupEvaluation
+}
+
+/** A folder workspace needs every repo's checkout: its worktrees go together or not at all. */
+export function keepFolderWorkspaceSiblings(
+  verdicts: readonly WorkspaceCleanupFolderVerdict[]
+): WorkspaceCleanupEvaluation[] {
+  // A sibling with no verdict here (another host's, say) is not known to go, so it stays.
+  const going = new Set(
+    verdicts
+      .filter(({ evaluation }) => evaluation.action !== 'keep' || evaluation.cause === 'removing')
+      .map((verdict) => verdict.identity)
+  )
+  // Folder members share one array reference, so check each group's list once instead of K times.
+  const heldByList = new Map<readonly string[], boolean>()
+  const hasHeldSibling = (siblings: readonly string[]): boolean => {
+    let held = heldByList.get(siblings)
+    if (held === undefined) {
+      held = siblings.some((id) => !going.has(id))
+      heldByList.set(siblings, held)
+    }
+    return held
+  }
+  return verdicts.map(({ folderSiblings, evaluation }) =>
+    evaluation.action !== 'keep' && hasHeldSibling(folderSiblings)
+      ? { action: 'keep', cause: 'folder-workspace-sibling', reason: evaluation.reason }
+      : evaluation
+  )
 }

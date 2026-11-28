@@ -21,6 +21,8 @@ export type OrchestrationEnvironmentCallOptions = {
   prepareGuard?: RuntimeRequestGuard
   contractVerified?: boolean
   expectedEnvironmentPairingRevision?: number
+  /** Only send if this host already has a ready connection; never wake an idle or disconnected server. */
+  readyOnly?: boolean
 }
 
 export type OrchestrationEnvironmentSendOptions = {
@@ -28,10 +30,14 @@ export type OrchestrationEnvironmentSendOptions = {
   prepareGuard?: RuntimeRequestGuard
   /** Send only to this host incarnation; any other answers runtime_environment_changed before sending. */
   expectedRuntimeId?: string
+  /** Only send if this host already has a ready connection; never wake an idle or disconnected server. */
+  readyOnly?: boolean
 }
 
 export type OrchestrationEnvironmentTransport = {
   resolve(selector: string): OrchestrationWorkerServer | Promise<OrchestrationWorkerServer>
+  /** Every server paired to this host, by id and name. */
+  list?(): Promise<readonly { environmentId: string; name: string }[]>
   /** False once the server is removed from this host, so its relays stop instead of retrying forever. */
   hasEnvironment?(environmentId: string): boolean | Promise<boolean>
   call(

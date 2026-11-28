@@ -1,7 +1,7 @@
 import type { ExecutionHostId } from '../../../../src/shared/execution-host/execution-host'
 import type { MobileRelayHost } from '../../../../src/shared/remote-runtime/relay/mobile-relay-hosts-contract'
 import { useRelayHosts } from './relay-hosts-feed'
-import { serverHostDesktopReach, type ServerHostDesktopReach } from './server-workspaces'
+import { serverHostDesktopReach, type ServerHostDesktopReach } from './server-host-health'
 import {
   scopeRpcClientToExecutionHost,
   workspaceRouteExecutionHost
@@ -37,7 +37,8 @@ export function useWorkspaceServer(args: {
   const routeHost = workspaceRouteExecutionHost(client, desktopCapabilities, executionHost)
   const serverClient = client && routeHost ? scopeRpcClientToExecutionHost(client, routeHost) : null
   // The same feed the host list reads, so the desktop is not polled twice.
-  const hosts = useRelayHosts(routeHost ? client : null, desktopCapabilities)
+  // A workspace opened through the desktop keeps its route even once its server pairs directly.
+  const hosts = useRelayHosts(routeHost ? client : null, desktopCapabilities, 'all')
   const selectedHost = hosts?.find((entry) => entry.hostId === routeHost)
   const state =
     connState === 'connected' && routeHost && hosts ? serverConnState(selectedHost) : connState

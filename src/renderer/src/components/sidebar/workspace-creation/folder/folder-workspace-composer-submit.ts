@@ -12,10 +12,8 @@ import { ensureAgentStartupInTerminal } from '@/lib/workspace/creation/new-works
 import { seedNativeChatLaunchDraftForAgentTab } from '@/lib/agent-session/launch/prompt/agent-launch-prompt-delivery'
 import { createNonSecureContextUuid as createBrowserUuid } from '../../../../../../shared/identifiers/non-secure-context-uuid'
 import { buildAgentStartupPlan } from '../../../../../../shared/agent-launch/startup/tui-agent-startup'
-import '@/diagnostics/telemetry/telemetry'
 import { activateAndRevealFolderWorkspace } from '@/lib/workspace/activation/worktree-activation'
 import { folderWorkspaceKey } from '../../../../../../shared/workspace/identity/workspace-scope'
-import './folder-workspace-source-repos'
 import {
   resolveFolderWorkspaceName,
   toFolderWorkspaceLinkedTask
@@ -26,9 +24,9 @@ import {
 } from '@/lib/agent-session/launch/routing/agent-session-launch-plan'
 
 import { beginStructuredAgentSessionProvisionalLaunch } from '@/lib/agent-session/structured-agent-session-provisional-tab'
-import '@/lib/workspace/creation/new-workspace-project-options'
 import { getRepoExecutionHostId } from '../../../../../../shared/execution-host/execution-host'
 import { useAppStore } from '@/store/index'
+import { readRuntimeStatuses } from '@/store/slices/runtime-status/views/runtime-status-owner'
 import { resolveExecutionHostAgentStartupShell } from '@/runtime/hosts/platform/execution-host-facts'
 import {
   buildFolderWorkspaceLinkedStartupPlan,
@@ -79,7 +77,11 @@ export async function submitFolderWorkspaceCreate({
     lastAutoName,
     linkedWorkItem
   })
-  const launchHost = getFolderWorkspaceAgentLaunchFact(useAppStore.getState(), projectGroup)
+  const launchHost = getFolderWorkspaceAgentLaunchFact(
+    useAppStore.getState(),
+    readRuntimeStatuses(),
+    projectGroup
+  )
   const launchPlatform = launchHost.kind === 'known' ? launchHost.platform : null
   // SSH folders use the plain orca relay shim; keep the Linux-only local executable rename out of remote launches.
   const launchIsRemote = Boolean(projectGroup.connectionId)

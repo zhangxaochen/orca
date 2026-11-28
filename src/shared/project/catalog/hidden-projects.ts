@@ -4,6 +4,8 @@ import {
   type ExecutionHostId
 } from '../../execution-host/execution-host'
 import type { Repo } from '../../repository/repo-types'
+import { getWorktreeIdFromHostIdentity } from '../../worktree/host-qualified-identity'
+import { parseWorkspaceKey } from '../../workspace/identity/workspace-scope'
 
 type HiddenRepoRow = Pick<Repo, 'id' | 'hiddenAt' | 'connectionId' | 'executionHostId'>
 
@@ -49,6 +51,17 @@ export function indexHiddenProjects(
   if (cached?.defaultHostId === defaultHostId) {
     return cached.hidden
   }
+  let anyHidden = false
+  for (let i = 0; i < repos.length; i += 1) {
+    if (isRepoHidden(repos[i])) {
+      anyHidden = true
+      break
+    }
+  }
+  if (!anyHidden) {
+    cache.set(repos, { defaultHostId, hidden: NO_HIDDEN_PROJECTS })
+    return NO_HIDDEN_PROJECTS
+  }
   const hiddenKeys = new Set<string>()
   const hostsByRepoId = new Map<string, ExecutionHostId[]>()
   const listedRepoIds = new Set<string>()
@@ -82,6 +95,44 @@ export function indexHiddenProjects(
         }
   cache.set(repos, { defaultHostId, hidden })
   return hidden
+}
+
+/** A row under a folder workspace is listed by that folder, so hiding its own project leaves it there (#43083). */
+export function isListedByFolderWorkspace(
+  identity: string,
+  parentIdentityOf: (identity: string) => string | undefined
+): boolean {
+  let parent = parentIdentityOf(identity)
+  if (parent === undefined) {
+    return false
+  }
+  let seen: Set<string> | undefined
+  let firstParent: string | undefined
+  while (parent !== undefined) {
+    if (parseWorkspaceKey(getWorktreeIdFromHostIdentity(parent))?.type === 'folder') {
+      return true
+    }
+    const nextParent = parentIdentityOf(parent)
+    if (nextParent === undefined) {
+      return false
+    }
+    if (firstParent === undefined) {
+      firstParent = parent
+      if (nextParent === firstParent) {
+        return false
+      }
+    } else {
+      if (!seen) {
+        seen = new Set<string>([firstParent])
+      }
+      seen.add(parent)
+      if (seen.has(nextParent)) {
+        return false
+      }
+    }
+    parent = nextParent
+  }
+  return false
 }
 
 /** Drops hidden rows; returns the same array when nothing is hidden so memoized readers stay stable. */

@@ -3,14 +3,13 @@ import {
   MOBILE_DICTATION_CONNECTION_SLOW_ERROR_MESSAGE,
   MOBILE_DICTATION_PCM_SAMPLE_RATE
 } from './mobile-dictation-pending-audio-budget'
-import { bytesToBase64 } from './mobile-dictation-session-state'
+import { encodeBase64Bytes } from '../transport/encryption/base64-byte-codec'
 import { dictationAudioChunkSend } from '../dictation/mobile-dictation-operations'
 import { MOBILE_DICTATION_RECONNECT_GRACE_MS } from '../../../src/shared/rpc-contract/speech/speech-params'
 import { isRpcDeliveryUnknown } from '../transport/rpc/rpc-delivery-ambiguity'
 import { rpcPayloadMember } from '../transport/rpc/rpc-reader-payload'
 import { waitForRpcClientReconnected } from '../transport/rpc/rpc-client-reconnect-wait'
 import { probeLivenessWhileWaiting } from '../transport/rpc/rpc-liveness-probe-while-waiting'
-import '../transport/connection/stable-logical-rpc-client'
 import { isLogicalClientCutoverError } from '../transport/connection/logical-client-cutover-error'
 import { isLogicalClientSuspendedError } from '../transport/connection/logical-client-suspended-error'
 import { dictationSessionErrorMessage } from '../dictation/mobile-dictation-setup'
@@ -264,7 +263,7 @@ async function sendAudioChunk(
 ): Promise<void> {
   const params = {
     dictationId,
-    audioBase64: bytesToBase64(bytes),
+    audioBase64: encodeBase64Bytes(bytes),
     sampleRate: MOBILE_DICTATION_PCM_SAMPLE_RATE,
     seq: queue.pendingAudioBudget.nextSeq(bytes.byteLength)
   }

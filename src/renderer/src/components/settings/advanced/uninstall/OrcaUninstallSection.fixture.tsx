@@ -18,7 +18,6 @@ const CODEX_ACCOUNT_HOOKS: OrcaUninstallPath = {
 const AGENTS: [string, string[]][] = [
   ['claude', ['~/.claude/settings.json']],
   ['codex', []],
-  ['gemini', ['~/.gemini/settings.json']],
   ['antigravity', ['~/.gemini/config/hooks.json']],
   ['cursor', ['~/.cursor/hooks.json']],
   ['copilot', ['~/.copilot/hooks/orca.json']],
@@ -46,8 +45,7 @@ function makeHost(kind: HostKind, state: OrcaUninstallEntryState): OrcaUninstall
     label: connected ? 'openclaw' : 'gpu-box',
     connected,
     state,
-    detail: connected || state === 'removed' ? null : 'Not connected.',
-    manualCommand: connected ? null : 'orca uninstall'
+    detail: connected || state === 'removed' ? null : 'Not connected.'
   }
 }
 
@@ -83,6 +81,11 @@ function makePlan(
       detail: state('scripts') === 'kept-shared' ? 'Still used by codex.' : null
     },
     hosts: hosts.map((kind) => makeHost(kind, state(`host:${kind}`))),
+    terminalDaemon: {
+      location: '~/Library/Application Support/orca/daemon',
+      state: state('daemon'),
+      detail: state('daemon') === 'error' ? 'Timed out waiting for daemon self-shutdown' : null
+    },
     otherOrcaBuildName,
     appPath: '/Applications/Orca.app',
     removeAppCommand: installKind === 'mac-homebrew' ? 'brew uninstall --cask orca' : null
@@ -197,7 +200,7 @@ export const partialFailure = defineFixture({
       value={model(
         makePlan(
           (part) => {
-            if (part === 'agent:codex') {
+            if (part === 'agent:codex' || part === 'daemon') {
               return 'error'
             }
             if (part === 'host:offline') {

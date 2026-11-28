@@ -141,6 +141,10 @@ export type TuiIdleEvaluationInput = {
   readAgentRuleVerdict: () => AgentStateVerdict | null
   /** Whether an overlay on the agent's screen refuses input; null with no rule or no screen. */
   readScreenInputVeto: () => boolean | null
+  /** Reused-pane waits only: Claude's caught-up composer, painted by the running command, holds no text. */
+  readReusableComposer?: () => boolean
+  /** Whether the tail rests at a screen where a human must sign in (agy's login menu). */
+  readProgramSignInWaitScreen: () => boolean
   /** When the PTY's own current title was observed; null when it has none or no clock. */
   titleObservedAtEpochMs: number | null
   agent: TuiAgent | null | undefined
@@ -155,6 +159,9 @@ export type TuiIdleEvaluationInput = {
    *  composer marker where it draws one (Claude), else any visible byte after the command-start
    *  marker; true when the shell sends no marker. Corroborates name-only titles alongside quiet. */
   readCommandPainted?: () => boolean
+  /** The pane's idle status predates the command now running: like launch readiness, it counts only
+   *  with that command's own quiet paint. */
+  statusRetired?: boolean
 }
 
 export type TuiIdleVerdict =
@@ -214,9 +221,18 @@ function rankTuiIdleEvidence(input: TuiIdleEvaluationInput): TuiIdleVerdict {
   const signInSince = input.firstPartyStatus?.programSignInRequiredSince
   if (signInSince !== undefined && hasFreshWorkingFirstPartyStatus(input.firstPartyStatus)) {
     const blockedAt = signInSince + PROGRAM_SIGN_IN_BLOCK_PERSIST_MS
-    return Date.now() >= blockedAt
-      ? { kind: 'blocked', reason: 'agent-sign-in-prompt' }
-      : { kind: 'pending', quietForeground: 'closed', recheckAt: blockedAt }
+    if (Date.now() < blockedAt) {
+      return { kind: 'pending', quietForeground: 'closed', recheckAt: blockedAt }
+    }
+    const signInAgent =
+      input.agent ??
+      (input.record.lastOscTitle
+        ? resolveTerminalTitlePolicyAgentType(input.record.lastOscTitle)
+        : null)
+    // Why scoped to agy: only agy's slow saved-credential sign-in spins under blocked:auth (#44603).
+    return signInAgent === 'antigravity' && !input.readProgramSignInWaitScreen()
+      ? { kind: 'pending', quietForeground: 'closed' }
+      : { kind: 'blocked', reason: 'agent-sign-in-prompt' }
   }
   // Qoder's title and Hermes's session-start hook can precede input readiness; require the composer.
   if (input.agent === 'qoder' || input.agent === 'qoder-cn' || input.agent === 'hermes') {
@@ -283,7 +299,7 @@ function rankTuiIdleEvidence(input: TuiIdleEvaluationInput): TuiIdleVerdict {
       ruled,
       input.record,
       input.quiescenceMs,
-      input.launchReadiness,
+      input.launchReadiness || input.statusRetired,
       input.readCommandPainted
     )
       ? READY_WEAK
@@ -294,10 +310,14 @@ function rankTuiIdleEvidence(input: TuiIdleEvaluationInput): TuiIdleVerdict {
       input.record,
       input.agent,
       input.quiescenceMs,
-      input.launchReadiness,
+      input.launchReadiness || input.statusRetired,
       input.readCommandPainted
     )
   ) {
+    return READY_WEAK
+  }
+  // A reused Claude can take a brief at its empty composer while its title still names the wrapper.
+  if (input.record.lastAgentStatus === null && input.readReusableComposer?.()) {
     return READY_WEAK
   }
   return {

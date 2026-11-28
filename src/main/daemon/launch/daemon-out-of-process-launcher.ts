@@ -16,10 +16,8 @@ import {
   terminateLaunchedDaemonChild
 } from './daemon-launched-child'
 import { getDaemonEntryPath, probeDaemonSocket as probeSocket } from './daemon-launch-paths'
-import {
-  materializeRelocatedDaemonHost,
-  pruneDaemonHostStaging
-} from '../executable-host/windows/daemon-host-relocation'
+import { materializeRelocatedDaemonHost } from '../executable-host/windows/daemon-host-relocation'
+import { pruneDaemonHostStaging } from '../executable-host/windows/daemon-host-prune'
 import {
   appImageDaemonIdentityPath,
   resolveAppImageDaemonLaunch
@@ -37,6 +35,7 @@ import {
 } from './daemon-spawner'
 import { PROTOCOL_VERSION } from '../protocol/daemon-protocol-version'
 import { prepareDaemonReplacement } from './daemon-replacement-preflight'
+import { resolveDaemonFdClosingExec } from './daemon-fd-closing-exec'
 import { ensureDaemonSocketDir } from '../endpoint/publication/daemon-socket-endpoint-path'
 import { inspectDaemonHostImage } from '../executable-host/linux/daemon-host-image'
 import { noteSeveredDaemon } from '../providers/lifecycle/daemon-host-image-state'
@@ -192,14 +191,16 @@ export function createOutOfProcessLauncher(
         return macHandle
       }
       // Lazily stage the Windows host outside the NSIS updater's kill zone; null falls back to the installed host.
-      const relocatedHost = materializeRelocatedDaemonHost()
-      pruneDaemonHostStaging()
+      const relocatedHost = await materializeRelocatedDaemonHost()
+      // Deleting an abandoned copy must not delay this launch.
+      void pruneDaemonHostStaging()
       const forkEntryPath = relocatedHost ? relocatedHost.entryPath : entryPath
       if (generation && 'fallback' in generation) {
         console.warn(
           `[daemon] AppImage daemon host fallback reason=${generation.fallback}: starting it on Electron, ${appImage ? 'from its own mount' : 'from the current mount'}`
         )
       }
+      const fdClosingExec = await resolveDaemonFdClosingExec()
       let launched
       try {
         launched = await launchDaemonChild({
@@ -215,6 +216,7 @@ export function createOutOfProcessLauncher(
           launchNonce,
           macosLoginSessionWatch,
           startupTimeoutMs,
+          fdClosingExec,
           ...(spawnAdmission ? { spawnAdmission } : {})
         })
       } catch (error) {

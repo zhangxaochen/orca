@@ -34,7 +34,33 @@ export function chatUnavailableLabel(
         'auto.components.tab.bar.QuickLaunchButton.chatNotOnWindows',
         'No chat on Windows yet'
       )
+    case 'too-old':
+      return t(
+        'auto.components.tab.bar.QuickLaunchButton.chatUpdateRequired',
+        'Update CLI for chat'
+      )
   }
+}
+
+/** What a row says beside its name: why its chat can't start, or that the chat asks to install the agent. */
+export function rowStatusLabel(
+  row: NewTabAgentMenuRow,
+  t: Translate = translate
+): string | undefined {
+  return row.kind === 'chat-unavailable'
+    ? chatUnavailableLabel(row.reason, t)
+    : row.kind === 'chat' && row.setup
+      ? t('auto.components.tab.bar.QuickLaunchButton.chatInstallRequired', 'Install required')
+      : undefined
+}
+
+/** An agent's chat that offers to install the agent, for surfaces that list whole agents. */
+export function entrySetupLabel(
+  entry: { rows: readonly NewTabAgentMenuRow[] },
+  t: Translate = translate
+): string | undefined {
+  const row = entry.rows.find((candidate) => candidate.kind === 'chat' && candidate.setup)
+  return row ? rowStatusLabel(row, t) : undefined
 }
 
 export function rowTitle(row: NewTabAgentMenuRow, label: string, t: Translate = translate): string {

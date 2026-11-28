@@ -11,13 +11,18 @@ export function NativeChatStructuredQuestionCard({
   questions,
   onAnswer,
   onCancel,
+  onCollapse,
   isSubmitting,
   shouldFocus,
-  answerInputRef
+  answerInputRef,
+  memoryKey
 }: {
   questions: readonly AgentJournalQuestion[]
+  /** This prompt's occurrence in its chat, so a half-made answer survives a released view. */
+  memoryKey?: string
   onAnswer: (response: AgentSessionPromptResponse) => void
   onCancel: () => void
+  onCollapse?: () => void
   isSubmitting?: boolean
   shouldFocus?: boolean
   answerInputRef?: RefObject<HTMLTextAreaElement | null>
@@ -26,6 +31,7 @@ export function NativeChatStructuredQuestionCard({
   return (
     <NativeChatQuestionCard
       prompt={card.prompt}
+      memoryKey={memoryKey}
       allowOther={card.allowOther}
       freeTextInputs={card.freeTextInputs}
       onAnswer={(selections) => {
@@ -35,6 +41,7 @@ export function NativeChatStructuredQuestionCard({
         }
       }}
       onCancel={onCancel}
+      onCollapse={onCollapse}
       isSubmitting={isSubmitting}
       shouldFocus={shouldFocus}
       answerInputRef={answerInputRef}

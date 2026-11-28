@@ -10,8 +10,9 @@ import {
   getCodexResetCreditScope,
   requestCodexResetCredit
 } from './codex-reset-credit'
-import { useCodexResetCreditCapability } from './codex-reset-credit-capability'
-import { getManagedAccountInlineLabel } from '../../../../src/shared/agent-accounts/managed-account-display-names'
+import { useRuntimeCapability } from '../../transport/connection/use-runtime-capability'
+import { CODEX_RESET_CREDIT_RUNTIME_CAPABILITY } from '../../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
+import { getCodexAccountDisplayLabel } from '../../../../src/shared/agent-accounts/codex-account-display-label'
 
 type CodexResetDialog = { title: string; message: string }
 
@@ -21,7 +22,9 @@ function describeScope(
   t: Translate
 ): { label: string; message: string } {
   const account = snapshot.codex.accounts.find((candidate) => candidate.id === scope.accountId)
-  const identity = account ? getManagedAccountInlineLabel(account) : undefined
+  const identity = account
+    ? getCodexAccountDisplayLabel(account, snapshot.codex.accounts)
+    : undefined
   if (scope.target.runtime === 'host') {
     return identity != null
       ? {
@@ -99,7 +102,7 @@ export function useCodexResetCreditAction({
   cancelReset: () => void
 } {
   const t = useMobileTranslation()
-  const supported = useCodexResetCreditCapability(client, connected)
+  const supported = useRuntimeCapability(client, connected, CODEX_RESET_CREDIT_RUNTIME_CAPABILITY)
   const [resetting, setResetting] = useState(false)
   const [confirming, setConfirming] = useState<{
     scope: CodexResetCreditExpectedScope

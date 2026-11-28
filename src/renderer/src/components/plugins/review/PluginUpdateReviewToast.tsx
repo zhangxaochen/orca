@@ -1,5 +1,5 @@
 // @protected-copy
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 import type { PluginUpdateReviewNotice } from '../../../../../shared/plugins/catalog/plugin-update-policy'
 import type { PluginHostListEntry } from '../../../../../shared/plugins/plugin-list-entry'
@@ -24,34 +24,57 @@ import { pluginUpdateAdditions } from './plugin-update-additions'
 const SHOWN_PLUGINS = 3
 
 type Loaded = {
-  /** Missing when its preview couldn't be read. */
+  /** Missing when its preview couldn't be read or hasn't finished yet. */
   updates: ReadonlyMap<string, LoadedUpdate>
-  installed: ReadonlyMap<string, PluginHostListEntry>
+  /** Shown plugin keys whose preview attempt has settled. */
+  settled: ReadonlySet<string>
+  installed: ReadonlyMap<string, PluginHostListEntry> | null
 }
 
-function useLoadedNotices(notices: readonly PluginUpdateReviewNotice[]): Loaded | null {
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+const EMPTY_LOADED: Loaded = {
+  updates: new Map(),
+  settled: new Set(),
+  installed: null
+}
+
+function useLoadedNotices(notices: readonly PluginUpdateReviewNotice[]): Loaded {
+  const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED)
   useEffect(() => {
-    let stale = false
-    void Promise.all([
-      Promise.all(
-        notices.map((notice) =>
-          loadUpdate(notice.pluginKey)
-            .then((update) => [[notice.pluginKey, update] as const])
-            .catch(() => [])
-        )
-      ),
-      window.api.plugins.list().catch((): PluginHostListEntry[] => [])
-    ]).then(([updates, plugins]) => {
-      if (!stale) {
-        setLoaded({
-          updates: new Map(updates.flat()),
-          installed: new Map(plugins.map((plugin) => [plugin.pluginKey, plugin] as const))
+    let cancelled = false
+    const shown = notices.slice(0, SHOWN_PLUGINS)
+    void window.api.plugins
+      .list()
+      .catch((): PluginHostListEntry[] => [])
+      .then((plugins) => {
+        if (cancelled) {
+          return
+        }
+        const installed = new Map(plugins.map((plugin) => [plugin.pluginKey, plugin] as const))
+        setLoaded((prev) => ({ ...prev, installed }))
+      })
+    // Load only the shown plugins sequentially so each row appears as it lands and dismiss cancels the rest.
+    void (async () => {
+      for (const notice of shown) {
+        if (cancelled) {
+          return
+        }
+        const update = await loadUpdate(notice.pluginKey).catch(() => null)
+        if (cancelled) {
+          return
+        }
+        setLoaded((prev) => {
+          const updates = new Map(prev.updates)
+          if (update) {
+            updates.set(notice.pluginKey, update)
+          }
+          const settled = new Set(prev.settled)
+          settled.add(notice.pluginKey)
+          return { ...prev, updates, settled }
         })
       }
-    })
+    })()
     return () => {
-      stale = true
+      cancelled = true
     }
   }, [notices])
   return loaded
@@ -60,11 +83,13 @@ function useLoadedNotices(notices: readonly PluginUpdateReviewNotice[]): Loaded 
 function ToastPlugin({
   notice,
   update,
-  installed
+  installed,
+  loading
 }: {
   notice: PluginUpdateReviewNotice
   update: LoadedUpdate | undefined
   installed: PluginHostListEntry | undefined
+  loading: boolean
 }): React.JSX.Element {
   const t = useTranslate()
   const { lines, compared } = update
@@ -87,6 +112,8 @@ function ToastPlugin({
           </p>
           {update ? (
             <PluginUpdatePublisher pluginKey={notice.pluginKey} preview={update.preview} />
+          ) : loading ? (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
           ) : null}
         </div>
       </div>
@@ -111,11 +138,14 @@ function ToastPlugin({
  */
 export function PluginUpdateReviewToast({
   notices,
-  onResolved
+  onResolved,
+  onResize
 }: {
   notices: readonly PluginUpdateReviewNotice[]
   /** These notices are handled: installed, dismissed, or handed to the dialog. */
   onResolved: (notices: readonly PluginUpdateReviewNotice[]) => void
+  /** The card's height changed: content loaded, a failure line, a rewrap or a locale switch. */
+  onResize: () => void
 }): React.JSX.Element {
   const t = useTranslate()
   const orcaVersion = useOrcaVersion()
@@ -124,27 +154,44 @@ export function PluginUpdateReviewToast({
   const [failure, setFailure] = useState<string | null>(null)
   // Why kept: a retry after a partial failure must not reinstall the ones that landed.
   const [landed, setLanded] = useState<ReadonlySet<string>>(() => new Set())
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card) {
+      return
+    }
+    let height = card.offsetHeight
+    const observer = new ResizeObserver(() => {
+      if (card.offsetHeight !== height) {
+        height = card.offsetHeight
+        onResize()
+      }
+    })
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [onResize])
 
   const details = (): void => {
     onResolved(notices)
     openPluginUpdateReviewDialog(notices.map((notice) => notice.pluginKey))
   }
   const quick =
-    loaded !== null &&
+    loaded.installed !== null &&
     notices.length <= SHOWN_PLUGINS &&
     notices.every(({ pluginKey }) => {
       const preview = loaded.updates.get(pluginKey)?.preview
       // Why the installed entry too: without it the toast can't show the version it replaces.
       return (
+        loaded.settled.has(pluginKey) &&
         preview !== undefined &&
-        loaded.installed.has(pluginKey) &&
+        loaded.installed!.has(pluginKey) &&
         preview.accessGrowth !== undefined &&
         !preview.blockedByKillList &&
         !requiredNewerOrca(preview, orcaVersion)
       )
     })
   const update = async (): Promise<void> => {
-    if (!loaded) {
+    if (!quick) {
       return
     }
     setBusy(true)
@@ -194,7 +241,10 @@ export function PluginUpdateReviewToast({
 
   return (
     <SecuritySurface>
-      <div className="relative w-[360px] max-w-[calc(100vw-32px)] space-y-3 rounded-lg border border-(--notice-border) bg-popover p-3.5 text-popover-foreground shadow-notice">
+      <div
+        ref={cardRef}
+        className="relative w-[360px] max-w-[calc(100vw-32px)] space-y-3 rounded-lg border border-(--notice-border) bg-popover p-3.5 text-popover-foreground shadow-notice"
+      >
         <div className="flex items-start justify-between gap-3">
           <p className="pt-1 text-sm font-semibold">{title}</p>
           <Button
@@ -208,29 +258,26 @@ export function PluginUpdateReviewToast({
             <X className="size-3.5" />
           </Button>
         </div>
-        {loaded === null ? (
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        ) : (
-          <div className="space-y-3">
-            {notices.slice(0, SHOWN_PLUGINS).map((notice) => (
-              <ToastPlugin
-                key={notice.pluginKey}
-                notice={notice}
-                update={loaded.updates.get(notice.pluginKey)}
-                installed={loaded.installed.get(notice.pluginKey)}
-              />
-            ))}
-            {notices.length > SHOWN_PLUGINS ? (
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  'auto.components.settings.PluginUpdateReviewToast.morePlugins',
-                  'and {{value0}} more plugins',
-                  { value0: notices.length - SHOWN_PLUGINS }
-                )}
-              </p>
-            ) : null}
-          </div>
-        )}
+        <div className="space-y-3">
+          {notices.slice(0, SHOWN_PLUGINS).map((notice) => (
+            <ToastPlugin
+              key={notice.pluginKey}
+              notice={notice}
+              update={loaded.updates.get(notice.pluginKey)}
+              installed={loaded.installed?.get(notice.pluginKey)}
+              loading={!loaded.settled.has(notice.pluginKey)}
+            />
+          ))}
+          {notices.length > SHOWN_PLUGINS ? (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'auto.components.settings.PluginUpdateReviewToast.morePlugins',
+                'and {{value0}} more plugins',
+                { value0: notices.length - SHOWN_PLUGINS }
+              )}
+            </p>
+          ) : null}
+        </div>
         {failure ? (
           <p role="alert" className="text-xs text-destructive">
             {failure}

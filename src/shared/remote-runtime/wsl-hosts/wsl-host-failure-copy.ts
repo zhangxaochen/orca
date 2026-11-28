@@ -29,6 +29,9 @@ export const WSL_HOST_STATUS_DETAIL_COPY = {
   peerCheckFailed:
     'Orca couldn’t ask the WSL host whether another Orca on this computer still uses it: {{detail}}',
   removalUnrecorded: 'Orca couldn’t record what this Remove left running: {{detail}}',
+  serverIdentityReset:
+    'It runs a reset or reinstalled server, not the one this desktop paired with. Add the host again to pair with it.',
+  runsAsOtherUser: 'Runs as {{user}}. To use {{defaultUser}}, remove the host and add it again.',
   installLockWait: {
     one: 'Waiting for another Orca install in this distro to finish. If it doesn’t, Orca takes over in about {{count}} minute.',
     other:
@@ -38,7 +41,9 @@ export const WSL_HOST_STATUS_DETAIL_COPY = {
     one: 'Waiting for another Orca install in this distro to finish. If it doesn’t, Orca stops waiting in about {{count}} minute.',
     other:
       'Waiting for another Orca install in this distro to finish. If it doesn’t, Orca stops waiting in about {{count}} minutes.'
-  }
+  },
+  installLockWaitHolderGone:
+    'The other Orca install in this distro stopped. Orca takes over in a few seconds.'
 } as const
 
 export type WslHostStatusDetailCode = keyof typeof WSL_HOST_STATUS_DETAIL_COPY
@@ -97,8 +102,12 @@ export function wslHostStatusDetailText(
 export function wslHostInstallLockWaitText(wait: {
   takeoverInMs: number | null
   givesUpInMs: number
+  holderGone?: boolean
 }): WslHostCodedText {
   const minutes = (ms: number) => Math.max(1, Math.ceil(ms / 60_000))
+  if (wait.holderGone && wait.takeoverInMs !== null) {
+    return wslHostStatusDetailText('installLockWaitHolderGone')
+  }
   return wait.takeoverInMs === null
     ? wslHostStatusDetailText('installLockWaitGivesUp', { count: minutes(wait.givesUpInMs) })
     : wslHostStatusDetailText('installLockWait', { count: minutes(wait.takeoverInMs) })

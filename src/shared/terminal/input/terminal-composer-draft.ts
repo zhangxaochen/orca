@@ -1,3 +1,5 @@
+import { isStockPlaceholder } from './terminal-composer-stock-placeholder'
+
 export type TerminalCursorContext = {
   rows: string[]
   typedRows: string[]
@@ -32,6 +34,15 @@ const COMPOSER_FRAME_LINE = /^[\u2500\u2501-]{8,}\s*$/
 const COMPOSER_TOP_FRAME_PREFIX = /^[\u2500\u2501-]{8,}/
 // Codex can follow the model with reasoning effort and service tier (`gpt-5.4 high Fast`).
 const CODEX_FOOTER_LINE = /^\s*(?:gpt-\S+|o\d\S*)(?:\s+[\w-]+){0,2}\s+[\u00B7\u2022]\s+\S.*$/i
+// Codex marks a draft scrolled past its top with a dim up arrow (U+2191) right of the prompt row's text.
+const CODEX_SCROLL_INDICATOR_END = /\u2191\s*$/
+
+function isCodexScrolledPromptRow(context: TerminalCursorContext, index: number): boolean {
+  return (
+    CODEX_SCROLL_INDICATOR_END.test(context.rows[index] ?? '') &&
+    !CODEX_SCROLL_INDICATOR_END.test(context.typedRows[index] ?? '')
+  )
+}
 
 function composerContinuationRows(
   context: TerminalCursorContext,
@@ -104,34 +115,6 @@ function findCodexFooterIndex(context: TerminalCursorContext): number {
     return -1
   }
   return isCodexFooterRow(context, status) ? status : -1
-}
-
-// Codex before 0.152 rotated these (codex-rs/tui/src/chatwidget.rs PLACEHOLDERS, SIDE_PLACEHOLDERS).
-const STOCK_PLACEHOLDERS: ReadonlySet<string> = new Set([
-  'Ask Codex to do anything',
-  'Ask a follow-up question',
-  'Explain this codebase',
-  'Summarize recent commits',
-  'Implement {feature}',
-  'Find and fix a bug in @filename',
-  'Write tests for @filename',
-  'Improve documentation in @filename',
-  'Run /review on my current changes',
-  'Use /skills to list available skills',
-  'Check recently modified functions for compatibility',
-  'How many files have been modified?',
-  'Will this algorithm scale well?'
-])
-
-function isStockPlaceholder(
-  afterCursor: string,
-  continuationRows: { text: string; wrapped: boolean }[]
-): boolean {
-  const text = [afterCursor, ...continuationRows.map((row) => row.text)]
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return /^Try\s+["\u201C]/.test(text) || STOCK_PLACEHOLDERS.has(text)
 }
 
 // Why: Claude's default caret hides the native cursor and parks it at a painted caret cell. That paint
@@ -213,7 +196,9 @@ function detectTerminalComposer(
       } else if (
         context.cursorHidden ||
         context.promptGlyphBoldRows[index] !== true ||
-        codexFooterIndex === -1
+        // Why: a draft taller than the composer's cap takes the footer's rows (#51750). Typed reads
+        // stay null there: callers take their text as the whole draft, and only its tail shows.
+        (codexFooterIndex === -1 && (typedOnly || !isCodexScrolledPromptRow(context, index)))
       ) {
         return null
       }
@@ -326,8 +311,18 @@ export function readTerminalComposerTypedText(
   return boxed ? boxed.text : (detectTerminalComposer(context, true)?.text ?? null)
 }
 
+/** True when a verified composer paints only a placeholder, suggestion or dim hint right of its cursor. */
 export function hasTerminalComposerPlaceholder(
   context: TerminalCursorContext | null | undefined
 ): boolean {
-  return detectTerminalComposer(context)?.placeholder === true
+  if (!context?.rawAfterCursor.trim()) {
+    return false
+  }
+  // Why: the IME overlay redraws the row from the cursor without cell attributes, so a dim tail turns white.
+  // Exclude boxed composers whose right border sits in rawAfterCursor and may be dim.
+  const onlyDimAfterCursor = !context.afterCursor.trim() || isCaretOverDimSuggestion(context)
+  return (
+    (onlyDimAfterCursor && detectTerminalComposer(context, true) !== null) ||
+    detectTerminalComposer(context)?.placeholder === true
+  )
 }

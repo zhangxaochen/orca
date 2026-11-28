@@ -65,7 +65,7 @@ export function useStructuredAgentSessionOptionState(args: {
     target,
     worktree
   } = args
-  const { permissionReport, launchPermissionMode, observation } =
+  const { permissionReport, launchPermissionMode, runningPermissionMode, observation } =
     useStructuredAgentSessionPermissionStatus(sessionId, target, fence)
   const [reader] = useState(() =>
     createStructuredAgentSessionOptionsReadOwner(
@@ -100,6 +100,8 @@ export function useStructuredAgentSessionOptionState(args: {
             contextUsage: acceptedSupport.result.contextUsage,
             acceptsImages: acceptedSupport.result.acceptsImages,
             canSwitchAccount: acceptedSupport.result.canSwitchAccount === true,
+            canSwitchAntigravityAccount:
+              acceptedSupport.result.canSwitchAntigravityAccount === true,
             rewind: acceptedSupport.result.rewind ?? {
               supported: false as const,
               reason: 'unsupported' as const
@@ -225,6 +227,7 @@ export function useStructuredAgentSessionOptionState(args: {
         permissionReport
       ),
       ...(launchPermissionMode === undefined ? {} : { launchPermissionMode }),
+      ...(runningPermissionMode === undefined ? {} : { runningPermissionMode }),
       permissionOwnSupported
     }),
     [
@@ -233,6 +236,7 @@ export function useStructuredAgentSessionOptionState(args: {
       controller,
       permissionReport,
       launchPermissionMode,
+      runningPermissionMode,
       fence,
       permissionOwnSupported
     ]
@@ -255,7 +259,8 @@ export function useStructuredAgentSessionOptionState(args: {
     conversationSupport: support,
     sessionSupport: {
       acceptsImages: support?.acceptsImages,
-      canSwitchAccount: support?.canSwitchAccount
+      canSwitchAccount: support?.canSwitchAccount,
+      canSwitchAntigravityAccount: support?.canSwitchAntigravityAccount
     },
     rereadOptions,
     receiveCatalog,

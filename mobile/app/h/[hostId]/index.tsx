@@ -3,13 +3,26 @@ import { firstParam } from '../../../src/navigation/route-param-reader'
 import { MobileWebShellScreen } from '../../../src/mobile-web-shell/MobileWebShellScreen'
 import { shellScreenRoute } from '../../../src/mobile-web-shell/routing/shell-screen-route'
 import { PageRouteUnavailableScreen } from '../../../src/mobile-web-shell/presentation/PageRouteUnavailableScreen'
+import { useBotLinkNotice } from '../../../src/bots/use-bot-link-notice'
 import { useHostDocumentOpenTarget } from '../../../src/mobile-web-shell/routing/use-host-document-open-target'
+import { useHostOrcaRestartingTo } from '../../../src/host-screen/identity/updates/host-orca-update'
+import { useMobileTranslation } from '../../../src/i18n/use-mobile-translation'
 
 // Encode decoded hostId so ?, # and whitespace cannot form a pathname the page refuses; shell gates unsupported bundles.
 function HostListScreen() {
   // Use firstParam: encoding String(array) creates a valid segment naming a nonexistent host; an empty array is truthy and otherwise builds /h/.
-  const params = useLocalSearchParams<{ hostId?: string | string[] }>()
+  const params = useLocalSearchParams<{
+    hostId?: string | string[]
+    linkNotice?: string | string[]
+  }>()
   const hostId = firstParam(params.hostId)
+  const t = useMobileTranslation()
+  const linkNotice = useBotLinkNotice(hostId, firstParam(params.linkNotice))
+  // A restart the phone asked for must not read as a failure while the computer reconnects.
+  const restartingTo = useHostOrcaRestartingTo(hostId)
+  const notice = restartingTo
+    ? t('host.updates.updatingTo', 'Updating to {{version}}…', { version: restartingTo })
+    : linkNotice
   const { routeParams, onRouteParamClear, onPageLocation } = useHostDocumentOpenTarget(hostId)
 
   // Validate through bridge schema: encoding cannot make dot/dot-dot host ids valid.
@@ -29,6 +42,7 @@ function HostListScreen() {
       key={hostId}
       hostId={hostId}
       route={route}
+      notice={notice}
       onRouteParamClear={onRouteParamClear}
       onPageLocation={onPageLocation}
     />

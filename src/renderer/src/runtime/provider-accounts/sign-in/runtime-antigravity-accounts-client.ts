@@ -1,16 +1,33 @@
 import type { AntigravityChatAuthConfig } from '../../../../../shared/agent-accounts/antigravity/antigravity-chat-auth-config'
-import type {
-  AntigravityAccountState,
-  AntigravityAccountTarget
+import {
+  ANTIGRAVITY_ACCOUNT_ACTION_TIMEOUT_MS,
+  type AntigravityAccountSelectResult,
+  type AntigravityAccountState,
+  type AntigravityChatSignInIntent,
+  type AntigravityAccountTarget
 } from '../../../../../shared/agent-accounts/antigravity/antigravity-account-types'
+import type { ClaudeAccountSwitchRunningSessions } from '../../../../../shared/agent-accounts/claude/claude-account-switch-settings'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import {
   ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY,
+  ANTIGRAVITY_RUNNING_TERMINALS_RUNTIME_CAPABILITY,
+  ANTIGRAVITY_CHAT_SIGN_IN_INTENT_RUNTIME_CAPABILITY,
   ANTIGRAVITY_CHAT_AUTH_CONFIG_RUNTIME_CAPABILITY,
+  ANTIGRAVITY_CHAT_AUTH_DETECT_RUNTIME_CAPABILITY,
+  ANTIGRAVITY_CHAT_KEY_AND_ADC_AUTH_RUNTIME_CAPABILITY,
   ANTIGRAVITY_CHAT_SIGN_IN_RUNTIME_CAPABILITY
 } from '../../../../../shared/remote-runtime/protocol/account-runtime-capabilities'
+import type { RuntimeRpcSuccess } from '../../../../../shared/remote-runtime/rpc/runtime-rpc-envelope'
+import type {
+  AntigravityChatApiKeyStatus,
+  AntigravityChatAuthDetection
+} from '../../../../../shared/rpc-contract/accounts/antigravity-accounts-params'
 import type { RuntimeClientTarget } from '../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
-import { assertRuntimeEnvironmentCapability } from '../../rpc/compatibility/runtime-capability-proof'
-import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
+import {
+  assertRuntimeEnvironmentCapability,
+  runtimeEnvironmentSupportsCapability
+} from '../../rpc/compatibility/runtime-capability-proof'
+import { callRuntimeRpc, callRuntimeRpcResponse } from '../../rpc/calls/runtime-rpc-call'
 import {
   subscribeRuntimeRpc,
   type RuntimeRpcSubscriptionHandlers
@@ -19,7 +36,8 @@ import {
 export async function callAntigravityAccounts(
   owner: RuntimeClientTarget,
   target: AntigravityAccountTarget,
-  action: 'List' | 'AddCurrent' | 'Select' | 'Remove',
+  /** `ReadCurrent` only where a List answered `currentAccount.unread`, so the host has it. */
+  action: 'List' | 'ReadCurrent' | 'AddCurrent' | 'Select' | 'Remove',
   accountId?: string
 ): Promise<AntigravityAccountState> {
   if (owner.kind === 'environment') {
@@ -32,8 +50,44 @@ export async function callAntigravityAccounts(
   return callRuntimeRpc(
     owner,
     `accounts.antigravity${action}`,
-    action === 'List' || action === 'AddCurrent' ? target : { target, accountId },
-    { timeoutMs: 20_000 }
+    action === 'Select' || action === 'Remove' ? { target, accountId } : target,
+    // Every action but List may wait on the keychain dialog that reading agy's login can raise.
+    { timeoutMs: action === 'List' ? 20_000 : ANTIGRAVITY_ACCOUNT_ACTION_TIMEOUT_MS }
+  )
+}
+
+/** Selects a saved account. This desktop window restarts its own agy terminals, so its host only
+ *  lists them; any other client hands the host its own choice for the host's terminals. */
+export async function selectAntigravityAccount(
+  owner: RuntimeClientTarget,
+  target: AntigravityAccountTarget,
+  accountId: string,
+  runningSessions: ClaudeAccountSwitchRunningSessions
+): Promise<AntigravityAccountSelectResult> {
+  if (owner.kind === 'environment') {
+    await assertRuntimeEnvironmentCapability(
+      owner.environmentId,
+      ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY,
+      'This execution host does not support native Antigravity Accounts yet. Update Orca on that host.'
+    )
+  }
+  const terminals =
+    owner.kind === 'local' && !isWebClientLocation()
+      ? { movesRunningSessions: true as const }
+      : { runningSessions }
+  return callRuntimeRpc(
+    owner,
+    'accounts.antigravitySelect',
+    { target, accountId, ...terminals },
+    {
+      timeoutMs: ANTIGRAVITY_ACCOUNT_ACTION_TIMEOUT_MS,
+      // Older hosts reject a switch that says what to do with running terminals.
+      paramsForStatus: (status) =>
+        owner.kind === 'local' ||
+        status?.capabilities?.includes(ANTIGRAVITY_RUNNING_TERMINALS_RUNTIME_CAPABILITY)
+          ? { target, accountId, ...terminals }
+          : { target, accountId }
+    }
   )
 }
 
@@ -50,11 +104,21 @@ async function assertChatSignInHost(owner: RuntimeClientTarget): Promise<void> {
 export async function callAntigravityChatSignIn<TResult>(
   owner: RuntimeClientTarget,
   action: 'Start' | 'Cancel' | 'Complete',
-  params?: { flowId: string; callbackUrl?: string }
-): Promise<TResult> {
+  params?: { flowId: string; callbackUrl?: string } | { intent: AntigravityChatSignInIntent }
+): Promise<RuntimeRpcSuccess<TResult>> {
   await assertChatSignInHost(owner)
-  return callRuntimeRpc(owner, `accounts.antigravityChatSignIn${action}`, params, {
-    timeoutMs: 20_000
+  return callRuntimeRpcResponse(owner, `accounts.antigravityChatSignIn${action}`, params, {
+    // Adding an account first saves agy's current login, which may wait on a keychain dialog.
+    timeoutMs: action === 'Start' ? ANTIGRAVITY_ACCOUNT_ACTION_TIMEOUT_MS : 20_000,
+    ...(action === 'Start'
+      ? {
+          paramsForStatus: (status) =>
+            owner.kind === 'local' ||
+            status?.capabilities?.includes(ANTIGRAVITY_CHAT_SIGN_IN_INTENT_RUNTIME_CAPABILITY)
+              ? params
+              : undefined
+        }
+      : {})
   })
 }
 
@@ -64,7 +128,10 @@ export async function subscribeAntigravityChatSignIn(
   handlers: RuntimeRpcSubscriptionHandlers
 ): Promise<{ unsubscribe: () => void }> {
   await assertChatSignInHost(owner)
-  return subscribeRuntimeRpc(owner, 'accounts.antigravityChatSignInSubscribe', null, handlers)
+  return subscribeRuntimeRpc(owner, 'accounts.antigravityChatSignInSubscribe', null, {
+    ...handlers,
+    onEvent: (result, runtimeId) => handlers.onEvent(Object.assign({}, result, { runtimeId }))
+  })
 }
 
 export async function callAntigravityChatAuthConfig(
@@ -84,4 +151,53 @@ export async function callAntigravityChatAuthConfig(
     config,
     { timeoutMs: 20_000 }
   )
+}
+
+/** Reads, saves or clears the Gemini API key the host's Antigravity chat uses; never returns the key. */
+export async function callAntigravityChatApiKey(
+  owner: RuntimeClientTarget,
+  action: { kind: 'status' } | { kind: 'save'; apiKey: string } | { kind: 'clear' }
+): Promise<AntigravityChatApiKeyStatus> {
+  if (owner.kind === 'environment') {
+    await assertRuntimeEnvironmentCapability(
+      owner.environmentId,
+      ANTIGRAVITY_CHAT_KEY_AND_ADC_AUTH_RUNTIME_CAPABILITY,
+      'Update Orca on this host to sign Antigravity chats in with a Gemini API key.'
+    )
+  }
+  return action.kind === 'save'
+    ? callRuntimeRpc(
+        owner,
+        'accounts.antigravityChatApiKeySave',
+        { apiKey: action.apiKey },
+        {
+          timeoutMs: 20_000
+        }
+      )
+    : callRuntimeRpc(
+        owner,
+        action.kind === 'clear'
+          ? 'accounts.antigravityChatApiKeyClear'
+          : 'accounts.antigravityChatApiKeyStatus',
+        undefined,
+        { timeoutMs: 20_000 }
+      )
+}
+
+/** The credentials the host's chat could use; null from a host too old to say. */
+export async function callAntigravityChatAuthDetect(
+  owner: RuntimeClientTarget
+): Promise<AntigravityChatAuthDetection | null> {
+  if (
+    owner.kind === 'environment' &&
+    !(await runtimeEnvironmentSupportsCapability(
+      owner.environmentId,
+      ANTIGRAVITY_CHAT_AUTH_DETECT_RUNTIME_CAPABILITY
+    ))
+  ) {
+    return null
+  }
+  return callRuntimeRpc(owner, 'accounts.antigravityChatAuthDetect', undefined, {
+    timeoutMs: 10_000
+  })
 }

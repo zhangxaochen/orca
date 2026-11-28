@@ -31,21 +31,30 @@ function findCursorAgentScreenInputAnchor(args: {
   cols: number
   knownCursorAgent?: boolean
 }): TerminalImeAnchor | null {
-  const allowTypedInput = args.knownCursorAgent || hasCursorAgentHeader(args.buffer, args.rows)
+  const allowTypedInput = Boolean(
+    args.knownCursorAgent || hasCursorAgentHeader(args.buffer, args.rows)
+  )
 
   // Find the bottom-most prompt; transcript arrows (e.g. rename diffs) must not become the input anchor.
   for (let row = args.rows - 1; row >= 0; row--) {
-    const line = getVisibleLine(args.buffer, row)
-    if (!line) {
-      continue
-    }
-    const column = resolveCursorAgentInputColumn(line, args.cols, Boolean(allowTypedInput))
-    if (column !== null) {
-      return { row, column: Math.min(column, Math.max(args.cols - 1, 0)) }
+    const anchor = resolveRowInputAnchor(args.buffer, row, args.cols, allowTypedInput)
+    if (anchor) {
+      return anchor
     }
   }
 
   return null
+}
+
+function resolveRowInputAnchor(
+  buffer: IBuffer,
+  row: number,
+  cols: number,
+  allowTypedInput: boolean
+): TerminalImeAnchor | null {
+  const line = getVisibleLine(buffer, row)
+  const column = line ? resolveCursorAgentInputColumn(line, cols, allowTypedInput) : null
+  return column === null ? null : { row, column: Math.min(column, Math.max(cols - 1, 0)) }
 }
 
 function getVisibleLine(buffer: IBuffer, row: number): IBufferLine | undefined {

@@ -1,4 +1,7 @@
 import {
+  isHangTierObservation,
+  mergeHangTierFields,
+  parseHangStallTrailFields,
   MACHINE_FIELDS,
   SNAPSHOT_FIELDS,
   type HangPowerReceipt,
@@ -13,7 +16,7 @@ import {
   parseNativeHangCapture
 } from './hang-capture-codec'
 import { parseHangWorkerSends } from './hang-worker-sends'
-export { MACHINE_FIELDS, SNAPSHOT_FIELDS } from './hang-observation-schema'
+export { MACHINE_FIELDS, SNAPSHOT_FIELDS, latestHangMarker } from './hang-observation-schema'
 export type {
   HangSnapshot,
   HangMachineSnapshot,
@@ -149,7 +152,8 @@ function parseObservation(value: unknown): HangObservation | null {
           }
         }
       : {}),
-    ...(workerSends ? { workerSends } : {})
+    ...(workerSends ? { workerSends } : {}),
+    ...parseHangStallTrailFields(data)
   }
 }
 
@@ -196,11 +200,13 @@ export function asHangObservations(value: unknown): HangObservationCollection | 
   }
 }
 function priority(record: HangObservation): number {
-  return record.kind === 'heartbeat-stall' ? 3 : record.initialSleepAssociated ? 1 : 2
+  const gap = record.initialSleepAssociated ? 1 : 3
+  return record.kind === 'heartbeat-stall' ? (isHangTierObservation(record) ? 4 : 2) : gap
 }
 export function retainHangObservation(
   collection: HangObservationCollection,
-  record: HangObservation
+  record: HangObservation,
+  options: { reserve?: boolean } = {} // only a live capture reserves a row; replay must not evict hangs
 ): HangObservationCollection {
   record = admitHangObservation(record)
   const existing = collection.observations.findIndex((item) => item.id === record.id)
@@ -239,6 +245,7 @@ export function retainHangObservation(
           }
         : old.native,
       powerEvents: [...receipts.values()].slice(-4),
+      ...mergeHangTierFields(old, record),
       watchdogGap:
         old.watchdogGap && old.watchdogGap.durationMs > (record.watchdogGap?.durationMs ?? -1)
           ? old.watchdogGap
@@ -249,7 +256,8 @@ export function retainHangObservation(
   const candidates = [...collection.observations, record]
   const anchors = new Set(
     [
-      candidates.find((item) => item.kind === 'heartbeat-stall'),
+      options.reserve ? record : undefined,
+      candidates.find(isHangTierObservation),
       candidates.find((item) => item.kind === 'watchdog-gap' && !item.initialSleepAssociated)
     ].filter((item): item is HangObservation => !!item)
   )
@@ -271,26 +279,12 @@ export function retainHangObservation(
 }
 export function mergeHangObservations(
   first: HangObservationCollection,
-  second: HangObservationCollection
+  second: HangObservationCollection,
+  liveId?: string | null
 ): HangObservationCollection {
   let result = { ...first, omitted: Math.min(2_147_483_647, first.omitted + second.omitted) }
   for (const record of second.observations) {
-    result = retainHangObservation(result, record)
+    result = retainHangObservation(result, record, { reserve: record.id === liveId })
   }
   return result
-}
-export function latestHangMarker(
-  collection: HangObservationCollection
-): HangDetectionMarker | null {
-  const record = collection.observations.findLast((item) => item.kind === 'heartbeat-stall')
-  return record
-    ? {
-        detectedAt: record.detectedAt,
-        parentPid: record.parentPid,
-        unresponsiveMs:
-          record.durationMs +
-          Math.max(0, (record.resolution?.wallMs ?? record.detectedAt) - record.detectedAt),
-        selfRecovered: record.selfRecovered
-      }
-    : null
 }

@@ -24,7 +24,10 @@ import {
   collectWorkspaceCleanupWorkspaces,
   type WorkspaceCleanupWorkspace
 } from './workspace-cleanup-run-evidence'
-import { decideWorkspaceCleanup, removeWorkspaceForCleanup } from './workspace-cleanup-removal-step'
+import {
+  decideWorkspaceCleanups,
+  removeWorkspacesForCleanup
+} from './workspace-cleanup-removal-step'
 import {
   keptRunOutcome,
   summarizeWorkspaceCleanupRun,
@@ -248,20 +251,19 @@ export class WorkspaceCleanupRunner {
       }),
       this.readSizes()
     ])
-    const decided: DecidedWorkspace[] = []
-    for (const workspace of workspaces) {
+    const evaluations = await decideWorkspaceCleanups(this.deps.runtime, workspaces, now)
+    return workspaces.map((workspace, index) => {
       const sizeBytes = sizes.get(workspace.ref.worktreeId)
-      decided.push({
+      return {
         workspace,
         ref: {
           ...workspace.ref,
           ...workspaceCleanupRowDetails(workspace.input),
           ...(sizeBytes !== undefined ? { sizeBytes } : {})
         },
-        evaluation: await decideWorkspaceCleanup(this.deps.runtime, workspace, now)
-      })
-    }
-    return decided
+        evaluation: evaluations[index]
+      }
+    })
   }
 
   private async readSizes(): Promise<Map<string, number>> {
@@ -293,18 +295,15 @@ export class WorkspaceCleanupRunner {
       }
       // Nested checkouts first, so a parent's removal never sweeps a child it did not re-check.
       removals.sort((a, b) => b.ref.path.length - a.ref.path.length)
-      for (const { workspace, ref, reason } of removals) {
-        if (this.abort.signal.aborted) {
-          break
-        }
-        const outcome = await removeWorkspaceForCleanup({
-          runtime: this.deps.runtime,
-          store: this.deps.store,
-          globalRules: () => this.globalRules(),
-          workspace,
-          now: () => Date.now(),
-          signal: this.abort.signal
-        })
+      const removalResults = await removeWorkspacesForCleanup({
+        runtime: this.deps.runtime,
+        store: this.deps.store,
+        globalRules: () => this.globalRules(),
+        removals,
+        now: () => Date.now(),
+        signal: this.abort.signal
+      })
+      for (const { ref, reason, outcome } of removalResults) {
         rows.push({ ...ref, reason, ...outcome })
       }
     } catch (cause) {

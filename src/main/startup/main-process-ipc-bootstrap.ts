@@ -1,14 +1,12 @@
 import { ipcMain } from 'electron'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../shared/workspace-layout/layout-owner-switch'
-import { placeUnshownLiveTerminalsBestEffort } from '../runtime/terminal/adoption/unshown-live-terminal-placement'
-import { recoverLegacyWorkerTerminalsForRendererStartup } from './pty-startup/legacy-worker-renderer-recovery'
 import { logStartupMilestone } from './diagnostics/startup-diagnostics'
 import { mainProcessState as state } from './main-process-state'
 import {
   consumeQuitAndStopAllSessionsRequest,
   quitAfterRendererStoppedAllSessions
 } from './main-window/main-window-actions'
-import { resolveOsOpenedDocuments } from './open-routing/os-opened-documents'
+import { areHostBotsEnabled } from '../bots/bot-team-policy'
 import {
   onStructuredAgentSessionsHeldChanged,
   structuredAgentSessionsHeld
@@ -31,7 +29,7 @@ export function registerMainProcessIpcHandlers(): void {
       state.firstWindowStartupServicesReady,
       state.managedWslCliStartupBarrierReady
     ])
-    await state.runtime?.prepareStructuredAgentSessionStartupRestoration()
+    await state.core.runtime?.prepareStructuredAgentSessionStartupRestoration()
   })
   // Only hosts holding a saved/new structured chat have local rows for the renderer to mirror.
   ipcMain.handle('app:holdsStructuredAgentSessions', () => structuredAgentSessionsHeld())
@@ -48,19 +46,25 @@ export function registerMainProcessIpcHandlers(): void {
       window.webContents.send('app:agentSessionUploadRemoved', uploadDir)
     }
   })
-  ipcMain.handle('app:recoverLegacyWorkerTerminalsForRendererStartup', (_event, options) =>
-    recoverLegacyWorkerTerminalsForRendererStartup({
+  ipcMain.handle('app:recoverLegacyWorkerTerminalsForRendererStartup', async (_event, options) => {
+    const { recoverLegacyWorkerTerminalsForRendererStartup } =
+      await import('./pty-startup/legacy-worker-renderer-recovery')
+    return recoverLegacyWorkerTerminalsForRendererStartup({
       firstWindowStartupServicesReady: state.firstWindowStartupServicesReady,
       managedWslCliStartupBarrierReady: state.managedWslCliStartupBarrierReady,
       localPtyProviderStartupReady: state.localPtyProviderStartupReady,
       reconcile: async () => {
         try {
-          await state.runtime?.refreshRestoredOrchestrationAuthority()
-          return await state.runtime?.reconcileLegacyWorkerTerminals({ materializeRenderer: true })
+          await state.core.runtime?.refreshRestoredOrchestrationAuthority()
+          return await state.core.runtime?.reconcileLegacyWorkerTerminals({
+            materializeRenderer: true
+          })
         } finally {
           // Main adopts unshown terminals after worker recovery attempts, even failures; the window no longer does.
           if (ORCA_LAYOUT_OWNER_IS_MAIN) {
-            await placeUnshownLiveTerminalsBestEffort(state.runtime)
+            const { placeUnshownLiveTerminalsBestEffort } =
+              await import('../runtime/terminal/adoption/unshown-live-terminal-placement')
+            await placeUnshownLiveTerminalsBestEffort(state.core.runtime)
           }
         }
       },
@@ -70,27 +74,69 @@ export function registerMainProcessIpcHandlers(): void {
     }).finally(() => {
       // Only the pass after terminal reconnect leaves every restored worker terminal resolvable.
       if (options?.afterReconnect === true) {
-        state.runtime?.startupWorkerAuthority.finish()
+        state.core.runtime?.startupWorkerAuthority.finish()
+        void state.core.runtime?.reportWorkerStopsAcrossRestartOnce()
       }
     })
-  )
+  })
   // Renderer pulls after listener mount so early Settings requests survive.
   ipcMain.handle('ui:consumePendingOpenSettings', (event) =>
     state.pendingOpenSettings.matches(event.sender.id, { consume: true })
   )
+  ipcMain.handle('ui:consumePendingSkillShare', () => state.deepLinks.consumeSkillShare())
+  ipcMain.handle('ui:consumePendingBotLink', async () => {
+    // Bots off: the link only brings Orca forward.
+    if (!areHostBotsEnabled(state.store?.getSettings())) {
+      state.deepLinks.discardConnectorLinks()
+      state.deepLinks.consumeBotLink()
+      return null
+    }
+    // Rides the bot link's doorbell; the renderer pulls again for any link pending beside it.
+    const connectorLink = state.deepLinks.consumeConnectorLink()
+    if (connectorLink) {
+      return { kind: 'connector-link', ...connectorLink }
+    }
+    const accessRequest = state.deepLinks.consumeAccessRequest()
+    if (accessRequest) {
+      return { kind: 'access-request', ...accessRequest }
+    }
+    const botShareId = state.deepLinks.consumeBotShare()
+    if (botShareId) {
+      return { kind: 'bot-share', shareId: botShareId }
+    }
+    const link = state.deepLinks.consumeBotLink()
+    if (!link) {
+      return null
+    }
+    if (!state.store) {
+      return { kind: 'missing' }
+    }
+    const { openBotDeepLink } = await import('../bots/bot-deep-link-open')
+    return openBotDeepLink(state.store, link, async (sessionId) => {
+      if (!state.core.runtime) {
+        return []
+      }
+      const { readSessionWorkers } =
+        await import('../runtime/rpc/methods/orchestration/worker/session-workers-method')
+      return readSessionWorkers(state.core.runtime, sessionId, { connectorOnly: true })
+    })
+  })
   ipcMain.handle('ui:consumePendingQuitAndStopAllSessions', (event) =>
     consumeQuitAndStopAllSessionsRequest(event.sender.id)
   )
   ipcMain.handle('ui:quitAfterStoppingAllSessions', (event) =>
     quitAfterRendererStoppedAllSessions(event.sender.id)
   )
-  ipcMain.handle('ui:consumePendingSkillShare', () => state.skillShareDeepLinks.consume())
   ipcMain.handle('ui:consumePendingPluginInstallLink', () => state.pluginInstallLinks.consume())
   // Pull delivers cold-start Open With and proves the listener is ready for later pushes.
   ipcMain.handle('ui:consumePendingMarkdownFileOpens', async () => {
     state.osDocumentOpenListenerReady = true
     const filePaths = state.osOpenedDocuments.consume()
+    if (filePaths.length === 0) {
+      return []
+    }
     try {
+      const { resolveOsOpenedDocuments } = await import('./open-routing/os-opened-documents')
       return await resolveOsOpenedDocuments(filePaths)
     } catch (error) {
       // Restore undelivered paths so a later renderer mount can retry.
