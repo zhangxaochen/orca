@@ -9,8 +9,8 @@ import {
   MobileFilePreviewTruncatedNote
 } from '../preview/MobileFilePreviewSourceText'
 import type { MarkdownPreviewMode } from './MobileMarkdownPreviewModeBar'
-import { filePreviewStyles as styles } from '../preview/mobile-file-preview-styles'
-import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { filePreviewStylesSheet } from '../preview/mobile-file-preview-styles'
+import { useThemedStyles } from '../../theme/themed-styles'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 
 type Props = {
@@ -42,7 +42,7 @@ export function MobileFileMarkdownPreview({
   worktreeId,
   onOpenFile
 }: Props) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(filePreviewStylesSheet)
   const t = useMobileTranslation()
 
   return (
