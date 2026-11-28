@@ -10,7 +10,6 @@ import { OrcaHookTrustDrawer } from '../components/hook-trust/OrcaHookTrustDrawe
 import { NewWorktreeModalController } from '../new-workspace/creation/modal/NewWorktreeModalController'
 import { hostNewWorktreeSessionRoute } from '../host-new-worktree-session-route'
 import type { Worktree } from '../worktree/workspace-list/workspace-list-types'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { WorkspaceOptionsSheet } from './workspace-options/workspace-options-sheet'
 import { HostNewBotSheet } from './host-new-bot-sheet'
 import { WorkspaceDetailsSheet } from './workspace-actions/workspace-details-sheet'
@@ -22,10 +21,31 @@ import { useWorkspaceHandToBot } from './workspace-actions/use-workspace-hand-to
 import { useBottomDrawerFollowUp } from '../components/bottom-drawer/use-bottom-drawer-follow-up'
 import type { HostScreenController } from './use-host-screen-controller'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import type { ActionSheetAction } from '../components/sheets/ActionSheetModal'
+import { MobileRepoIcon } from '../components/icons/MobileRepoIcon'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
+import { useRepoLookById } from './catalog/host-repo-looks'
+import { HostUpdateToast } from '../host-update-notice/HostUpdateNotice'
+import { isRemoteExecutionHostId } from '../../../src/shared/execution-host/execution-host'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+
+// The sheet's one muted line: the project, then the branch when the name doesn't already say it.
+function workspaceSubjectLine(row: Worktree): string {
+  const branch = row.branch.replace(/^refs\/heads\//, '')
+  const name = row.displayName || row.repo
+  return [row.repo, branch && branch !== name ? branch : null].filter(Boolean).join(' · ')
+}
 
 export function HostScreenOverlays({ controller }: { controller: HostScreenController }) {
+  const colors = useMobileColors()
   const t = useMobileTranslation()
-  useMobileColorScheme()
+  const insets = useSafeAreaInsets()
+  // A workspace on a server the computer reaches: its refusal names that server.
+  const deleteHostId = controller.actions.deleteFailure?.item.hostId
+  const deleteServerName =
+    deleteHostId && isRemoteExecutionHostId(deleteHostId)
+      ? controller.state.hostLabelById.get(deleteHostId)
+      : undefined
   const {
     actions,
     catalog,
@@ -38,9 +58,12 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
     state
   } = controller
   const actionTarget = state.actionTarget
+  const repoLookById = useRepoLookById(controller.sectionsResult.repoById)
   // Tied to the menu's row, so a menu closed elsewhere never reopens on the rename sheet.
   const [renameTarget, setRenameTarget] = useState<Worktree | null>(null)
   const [statusTarget, setStatusTarget] = useState<Worktree | null>(null)
+  // Hand off's two choices, swapped into the drawer when both are offered.
+  const [handOffChoices, setHandOffChoices] = useState<ActionSheetAction[] | null>(null)
   const handToBot = useWorkspaceHandToBot({
     controller,
     closeMenuThen: (then) => menuFollowUp.closeThen(then)
@@ -48,6 +71,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
   const closeActionSheet = () => {
     setRenameTarget(null)
     setStatusTarget(null)
+    setHandOffChoices(null)
     handToBot.reset()
     state.setConfirmDelete(null)
     state.setActionTarget(null)
@@ -66,8 +90,10 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
     server: actionServer,
     onRename: setRenameTarget,
     onMoveToStatus: setStatusTarget,
-    onHandToBot: handToBot.open
+    onHandToBot: handToBot.open,
+    onChooseHandOff: setHandOffChoices
   })
+  const repoLook = actionTarget ? repoLookById.get(actionTarget.repoId) : undefined
 
   return (
     <>
@@ -119,8 +145,32 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
             />
           ) : actionTarget && handToBot.target === actionTarget ? (
             handToBot.sheet(actionTarget, closeActionSheet)
+          ) : handOffChoices ? (
+            <ActionSheetContent
+              title={t('hostScreen.hostScreenOverlays.handOff', 'Hand off')}
+              actions={handOffChoices.map((choice) => ({
+                ...choice,
+                onPress: () => {
+                  setHandOffChoices(null)
+                  choice.onPress()
+                }
+              }))}
+            />
           ) : (
-            <ActionSheetContent actions={rowMenuActions}>
+            <ActionSheetContent
+              actions={rowMenuActions}
+              title={actionTarget ? actionTarget.displayName || actionTarget.repo : undefined}
+              message={actionTarget ? workspaceSubjectLine(actionTarget) : undefined}
+              headerIcon={
+                actionTarget ? (
+                  <MobileRepoIcon
+                    repoIcon={repoLook?.icon ?? null}
+                    size={17}
+                    color={repoLook?.color ?? colors.textSecondary}
+                  />
+                ) : undefined
+              }
+            >
               {actionTarget ? (
                 <WorkspaceDetailsSheet
                   row={actionTarget}
@@ -157,7 +207,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
         />
 
         <ConfirmModal
-          visible={actions.deleteFailure != null}
+          visible={actions.deleteFailure != null && !actions.deleteFailure.hostUpdate}
           title={t('hostScreen.hostScreenOverlays.deleteFailed', 'Failed to delete "{{name}}"', {
             name: actions.deleteFailure?.item.displayName || actions.deleteFailure?.item.repo
           })}
@@ -168,6 +218,14 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
           onCancel={actions.dismissDeleteFailure}
         />
       </BottomDrawerModalHost>
+
+      <HostUpdateToast
+        visible={actions.deleteFailure?.hostUpdate === true}
+        {...(deleteServerName ? { serverName: deleteServerName } : {})}
+        onDismiss={actions.dismissDeleteFailure}
+        bottomInset={insets.bottom}
+        {...(hostId ? { hostId } : {})}
+      />
 
       <ConfirmModal
         visible={state.confirmRemoveHost}
