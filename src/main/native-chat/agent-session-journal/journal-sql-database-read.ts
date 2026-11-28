@@ -24,6 +24,7 @@ import { readForgottenJournalChats } from './journal-forgotten-chats'
 import { readDeletedChats } from './journal-deleted-chats'
 import type { DeletedChat } from '../chat-deletion/deleted-chats'
 import {
+  hasUnsentJournalConnectorReply,
   readJournalConnectorReplies,
   readOwedJournalConnectorReplies
 } from './connector-replies/journal-connector-replies-read'
@@ -50,6 +51,7 @@ export type JournalSqlDatabaseRead =
   | { kind: 'epoch'; sessionId: string }
   | { kind: 'sessions'; after: string | null }
   | { kind: 'chat-exists'; sessionId: string }
+  | { kind: 'message-chats'; messageId: string }
   | { kind: 'retired-heads'; after: string | null; through: string | null }
   | { kind: 'attachment-claims'; after: number }
   | { kind: 'attachment-sweeps'; after: string | null }
@@ -58,6 +60,12 @@ export type JournalSqlDatabaseRead =
   | { kind: 'deleted-chats' }
   | { kind: 'connector-replies'; sessionId?: string }
   | { kind: 'connector-replies-owed'; account: string; after: string | null; limit: number }
+  | {
+      kind: 'connector-reply-unsent'
+      sessionId: string
+      conversation: { source: string; externalId: string }
+      turnStartedAt: number
+    }
 
 export type JournalSqlDatabaseReadResult =
   | { kind: 'pr-watch'; value: PRWatchReadValues[PRWatchRead['kind']] }
@@ -66,6 +74,7 @@ export type JournalSqlDatabaseReadResult =
   | { kind: 'epoch'; epoch: string | null }
   | { kind: 'sessions'; sessionIds: string[] }
   | { kind: 'chat-exists'; exists: boolean }
+  | { kind: 'message-chats'; sessionIds: string[] }
   | { kind: 'legacy-compares'; compares: JournalLegacyCompare[] }
   | { kind: 'retired-heads'; heads: JournalRetiredHead[]; through: string | null }
   | {
@@ -76,6 +85,7 @@ export type JournalSqlDatabaseReadResult =
   | { kind: 'forgotten-chats'; sessionIds: string[] }
   | { kind: 'deleted-chats'; chats: DeletedChat[] }
   | { kind: 'connector-replies'; rows: JournalConnectorReplyRow[] }
+  | { kind: 'connector-reply-unsent'; unsent: boolean }
 
 /** Profile metadata has no chat projection prerequisite; all reads still share one WAL snapshot. */
 export function readJournalSqlDatabase(
@@ -120,6 +130,16 @@ function read(
       return {
         kind: 'connector-replies',
         rows: readJournalConnectorReplies(db, operation.sessionId)
+      }
+    case 'connector-reply-unsent':
+      return {
+        kind: 'connector-reply-unsent',
+        unsent: hasUnsentJournalConnectorReply(
+          db,
+          operation.sessionId,
+          operation.conversation,
+          operation.turnStartedAt
+        )
       }
     case 'connector-replies-owed':
       return {
@@ -223,5 +243,20 @@ function read(
       }
     case 'deleted-chats':
       return { kind: 'deleted-chats', chats: readDeletedChats(db) }
+    case 'message-chats':
+      return { kind: 'message-chats', sessionIds: readMessageChats(db, operation.messageId) }
   }
+}
+
+/** Chats whose current history holds a message by this id, sent or queued. No index leads with it:
+ *  callers read this once per run Orca lost track of, never per message. */
+function readMessageChats(db: Database.Database, messageId: string): string[] {
+  const current = 'JOIN journal_chat_state c ON c.session_id=r.session_id AND c.epoch=r.epoch'
+  return db
+    .prepare(
+      `SELECT r.session_id FROM journal_submission_attempts r ${current} WHERE r.message_id=?1 AND r.current=1
+      UNION SELECT r.session_id FROM journal_queue_cards r ${current} WHERE r.message_id=?1`
+    )
+    .all(messageId)
+    .map((row) => String(row.session_id))
 }

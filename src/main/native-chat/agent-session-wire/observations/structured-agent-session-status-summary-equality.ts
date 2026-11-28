@@ -16,6 +16,7 @@ export function structuredStatusSummariesEqual(
     a.usageLimitContinue?.resetsAt === b.usageLimitContinue?.resetsAt &&
     a.usageLimitContinue?.state === b.usageLimitContinue?.state &&
     a.usageLimitContinue?.continueAt === b.usageLimitContinue?.continueAt &&
+    a.usageLimitContinue?.limitedAccount === b.usageLimitContinue?.limitedAccount &&
     a.agent === b.agent &&
     a.status === b.status &&
     a.hostExecutionOwned === b.hostExecutionOwned &&
@@ -45,6 +46,7 @@ export function structuredStatusSummariesEqual(
     a.lastAssistantMessage === b.lastAssistantMessage &&
     a.launchDirectory === b.launchDirectory &&
     a.hostProgram === b.hostProgram &&
+    a.ownLogin === b.ownLogin &&
     a.conversationName === b.conversationName &&
     a.conversationNameSource === b.conversationNameSource &&
     agentSessionForkNamingEqual(a.forkedFrom, b.forkedFrom) &&

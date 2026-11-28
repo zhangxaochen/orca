@@ -10,6 +10,7 @@ import type { AgentSessionStatusSummary } from '../../../../shared/agent-session
 import { RestartContinuationSupersededError } from './structured-agent-session-restart-continuation'
 import { UsageLimitAccountHolds } from './structured-agent-session-usage-limit-account-hold'
 import { UsageLimitColdCuts } from './structured-agent-session-usage-limit-cold-cuts'
+import { publishedUsageLimitContinue } from './structured-agent-session-usage-limit-published'
 import { usageLimitContinueMutation } from './structured-agent-session-usage-limit-continue-message'
 import {
   cancelsCut,
@@ -34,6 +35,7 @@ export { readSavedUsageLimitCut } from './structured-agent-session-usage-limit-c
 export class StructuredAgentSessionUsageLimitContinue {
   private timer: ReturnType<typeof setInterval> | undefined
   private stopSettings: (() => void) | undefined
+  private stopAccounts?: () => void
   private running = false
   private disposed = false
   private readonly attempts = new Map<string, Attempt>()
@@ -50,8 +52,7 @@ export class StructuredAgentSessionUsageLimitContinue {
   }
 
   constructor(private readonly deps: UsageLimitContinueDeps) {
-    const switchReset = (id: string, cut: HostUsageLimitCut) =>
-      this.holds.withSwitchReset(id, cut, deps.now())
+    const switchReset = (id: string, cut: HostUsageLimitCut) => this.holds.withSwitchReset(id, cut)
     this.cold = new UsageLimitColdCuts({ ...deps, logger: deps.host.logger, switchReset })
   }
 
@@ -60,6 +61,8 @@ export class StructuredAgentSessionUsageLimitContinue {
     this.shown = new Set(openUsageLimitChats(this.deps.host.store))
     this.timer = setInterval(() => void this.tick(), 10_000)
     this.timer.unref?.()
+    // A newly selected saved account can free a held chat at once.
+    this.stopAccounts = this.deps.host.usageLimitAutoContinue?.subscribeAccounts?.(this.tick)
     let enabled = this.enabled()
     this.stopSettings = this.deps.host.usageLimitAutoContinue?.subscribe(() => {
       // Other settings writes change nothing published here.
@@ -93,6 +96,7 @@ export class StructuredAgentSessionUsageLimitContinue {
     this.disposed = true
     clearInterval(this.timer)
     this.stopSettings?.()
+    this.stopAccounts?.()
     this.cold.clear()
     this.attempts.clear()
     this.holds.clear()
@@ -123,7 +127,7 @@ export class StructuredAgentSessionUsageLimitContinue {
     id: string,
     read: HostUsageLimitCut | null
   ): AgentSessionStatusSummary['usageLimitContinue'] => {
-    const cut = read && this.holds.withSwitchReset(id, read, this.deps.now())
+    const cut = read && this.holds.withSwitchReset(id, read)
     // A cut Orca can never continue shows only the manual actions, whatever the setting.
     if (!cut || !this.holds.schedulable(id, cut, this.deps.now())) {
       return undefined
@@ -141,18 +145,11 @@ export class StructuredAgentSessionUsageLimitContinue {
           ? 'scheduled'
           : 'off'
     // An unknown reset has no time to promise, yet fresh room still releases it: say nothing.
-    if (hold.unknownReset && state === 'scheduled') {
+    // A relaunch's stand-in reset is no reset at all, so it never reads as "can continue now".
+    if (hold.awaitingRoom || (hold.unknownReset && state === 'scheduled')) {
       return undefined
     }
-    return {
-      turnItemId: cut.turnItemId,
-      resetsAt: cut.resetsAt,
-      // While the reset is unknown, `hold.resetsAt` is a reading time, not a reset.
-      ...(!hold.unknownReset && hold.resetsAt !== cut.resetsAt
-        ? { continueAt: hold.resetsAt }
-        : {}),
-      state
-    }
+    return publishedUsageLimitContinue(cut, hold, state)
   }
 
   /** See usageLimitCutDisposition; the cut read as the journal stands now. */
@@ -194,7 +191,7 @@ export class StructuredAgentSessionUsageLimitContinue {
       this.deps.publish(input.sessionId)
     })
 
-  async tick(): Promise<void> {
+  tick = async (): Promise<void> => {
     if (this.running || this.disposed) {
       return
     }
@@ -206,7 +203,7 @@ export class StructuredAgentSessionUsageLimitContinue {
       // Visibility and workspace sleep can change without a journal or settings commit.
       await this.publishScheduled()
       await this.cold.readUnread(visible)
-      this.holds.beginPass()
+      this.holds.beginPass(this.deps.now())
       const due: { id: string; cut: Cut; at: number }[] = []
       for (const id of visible) {
         if (!this.deps.sessions.has(id) && !this.cold.has(id)) {
@@ -222,7 +219,7 @@ export class StructuredAgentSessionUsageLimitContinue {
         if (read) {
           await this.holds.attribute(id, this.deps.host, read, this.deps.now())
         }
-        const cut = read && this.holds.withSwitchReset(id, read, this.deps.now())
+        const cut = read && this.holds.withSwitchReset(id, read)
         const previous = this.attempts.get(id)
         if (!cut || previous?.identity !== attemptIdentity(cut)) {
           this.attempts.delete(id)
@@ -236,8 +233,8 @@ export class StructuredAgentSessionUsageLimitContinue {
         ) {
           continue
         }
+        this.holds.askForRelaunchRoom(id, cut, this.deps.now())
         if (!this.eligible(id, cut)) {
-          this.holds.askForRelaunchRoom(id, cut)
           continue
         }
         const retryAt = attempt ? attempt.at + 60_000 * 2 ** Math.max(0, attempt.count - 1) : 0
@@ -274,7 +271,7 @@ export class StructuredAgentSessionUsageLimitContinue {
 
   private async send(id: string, cut: Cut): Promise<void> {
     // Earlier sends take time; moved sources resolve again, once per new witness for every chat.
-    if (!this.holds.attributionCurrent(id, this.deps.host)) {
+    if (!this.holds.bindingHolds(id, this.deps.host, this.holds.attributionBinding(id))) {
       await this.holds.attribute(id, this.deps.host, cut, this.deps.now())
     }
     // Still moving: yield without spending an attempt; a later pass resolves on settled sources.
@@ -308,10 +305,11 @@ export class StructuredAgentSessionUsageLimitContinue {
         })),
         expectedContinuationLaunch: { runtimeFence, launchFence },
         beforeRun: async () => {
-          const current = await this.cold.read(id)
+          const read = await this.cold.read(id)
+          const current = read && this.holds.withSwitchReset(id, read)
           if (
             !current ||
-            identity(current) !== identity(cut) ||
+            attemptIdentity(current) !== attemptIdentity(cut) ||
             !this.eligible(id, current) ||
             !this.holds.bindingHolds(id, this.deps.host, binding) ||
             !this.holds.ready(id, current, this.deps.now())

@@ -6,6 +6,7 @@ import {
 import {
   nativeChatUsageLimitAutoContinueKind,
   usageLimitContinueAtForCut,
+  usageLimitLimitedAccountForCut,
   usageLimitContinueResetForCut,
   usageLimitContinueStateForCut,
   type NativeChatUsageLimitAutoContinueKind
@@ -15,6 +16,10 @@ import type { AgentJournalCardSubmission } from '../../../../../src/shared/agent
 import type { AgentSessionOptionsResult } from '../../../../../src/shared/agent-session/options/protocol/agent-session-options-result'
 import type { AgentJournalCursor } from '../../../../../src/shared/agent-session/journal/agent-session-journal-identity'
 import { mobileStructuredSessionStatusFeed } from '../agent-session/mobile-structured-session-status-feed'
+import {
+  antigravityChatAccounts,
+  type AntigravityChatAccounts
+} from '../../../accounts/antigravity-account-switch'
 import { callAgentSession } from '../agent-session/mobile-structured-agent-session-rpc'
 import type {
   MobileStructuredAgentSessionArgs,
@@ -28,12 +33,17 @@ export type MobileNativeChatUsageLimit = {
   autoContinue: Exclude<NativeChatUsageLimitAutoContinueKind, 'off'> | null
   /** The reset the host's automatic continue waits for; later than the cut's while the account is spent. */
   continueAt: number | undefined
+  /** The account the chat moved to, itself out of quota until `continueAt`. */
+  limitedAccount: string | undefined
   /** Null on a host that refuses "Don't continue" from a phone. */
   cancel: (() => void) | null
   cancelling: boolean
   cancelFailed: boolean
   /** Undefined until the host first answers for this cut; later re-asks keep the last answer. */
   canSwitchAccount: boolean | undefined
+  /** This Antigravity chat's host takes a phone's pick of another saved account; separate from
+   *  canSwitchAccount, which older phones offer for any agent. */
+  antigravityAccounts: AntigravityChatAccounts | null
   /** Sends desktop's "Continue where you left off." for this cut. */
   continueNow: () => void
 }
@@ -105,6 +115,14 @@ export function useMobileNativeChatUsageLimit(
     [feed, sessionId, cut]
   )
   const continueAt = useSyncExternalStore(subscribe, readContinueAt, readContinueAt)
+  const readLimitedAccount = useCallback(
+    () =>
+      feed && sessionId
+        ? usageLimitLimitedAccountForCut(feed.getSnapshot().get(sessionId)?.usageLimitContinue, cut)
+        : undefined,
+    [feed, sessionId, cut]
+  )
+  const limitedAccount = useSyncExternalStore(subscribe, readLimitedAccount, readLimitedAccount)
   // The host publishes no state for a cut it can't schedule and republishes one that ages out.
   const kind = nativeChatUsageLimitAutoContinueKind(state, { schedulable: true, localHost: false })
   // The chat's last options answer predates the cut (the host says no until one exists), so ask
@@ -114,20 +132,22 @@ export function useMobileNativeChatUsageLimit(
   const [switchAnswer, setSwitchAnswer] = useState<{
     turnItemId: string
     canSwitch: boolean
+    canSwitchAntigravity: boolean
   } | null>(null)
   useEffect(() => {
     if (!live || !client || !sessionId || asked === null || turnItemId === null) {
       return
     }
     let current = true
-    const answer = (canSwitch: boolean): void => {
+    const answer = (canSwitch: boolean, canSwitchAntigravity: boolean): void => {
       if (current) {
-        setSwitchAnswer({ turnItemId, canSwitch })
+        setSwitchAnswer({ turnItemId, canSwitch, canSwitchAntigravity })
       }
     }
     callAgentSession<AgentSessionOptionsResult>(client, 'agentSession.options', { sessionId }).then(
-      (result) => answer(result.canSwitchAccount === true),
-      () => answer(false)
+      (result) =>
+        answer(result.canSwitchAccount === true, result.canSwitchAntigravityAccount === true),
+      () => answer(false, false)
     )
     return () => {
       current = false
@@ -175,6 +195,13 @@ export function useMobileNativeChatUsageLimit(
     )
   }, [send, turnItemId, continuationCapable])
   const canCancel = hostSupport?.usageLimitContinueCancel === true
+  const agyAccounts = useMemo(
+    () =>
+      client && sessionId && hostSupport?.phoneProviderAccountSwitch === true
+        ? antigravityChatAccounts(client, sessionId)
+        : null,
+    [client, sessionId, hostSupport?.phoneProviderAccountSwitch]
+  )
   return useMemo(() => {
     if (turnItemId === null) {
       return null
@@ -183,24 +210,31 @@ export function useMobileNativeChatUsageLimit(
       turnItemId,
       autoContinue: kind === 'off' ? null : kind,
       continueAt,
+      limitedAccount,
       cancel: kind === 'scheduled' && canCancel ? cancel : null,
       cancelling,
       cancelFailed: failedCut === turnItemId && kind === 'scheduled',
       // A re-ask at a later cursor keeps this cut's last answer, so the row never blanks out.
       canSwitchAccount:
         switchAnswer?.turnItemId === turnItemId ? switchAnswer.canSwitch : live ? undefined : false,
+      antigravityAccounts:
+        live && switchAnswer?.turnItemId === turnItemId && switchAnswer.canSwitchAntigravity
+          ? agyAccounts
+          : null,
       continueNow
     }
   }, [
     turnItemId,
     kind,
     continueAt,
+    limitedAccount,
     canCancel,
     cancel,
     cancelling,
     failedCut,
     switchAnswer,
     live,
+    agyAccounts,
     continueNow
   ])
 }
