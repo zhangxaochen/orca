@@ -24,16 +24,26 @@ import { agentCliUpdateDefinition, type AgentCliUpdatePlan } from './agent-cli-u
 import { checkThroughGate, updateThroughGate } from './agent-cli-update-gate'
 import { runAgentCliUpdater, type UpdaterRun } from './agent-cli-updater-process'
 import { PrioritySemaphore } from '../../shared/concurrency/priority-semaphore'
+import { plainUpdaterOutput } from './agent-cli-updater-output'
+import { AGENT_CLI_UPDATES_AT_ONCE } from '../../shared/agent-launch/installation/agent-cli-update-runs'
+import { notifyAgentCliUpdateFinished } from './agent-cli-update-events'
+
+export {
+  announceAgentCliUpdatesFinished,
+  onAgentCliUpdateFinished
+} from './agent-cli-update-events'
 
 // An unread version (e.g. a slow first start) is asked again after this, not on every check.
 const UNREAD_RETRY_MS = 10 * 60_000
 // Each --version starts a full CLI runtime (often Node); a dozen at once spikes memory and CPU.
 const versionReads = new PrioritySemaphore(3)
+// Each update installs a whole CLI (often through npm); the host's own bound, since a desktop and phones
+// each start up to AGENT_CLI_UPDATES_AT_ONCE.
+const installers = new PrioritySemaphore(AGENT_CLI_UPDATES_AT_ONCE)
 
 const versions = new Map<string, { stamp: string; version: string | null; at: number }>()
 const checks = new Map<AgentCliUpdateAgent, Promise<AgentCliUpdate | null>>()
 const runs = new Map<AgentCliUpdateAgent, Promise<AgentCliUpdateRunResult>>()
-const finishedListeners = new Set<(agent: AgentCliUpdateAgent) => void>()
 // Calls of checkAgentCliUpdates not yet answered, with the agents updated while they were out.
 const answering = new Set<{
   agents: readonly AgentCliUpdateAgent[]
@@ -213,6 +223,7 @@ async function updateAgentCli(
   }
   const command = planCommand(cli, plan)
   let result: UpdaterRun
+  const release = await installers.acquire(0)
   try {
     result = await runAgentCliUpdater({
       program: cli.program,
@@ -222,6 +233,8 @@ async function updateAgentCli(
     })
   } catch (error) {
     return { ok: false, output: error instanceof Error ? error.message : String(error), command }
+  } finally {
+    release()
   }
   // New chats and the model list read the replaced binary.
   agentModelCatalogStore.expireLaunchScopes((catalogAgent) => catalogAgent === agent)
@@ -230,8 +243,9 @@ async function updateAgentCli(
   versions.delete(cli.program)
   versions.delete(updated.program)
   const after = await installedVersion(agent, updated)
+  // Spinners and colours mean nothing outside a terminal; every client shows this as plain text.
   const output = [result.stdout, result.stderr, result.stoppedBecause ?? '']
-    .map((text) => text.trim())
+    .map((text) => plainUpdaterOutput(text))
     .filter(Boolean)
     .join('\n')
   const latest = after ? await latestRelease(agent, after) : null
@@ -253,36 +267,9 @@ export function runAgentCliUpdate(
   if (!run) {
     run = runUpdate(agent, settings).finally(() => {
       runs.delete(agent)
-      // Every client re-checks, so none keeps an answer from before the update.
-      for (const listener of finishedListeners) {
-        try {
-          listener(agent)
-        } catch (error) {
-          console.warn(`[agent-cli-update] ${agent} finish not announced:`, error)
-        }
-      }
+      notifyAgentCliUpdateFinished(agent)
     })
     runs.set(agent, run)
   }
   return run
-}
-
-/** Calls `listener` with each agent whose update on this host finished, succeeded or not. */
-export function onAgentCliUpdateFinished(
-  listener: (agent: AgentCliUpdateAgent) => void
-): () => void {
-  finishedListeners.add(listener)
-  return () => finishedListeners.delete(listener)
-}
-
-let stopAnnouncing = (): void => {}
-
-/** Announces each finished update as a client event, so every client checks again; the latest runtime's emitter replaces the last. */
-export function announceAgentCliUpdatesFinished(
-  emit: (event: { type: 'agentCliUpdateFinished'; agent: AgentCliUpdateAgent }) => void
-): void {
-  stopAnnouncing()
-  stopAnnouncing = onAgentCliUpdateFinished((agent) =>
-    emit({ type: 'agentCliUpdateFinished', agent })
-  )
 }

@@ -27,12 +27,12 @@ export function UsageUnitLabel({
       ? t('auto.components.status.bar.usageUnitLabel.used', 'Used')
       : t('auto.components.status.bar.usageUnitLabel.remaining', 'Remaining')
   if (!compact) {
-    return <span className="text-muted-foreground">{label}</span>
+    return <span className="text-[11px] text-muted-foreground">{label}</span>
   }
   return (
-    <span className="inline-flex items-center gap-3.5 text-foreground/50">
+    <span className="inline-flex items-center gap-3.5 text-[11px] text-muted-foreground">
       {label}
-      <span aria-hidden="true" className="h-3 w-px bg-border" />
+      <span aria-hidden="true" className="h-3 w-px bg-muted-foreground/60" />
     </span>
   )
 }

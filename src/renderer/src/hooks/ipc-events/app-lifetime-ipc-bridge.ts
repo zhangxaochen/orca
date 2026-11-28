@@ -1,4 +1,5 @@
 import { installBrowserInitializationPresentationLifetime } from '@/runtime/web-session-tabs-sync/tab-projection/browser-initialization-presentation'
+import { applySleepingMailWorktrees } from '@/attention/sleeping-mail-worktrees'
 import { observeJiraImageHostStatus } from '@/runtime/jira/runtime-jira-image-cache'
 import { observeRuntimeHostStatusForPendingRemovals } from '@/store/repos/pending-runtime-repo-removal-replay'
 import type { RuntimeHostStatusSnapshot } from '../../../../shared/remote-runtime/host-status/runtime-host-status'
@@ -37,6 +38,7 @@ import { registerBotDeepLinkIpcBridge } from './bot-deep-link-ipc-bridge'
 import { registerProjectCatalogIpcBridge } from './workspace-catalog/project-catalog-ipc-bridge'
 import { registerRateLimitIpcBridge } from './native-app/rate-limit-ipc-bridge'
 import { registerClaudeAccountSwitchIpcBridge } from '../../lib/provider-accounts/claude-account-switch-ipc-bridge'
+import { registerAntigravityAccountSwitchIpcBridge } from '../../lib/provider-accounts/antigravity-account-switch-ipc-bridge'
 import { registerRuntimeClientIpcBridge } from './runtime-events/runtime-client-ipc-bridge'
 import { registerSessionTabIpcBridge } from './session-tabs/session-tab-ipc-bridge'
 import { registerSettingsAndSidebarIpcBridge } from '../app-commands/settings-sidebar-ipc-bridge'
@@ -72,6 +74,11 @@ function remountTerminalTabsAwaitingHostHydration(): void {
 
 export function installAppLifetimeIpcEvents(): () => void {
   const unsubs: (() => void)[] = [installBrowserInitializationPresentationLifetime()]
+  if (window.api.ui.onSleepingMailChanged) {
+    unsubs.push(window.api.ui.onSleepingMailChanged(applySleepingMailWorktrees))
+    // Changes sent while no listener was attached were lost; start from the whole set.
+    window.api.ui.requestSleepingMailSnapshot?.()
+  }
   const backgroundWakeDispatcher = createBackgroundSleepingAgentWakeDispatcher()
   unsubs.push(backgroundWakeDispatcher.dispose)
   unsubs.push(
@@ -111,7 +118,16 @@ export function installAppLifetimeIpcEvents(): () => void {
   const worktreeRuntime = createWorktreeEventRuntime(unsubs, isRuntimeEnvironmentActive)
   const statusApi = window.api.runtimeEnvironments
   if (statusApi?.onStatusChanged) {
+    const availableHosts = new Set<string>()
     const apply = (snapshot: RuntimeHostStatusSnapshot): void => {
+      if (snapshot.transport === 'ready' && snapshot.verification === 'verified') {
+        if (!availableHosts.has(snapshot.environmentId)) {
+          availableHosts.add(snapshot.environmentId)
+          window.api.ui.notifySleepingMailAvailability?.(undefined, snapshot.environmentId)
+        }
+      } else {
+        availableHosts.delete(snapshot.environmentId)
+      }
       useAppStore.getState().applyRuntimeHostStatusSnapshot(snapshot)
       observeRuntimeHostStatusForPendingRemovals(snapshot)
       remoteRuntimeTerminalColorPush.observeStatusSnapshot(snapshot)
@@ -191,6 +207,7 @@ export function installAppLifetimeIpcEvents(): () => void {
   registerRateLimitIpcBridge(unsubs)
   registerPluginViewIpcBridge(unsubs)
   registerClaudeAccountSwitchIpcBridge(unsubs)
+  registerAntigravityAccountSwitchIpcBridge(unsubs)
   const stopDirectSshStateBridge = registerDirectSshStateIpcBridge(unsubs)
   registerZoomIpcBridge(unsubs)
   const agentStatusBridge = registerAgentStatusIpcBridge(unsubs)

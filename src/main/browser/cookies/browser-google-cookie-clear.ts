@@ -3,11 +3,10 @@ import { browserSessionRegistry } from '../sessions/profiles/browser-session-reg
 import { session, type Cookies } from 'electron'
 import type { GoogleCookieClearResult } from '../../../shared/browser/cookies/browser-google-cookie-clear'
 import { withCookieMutationLock } from './mutation/cookie-mutation-lock'
-import { clearCookiesDurably } from './session-restore/browser-session-cookie-clear'
 import { admittedSessionCookieTracker } from './session-restore/browser-session-cookie-tracker'
 import { cookieRemovalUrl } from './storage/cookie-removal-url'
 import { isNonTransplantableCookieDomain } from './policy/cookie-import-exclusions'
-import { normalizeCookieDomain } from './policy/cookie-domain'
+import { normalizeCookieDomain } from './policy/cookie-domain-normalization'
 
 export async function clearGoogleCookies(
   target: { cookies: Pick<Cookies, 'get' | 'remove'> },
@@ -53,6 +52,7 @@ export async function clearGoogleCookiesFromPartition(
   const target = session.fromPartition(partition)
   await admittedSessionCookieTracker(target)?.restored
   // A clear revoked midway (the profile or route changed) reports 'unverified' and persists nothing.
+  const { clearCookiesDurably } = await import('./session-restore/browser-session-cookie-clear')
   const { result, persisted } = await clearCookiesDurably(
     target,
     (cookie) => isNonTransplantableCookieDomain(cookie.domain ?? ''),

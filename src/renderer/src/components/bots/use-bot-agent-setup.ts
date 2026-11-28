@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { BotAgent } from '../../../../shared/bot-types'
-import type { BotAgentSetup } from './BotAgentLaunchPicker'
+import type { BotAgentChatDefault, BotAgentSetup } from './BotAgentLaunchPicker'
 import type { ExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import {
   agentChatPermissionModes,
@@ -66,7 +66,7 @@ function nextIntent(
 }
 
 /** A new bot's agent, model and permissions on `hostId`. Follows that computer's default agent (else
- *  its first) on its defaults, until the owner picks one it has; a pick made for another computer
+ *  by priority) on its defaults, until the owner picks one it has; a pick made for another computer
  *  starts over, since its model and options may not be offered there.
  *  With `keptPermission` (a bot from a link), the owner's permission is kept apart from the agent:
  *  it starts there and follows every agent that offers it, until the owner picks another. */
@@ -76,19 +76,38 @@ export function useBotAgentSetup(
   initialAgent?: BotAgent,
   keptPermission?: AgentChatPermissionMode
 ) {
-  const [picked, setPicked] = useState<{ hostId: ExecutionHostId; setup: BotAgentSetup } | null>(
-    null
-  )
+  // `chat-default`: the owner chose Chat default, so it follows each computer's default agent.
+  const [picked, setPicked] = useState<
+    { hostId: ExecutionHostId; setup: BotAgentSetup } | 'chat-default' | null
+  >(null)
   const [intent, setIntent] = useState<BotPermissionIntent | undefined>(keptPermission)
   const fallback = newBotAgent(choices, defaultAgent)
+  const chatDefaultAgent = fallback ?? defaultAgent ?? 'claude'
   const own =
-    picked?.hostId === hostId
-      ? picked.setup
-      : { agent: initialAgent ?? fallback ?? defaultAgent ?? 'claude' }
+    picked === 'chat-default'
+      ? { agent: chatDefaultAgent }
+      : picked?.hostId === hostId
+        ? picked.setup
+        : { agent: initialAgent ?? chatDefaultAgent }
   const followed = choices.includes(own.agent) ? own : { agent: fallback ?? own.agent }
   const setup = intent === undefined ? followed : withIntent(followed, intent)
   return {
     setup,
+    chatDefault: {
+      /** Nothing chosen: the computer's default agent on the owner's chat defaults. */
+      chosen:
+        setup.agent === chatDefaultAgent &&
+        !setup.launch &&
+        !setup.permissionMode &&
+        (intent === undefined || intent === 'inherit'),
+      /** Drops the owner's agent, model, options and permission choices, a kept one included. */
+      onChoose: () => {
+        if (intent !== undefined) {
+          setIntent('inherit')
+        }
+        setPicked('chat-default')
+      }
+    } satisfies BotAgentChatDefault,
     /** The permission Create writes for a kept one, even on an agent that can't offer it yet. */
     intent,
     /** `permissionPicked` when the owner chose the permission, even the one already shown. */
