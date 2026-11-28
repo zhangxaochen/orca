@@ -18,7 +18,10 @@
       "title": "帳戶",
       "useReset": "使用重設額度",
       "pairingInvalidMessage": "請將這支手機與電腦重新配對，以查看其帳戶。",
-      "weeklyWindow": "7 天"
+      "weeklyWindow": "7 天",
+      "signedOut": "已登出",
+      "addAccount": "新增帳戶",
+      "signIn": "登入"
     },
     "claude": {
       "usageSignInLabel": "重新登入",
@@ -29,6 +32,31 @@
     },
     "usage": {
       "percentLeft": "剩餘 {{value}}%"
+    },
+    "hostSignIn": {
+      "errors": {
+        "ownerSilent": "發起這次登入的裝置已停止回應。",
+        "superseded": "此主機上的帳戶變更中斷了登入。請重新開始。",
+        "noPrompt": "伺服器的登入指令在一分鐘內沒有顯示登入連結。請更新伺服器上的 Orca，然後再試一次。",
+        "failed": "登入失敗。請再試一次。"
+      },
+      "starting": "正在 {{host}} 上啟動登入…",
+      "copied": "已複製",
+      "copyLink": "複製連結",
+      "continue": "繼續",
+      "copyCode": "複製代碼",
+      "signingIn": "正在登入…",
+      "tryAgain": "再試一次",
+      "titleClaude": "登入 Claude",
+      "titleCodex": "登入 Codex",
+      "savedOn": "儲存在 {{host}}",
+      "newCode": "取得新代碼",
+      "openPage": "開啟登入頁面",
+      "pasteStep": "貼上代碼",
+      "codePlaceholder": "頁面上的代碼",
+      "enterCodeStep": "輸入此代碼",
+      "waitingForPage": "正在等待你在頁面上完成",
+      "signedInAs": "已登入為 {{email}}"
     }
   },
   "agentHistory": {
@@ -49,9 +77,7 @@
       "skipped_one": "跳過了 {{count}} 個記錄",
       "skipped_other": "跳過了 {{count}} 個記錄",
       "title": "代理程式工作階段歷史",
-      "unavailable": "無法使用代理程式工作階段歷史",
       "unknownHostPlatform": "無法判斷主機平台。",
-      "updateHost": "請更新此主機上的 Orca，以瀏覽代理程式工作階段歷史。",
       "waitingForHost": "正在等待主機…",
       "workspace": "工作區"
     },
@@ -247,8 +273,7 @@
       "certificateChallengeExpired": "此憑證的核准已過期。請重試此頁面以重新要求核准。",
       "certificateChallengeChanged": "憑證要求已變更。請重試該頁面並檢視新的警告。",
       "certificateProceedFailed": "Orca 無法核准此憑證要求。請重試該頁面後再試。",
-      "certificateChallengeUnavailable": "此憑證要求已無法使用。請重試該頁面以提出新的要求。",
-      "certificateProceedNeedsHostUpdate": "請更新此主機上的 Orca，才能從手機接受憑證警告。"
+      "certificateChallengeUnavailable": "此憑證要求已無法使用。請重試該頁面以提出新的要求。"
     },
     "pagePrompt": {
       "downloadStarted": "正在下載至主機上的 {{path}}",
@@ -433,7 +458,10 @@
       "modelFallback": "Claude 已切換模型：{{from}} → {{to}}。",
       "signIn": "登入",
       "signInHint": "在執行此聊天的電腦上開啟終端機",
-      "forkedFrom": "分支來源"
+      "forkedFrom": "分支來源",
+      "notSignedIn": "{{agent}} 尚未登入。",
+      "signInAccountHint": "在執行此聊天的電腦上重新登入此帳號",
+      "signedInSendAgain": "已登入。請重新傳送。"
     },
     "ciResultLine": {
       "failingLead": "CI 失敗於",
@@ -1150,11 +1178,13 @@
         "finishOnPage": "請在開啟的頁面完成",
         "needsAuth": "需要登入",
         "needsAuthAfterSend": "需要登入。傳送訊息後即可在此登入。",
-        "off": "關閉",
+        "disabled": "已停用",
         "pending": "正在連線…",
         "tools_other": "{{count}} 個工具",
         "waitingForSignIn": "正在等待登入…",
-        "tools_one": "{{count}} 個工具"
+        "tools_one": "{{count}} 個工具",
+        "orcaRemoved": "已移除：下一則訊息時重新啟動",
+        "orcaChanged": "已變更：下一則訊息時重新啟動"
       },
       "source": {
         "project": "專案",
@@ -1165,7 +1195,6 @@
       },
       "title": "MCP 伺服器",
       "notRunning": "MCP 伺服器會在你傳送下一則訊息時連線。",
-      "unsupported": "更新此聊天主機上的 Orca，即可在這裡管理 MCP 伺服器。",
       "readFailed": "無法載入 MCP 伺服器。",
       "retry": "重試",
       "empty": "此聊天尚未設定任何 MCP 伺服器。",
@@ -1186,7 +1215,8 @@
         "failed": "失敗：{{count}}"
       },
       "pasteHint": "當瀏覽器前往無法載入的頁面時，請複製網址並貼到這裡。",
-      "manage": "管理 MCP 伺服器"
+      "manage": "管理 MCP 伺服器",
+      "stillFailing": "重新連線後仍然失敗。"
     }
   },
   "common": {
@@ -1405,14 +1435,14 @@
     },
     "hostCard": {
       "hostActions": "{{title}} 的操作",
-      "needsYou_one": "{{count}} 個需要你處理",
-      "needsYou_other": "{{count}} 個需要你處理",
+      "needsYou_one": "{{count}} 個需要你",
+      "needsYou_other": "{{count}} 個需要你",
       "openHost": "開啟 {{title}}",
       "pairingInvalid": "配對已失效",
       "pairingTemporarilyUnavailable": "配對暫時無法使用",
       "unlockHint": "解鎖手機後，點一下以重試",
       "worktreeAccessibilitySummary": "{{summary}}，{{activeCount}} 個使用中",
-      "tapToPairAgain": "點一下以重新與電腦配對"
+      "tapToPairAgain": "點一下重新配對"
     },
     "hostProtocolGate": {
       "checkingCompatibility": "正在檢查主機相容性"
@@ -1432,7 +1462,9 @@
       "connectHint": "在 Orca 桌面版的「設定 → 整合」中新增 Jira 網站，然後再次檢查。",
       "connectOnDesktop": "在電腦上連線至 Jira",
       "credentialUnreadable": "Jira 憑證已儲存，但無法讀取：{{credentialError}}",
-      "updateDesktop": "更新此主機上的 Orca"
+      "connectTitle": "連接你的 Jira 帳號",
+      "connectMessage": "直接在「任務」中瀏覽指派給你的 Jira 問題並開始工作。",
+      "connect": "連接 Jira"
     },
     "markdownBlocks": {
       "copyCode": "複製程式碼",
@@ -1710,7 +1742,9 @@
         "permissionAcceptEditsDescription": "核准檔案編輯和檔案命令；其餘操作會詢問",
         "permissionAutoDescription": "代你審查核准要求",
         "permissionFullAccessCodexDescription": "從不詢問；可以編輯任何檔案並使用網路",
-        "permissionFullAccessDescription": "編輯或執行命令前從不詢問"
+        "permissionFullAccessDescription": "編輯或執行命令前從不詢問",
+        "permissionAgentSettings": "{{agent}} 設定",
+        "permissionFromAgentSettings": "{{mode}}，來自 {{agent}} 設定"
       },
       "goal": {
         "sentAsGoal": "作為目標傳送"
@@ -1764,7 +1798,7 @@
         "taskCount_one": "{{count}} 個任務",
         "taskCount_other": "{{count}} 個任務",
         "failedCount": "{{count}} 個失敗",
-        "needsYouCount": "{{count}} 個等待你處理",
+        "needsYouCount": "{{count}} 個需要你",
         "runningCount": "{{count}} 個執行中",
         "workersRegion": "工作者",
         "stopOnComputer": "請在工作者執行所在的電腦上停止或清除工作者"
@@ -2039,7 +2073,9 @@
       "loading": "正在載入檔案…",
       "loadFailed": "無法載入檔案",
       "title": "檔案",
-      "truncatedList": "{{worktreeLabel}} - 僅顯示前 5000 筆"
+      "truncatedList": "{{worktreeLabel}} - 僅顯示前 5000 筆",
+      "newEntry": "新增",
+      "add": "新增"
     },
     "fileExplorerRow": {
       "fileUnavailable": "{{name}} 無法在行動版使用",
@@ -2054,7 +2090,56 @@
     },
     "fileExplorerRowActions": {
       "copyName": "複製名稱",
-      "copyRelativePath": "複製相對路徑"
+      "copyRelativePath": "複製相對路徑",
+      "newFile": "新增檔案",
+      "newFolder": "新增資料夾",
+      "rename": "重新命名",
+      "duplicate": "製作副本",
+      "create": "建立",
+      "fileName": "檔案名稱",
+      "folderName": "資料夾名稱",
+      "deleteTitle": "要刪除 {{name}} 嗎？",
+      "deleteFileDetail": "這會永久刪除此檔案，且無法復原。",
+      "deleteFolderDetail": "這會永久刪除此資料夾及其內容，且無法復原。",
+      "duplicateFailed": "無法為 {{name}} 製作副本。{{reason}}",
+      "duplicateUnconfirmed": "副本可能不完整。請檢查後再試一次。",
+      "deleteFailed": "無法刪除 {{name}}。{{reason}}",
+      "deleteUnconfirmed": "它仍在原處。請檢查資料夾後再試一次。",
+      "renameFailed": "無法重新命名 {{name}}。{{reason}}",
+      "newFileFailed": "無法建立檔案。{{reason}}",
+      "newFolderFailed": "無法建立資料夾。{{reason}}",
+      "share": "分享",
+      "shareFailed": "無法分享 {{name}}",
+      "shareTooLarge": "大於 256 MB 的檔案無法從手機分享",
+      "shareHostOutdated": "請更新執行此工作區的 Orca 以分享檔案",
+      "uploadHere": "上傳到這裡",
+      "uploadFiles": "上傳檔案",
+      "noFreeCopyName": "沒有可用於 {{name}} 副本的名稱"
+    },
+    "fileExplorerUpload": {
+      "waiting": "等待中",
+      "waitingForConnection": "等待連線",
+      "failed": "{{reason}} · 點一下以重試",
+      "failedReason": "上傳失敗",
+      "dismiss": "不上傳 {{name}}",
+      "tooLarge": "暫不支援從手機上傳超過 {{max}} MB 的檔案。",
+      "busy": "一次最多可上傳 {{max}} 個檔案。",
+      "pickFailed": "無法開啟你的檔案。{{reason}}",
+      "clashMessage": "{{folder}} 中已存在",
+      "keepBoth": "保留兩者",
+      "keepBothAs": "另存為 {{name}}",
+      "keepBothCopies": "各自另存為副本",
+      "skip": "略過",
+      "skipAll": "全部略過",
+      "uploaded_one": "已將 {{count}} 個檔案上傳到 {{folder}}",
+      "uploaded_other": "已將 {{count}} 個檔案上傳到 {{folder}}",
+      "clashTitleSeveral_one": "{{count}} 個檔案已在 {{folder}} 中",
+      "clashTitleSeveral_other": "{{count}} 個檔案已在 {{folder}} 中",
+      "lost_one": "有 {{count}} 個檔案未上傳：手機已釋放它。請重新選擇。",
+      "lost_other": "有 {{count}} 個檔案未上傳：手機已釋放它們。請重新選擇。",
+      "nameTaken": "名稱已被使用 · 點一下以選擇",
+      "workspaceRoot": "工作區根目錄",
+      "unconfirmed": "無法確認上傳。請檢查資料夾。"
     },
     "fileMarkdownPreview": {
       "copyLoadedSource": "複製已載入的 Markdown 原始碼",
@@ -2146,7 +2231,6 @@
       "scheduled": "已排定",
       "showFor": "選擇要顯示自動化的電腦",
       "toggleFailed": "無法更新 {{name}}",
-      "updateDesktop": "請更新 {{desktop}} 上的 Orca，以使用自動化。",
       "pairComputer": "請先配對電腦，才能檢視及執行自動化。"
     },
     "listFooter": {
@@ -2276,7 +2360,6 @@
       "ignoredNamesMore": "{{names}} 等檔案",
       "ignoredNamesCount": "{{names}} 及另外 {{value0}} 個",
       "ignoredUnchecked": "無法完整檢查 Git 忽略的檔案",
-      "needsUpdate": "請更新電腦上的 Orca，才能從手機刪除此工作區。",
       "removeTitle": "移除工作區",
       "removeFolderMessage": "要從 Orca 移除「{{name}}」嗎？磁碟上的資料夾會保留。"
     },
@@ -2902,7 +2985,6 @@
       "committedDiffUnavailable": "無法取得已提交的差異",
       "commitLoadFailed": "無法載入此提交",
       "commitDiffUnavailable": "無法取得提交的差異",
-      "desktopUpdateRequired": "請更新此主機上的 Orca，以便在手機上審查變更。",
       "diffLoadFailed": "無法載入差異",
       "reviewNotesLoadFailed": "無法載入審查備註"
     },
@@ -3096,7 +3178,7 @@
       "terminalTitle": "終端機",
       "terminalLayout": "終端機版面配置",
       "sourceControl": "原始碼控制",
-      "itemsNeedYou": "項目，{{count}} 個需要你處理",
+      "itemsNeedYou": "項目，{{count}} 個需要你",
       "quickCommands": "快速命令",
       "items": "項目",
       "textSize": "文字大小"
@@ -3125,7 +3207,7 @@
       "collapse": "收合"
     },
     "nativeChatCliFork": {
-      "resumeInNewCli": "在新的 CLI 中恢復"
+      "continueInTerminal": "在終端機中繼續"
     },
     "nativeChatFloatingControls": {
       "scrollToLatest": "捲動至最新內容"
@@ -3298,8 +3380,7 @@
       "messageNotSent": "訊息未傳送"
     },
     "tabStrip": {
-      "checkingCapabilities": "正在檢查桌面版支援的功能，請稍後再試",
-      "quickCommandsUpdateRequired": "需更新桌面版才能使用快速命令"
+      "checkingCapabilities": "正在檢查桌面版支援的功能，請稍後再試"
     },
     "terminalActionSheetActions": {
       "clearTerminal": "清除終端機",
@@ -3640,8 +3721,11 @@
       "stop": "停止",
       "yes": "是"
     },
+    "sidebar": {
+      "needsYou": "需要你"
+    },
     "tabsSheet": {
-      "needsYou": "需要你處理",
+      "needsYou": "需要你",
       "working": "工作中",
       "everythingElse": "其他",
       "closeTab": "關閉 {{title}}",
@@ -3679,6 +3763,18 @@
       "terminalTitle": "終端機文字",
       "pointsAndColumns": "{{points}} · {{count}} 欄",
       "moreTerminal": "更多終端機設定"
+    },
+    "terminalChatContinuation": {
+      "busy": "另一個聊天或終端機正在開啟。請稍候再試。",
+      "continueInChat": "在聊天中繼續",
+      "failed": "無法在聊天中繼續。{{detail}}",
+      "failedAfterClose": "無法在聊天中繼續。{{detail}} 對話在代理程式歷史紀錄中。",
+      "otherJob": "此終端機中正在執行 {{process}}。請先結束它，然後在聊天中繼續。",
+      "terminalChanged": "Orca 檢查時此終端機已變更。請再試一次。",
+      "tryAgain": "請再試一次。",
+      "unavailable": "此電腦上無法使用 {{agent}} 聊天。",
+      "uncheckable": "Orca 無法檢查此終端機中正在執行的內容。請再試一次。",
+      "unconfirmed": "Orca 無法確認聊天已開啟。再試一次前請檢查你的分頁。"
     }
   },
   "settings": {
@@ -3836,9 +3932,6 @@
       "title": "語音",
       "toggleMode": "切換",
       "updateFailed": "無法更新"
-    },
-    "agents": {
-      "permissionOwnAll": "各代理程式自身的設定"
     },
     "voiceTranscribeOn": {
       "heading": "轉寫位置",
@@ -4119,8 +4212,7 @@
       "pullRequest": "PR"
     },
     "loaders": {
-      "loadFailed": "無法載入原始碼控制",
-      "updateDesktop": "請更新此主機上的 Orca，才能在行動裝置上使用原始碼控制。"
+      "loadFailed": "無法載入原始碼控制"
     },
     "modals": {
       "discardButton": "放棄",
@@ -4264,6 +4356,9 @@
       "agentCouldNotStart": "無法啟動 {{label}}。請在「設定」中檢查代理程式的命令，然後再試一次。",
       "agentFailedToStart": "{{label}} 啟動失敗。請在「設定」中檢查代理程式的命令，然後再試一次。",
       "agentReportedError": "{{label}} 回報錯誤。",
+      "antigravityInvalidEvents": "Antigravity 傳回無效的 JSON 事件。",
+      "antigravityInvalidResult": "Antigravity 傳回無效的結果。",
+      "antigravityNoFinalResult": "Antigravity 未傳回最終結果。",
       "chatNameAgentUnsupported": "請在「設定 -> 聊天 -> 聊天名稱」中，為此操作選擇支援的聊天命名代理程式。支援的代理程式：{{agents}}，或選擇「自訂命令」。",
       "chatNameCustomCommandEmpty": "自訂命令為空白。請在「設定 -> 聊天 -> 聊天名稱」中新增。",
       "cliFailed": "{{label}} CLI 命令執行失敗，結束代碼為 {{exitCode}}。",
@@ -4616,9 +4711,7 @@
       "connectLinearButton": "連線 Linear",
       "connectLinearMessage": "直接從「任務」瀏覽並開始處理指派給你的 Linear 議題。",
       "connectLinearTitle": "連線你的 Linear 帳戶",
-      "jiraStatusFailed": "無法讀取 Jira 狀態",
-      "updateDesktopMessage": "此行動版「任務」檢視需要此主機上較新版的 Orca。",
-      "updateDesktopTitle": "更新此主機上的 Orca"
+      "jiraStatusFailed": "無法讀取 Jira 狀態"
     },
     "options": {
       "all": "全部",
@@ -4916,6 +5009,16 @@
     },
     "worktreeCreateRetry": {
       "createFailed": "建立工作區失敗"
+    },
+    "jiraConnect": {
+      "title": "連接 Jira",
+      "siteUrl": "your-team.atlassian.net",
+      "email": "Atlassian 電子郵件",
+      "apiToken": "API 權杖",
+      "storageHint": "你的權杖儲存在此主機上，並在其系統支援時加密。",
+      "createToken": "建立 API 權杖",
+      "failed": "連線失敗",
+      "serverNeedsUpdate": "此伺服器需要先更新 Orca。請改為在 Orca 桌面版中連接 Jira。"
     }
   },
   "terminal": {
@@ -5076,7 +5179,7 @@
       "started": "開始",
       "trigger": "觸發",
       "output": "輸出",
-      "noOutput": "沒有可用的輸出內容。",
+      "noOutput": "沒有可用輸出。",
       "loadingRuns": "正在載入執行...",
       "loading": "載入中…",
       "hourly": "每小時",
@@ -5517,7 +5620,7 @@
       "placeholder": "搜尋代理程式"
     },
     "sections": {
-      "needsYou": "需要你處理",
+      "needsYou": "需要你",
       "working": "執行中",
       "done": "已完成",
       "offline": "離線",
@@ -5637,16 +5740,17 @@
       "connect": "連線 {{service}}"
     },
     "groups": {
+      "needsYou": "· 需要你",
       "group": "群組",
       "peerTold": "{{from}} 告知了 {{to}}",
       "items": {
         "emptyTitle": "此群組還沒有事項",
-        "needsYouCount_one": "{{count}} 個需要你處理",
-        "needsYouCount_other": "{{count}} 個需要你處理",
+        "needsYouCount_one": "{{count}} 個需要你",
+        "needsYouCount_other": "{{count}} 個需要你",
         "workingCount_one": "{{count}} 個執行中",
         "workingCount_other": "{{count}} 個執行中",
         "filterBot": "機器人",
-        "needsYouCount": "{{count}} 個需要你處理",
+        "needsYouCount": "{{count}} 個需要你",
         "workingCount": "{{count}} 個執行中"
       },
       "newThreadTab": "建立討論串",
@@ -5716,9 +5820,11 @@
         "anotherAgent": "另一個代理程式"
       },
       "status": {
+        "needsYou": "需要你",
         "waiting": "等待中"
       },
       "filter": {
+        "needsYou": "只看需要你",
         "clearAll": "清除篩選"
       },
       "tab": "項目",
@@ -5745,7 +5851,8 @@
         "next": "下一個項目"
       },
       "empty": {
-        "allClear": "沒有需要你處理的事項"
+        "needsYou": "暫無需要你的項目。",
+        "allClear": "暫無需要你的項目"
       },
       "write": {
         "offline": "{{host}} 已離線。"
@@ -6398,8 +6505,9 @@
     },
     "saveFailed": "無法儲存",
     "chats": {
+      "needsYou": "需要你",
       "readFailedTitle": "無法載入聊天",
-      "needsYouCount": "{{count}} 個需要你處理",
+      "needsYouCount": "{{count}} 個需要你",
       "open": "開啟",
       "delete": "刪除聊天"
     },
@@ -7234,6 +7342,7 @@
     "workspacesCount": "{{count}} 個工作區",
     "workspacesAllButCount": "全部（排除 {{count}} 個）",
     "headerMissing": "請填寫 {{header}} 才能新增此伺服器。",
-    "servers": "伺服器"
+    "servers": "伺服器",
+    "unreadable": "無法開啟已儲存的登入或金鑰。請重新登入。"
   }
 }

@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Text, View, type KeyboardTypeOptions } from 'react-native'
 import type { LucideIcon } from 'lucide-react-native'
-import { colors, spacing } from '../../theme/mobile-theme'
-import { themedStyleSheet } from '../../theme/themed-styles'
-import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { spacing } from '../../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../../theme/themed-styles'
+import { useMobileColors } from '../../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
-import { SettingsNote, settingsScreenStyles } from '../../settings/settings-screen-frame'
+import { SettingsNote, settingsScreenStylesSheet } from '../../settings/settings-screen-frame'
 import { BottomDrawer } from '../bottom-drawer/BottomDrawer'
 import { TextField } from '../composer-input/TextField'
-import { groupFieldStyles } from '../composer-input/composer-input-styles'
+import { groupFieldStylesSheet } from '../composer-input/composer-input-styles'
 import { SheetHeader } from '../nav-bar/SheetHeader'
 
 type SheetProps = {
@@ -24,6 +24,8 @@ type SheetProps = {
   /** The back-out's label, when "Cancel" would read as the submit itself. */
   cancelLabel?: string
   selectTextOnFocus?: boolean
+  /** Part of the text selected when the field opens, e.g. a file's name without its extension; wins over selectTextOnFocus. */
+  initialSelection?: { start: number; end: number }
   allowEmpty?: boolean
   keyboardType?: KeyboardTypeOptions
   /** Shown under the field; the text stays so the user can retry. */
@@ -92,6 +94,7 @@ export function TextInputSheetContent({
   submitLabel,
   cancelLabel,
   selectTextOnFocus = false,
+  initialSelection,
   allowEmpty = false,
   keyboardType,
   error,
@@ -101,9 +104,14 @@ export function TextInputSheetContent({
   onSubmit,
   onCancel
 }: SheetProps) {
-  useMobileColorScheme()
+  const groupFieldStyles = useThemedStyles(groupFieldStylesSheet)
+  const styles = useThemedStyles(stylesSheet)
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
 
+  // Applied once: the user's first move of the caret or selection takes over.
+  const [selection, setSelection] = useState(initialSelection)
   const filled = !submitBlocked && (allowEmpty || value.trim().length > 0)
   const canSubmit = !busy && filled
   const NoticeIcon = notice?.icon
@@ -134,7 +142,9 @@ export function TextInputSheetContent({
         autoFocus
         autoCapitalize="none"
         autoCorrect={false}
-        selectTextOnFocus={selectTextOnFocus}
+        selectTextOnFocus={selectTextOnFocus && !initialSelection}
+        selection={selection}
+        onSelectionChange={selection ? () => setSelection(undefined) : undefined}
         keyboardType={keyboardType}
         returnKeyType="done"
         onSubmitEditing={handleSubmit}
@@ -155,7 +165,7 @@ export function TextInputSheetContent({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet(() => ({
   // The note's inset moves to the row, so the icon sits where note text starts.
   notice: {
     flexDirection: 'row',

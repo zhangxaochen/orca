@@ -6,9 +6,8 @@ import { NavBar } from '../components/nav-bar/NavBar'
 import { NavBarButton, NavBarButtonOnSheetContext } from '../components/nav-bar/NavBarButton'
 import { ListGroup, LIST_ROW_PADDING, SectionHeader } from '../components/list/ListGroup'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 
 type SettingsNavBarProps = {
   title: string
@@ -22,7 +21,7 @@ type SettingsNavBarProps = {
 /** A settings screen's top bar: Back, the centred title, and up to two buttons. */
 export function SettingsNavBar({ title, onBack, trailing, center }: SettingsNavBarProps) {
   const t = useMobileTranslation()
-  useMobileColorScheme()
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   // The bar takes the grouped page's grey, so its buttons need the fill that reads on a grey sheet.
   return (
     <NavBarButtonOnSheetContext.Provider value>
@@ -58,7 +57,7 @@ export function SettingsScreen({
   /** Sheets and pickers, kept outside the scroll view so their backdrop covers the screen. */
   overlays?: ReactNode
 }) {
-  useMobileColorScheme()
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   const insets = useSafeAreaInsets()
   return (
     <SafeAreaView style={settingsScreenStyles.container} edges={['top']}>
@@ -85,9 +84,12 @@ export function SettingsSection({
   first = false,
   separatorInset,
   radioGroup = false,
+  trailing,
   children
 }: {
   title?: string
+  /** Beside the title, e.g. a compact action for the whole group. */
+  trailing?: ReactNode
   /** Explains the group; a string becomes a note, anything else renders as is. */
   footer?: ReactNode
   /** The first section on the screen sits closer to the bar. */
@@ -97,12 +99,13 @@ export function SettingsSection({
   radioGroup?: boolean
   children: ReactNode
 }) {
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   return (
     <View
       style={!title && !first && settingsScreenStyles.untitledGap}
       accessibilityRole={radioGroup ? 'radiogroup' : undefined}
     >
-      {title ? <SectionHeader title={title} first={first} /> : null}
+      {title ? <SectionHeader title={title} first={first} trailing={trailing} /> : null}
       <ListGroup separatorInset={separatorInset}>{children}</ListGroup>
       {typeof footer === 'string' ? <SettingsNote>{footer}</SettingsNote> : footer}
     </View>
@@ -119,7 +122,7 @@ export function SettingsNote({
   alert?: boolean
   error?: boolean
 }) {
-  useMobileColorScheme()
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   return (
     <Text
       accessibilityRole={alert || error ? 'alert' : undefined}
@@ -134,11 +137,11 @@ export function SettingsNote({
 
 /** The only line in a group that has nothing to list yet, e.g. no paired desktops. */
 export function SettingsEmptyRow({ children }: { children: ReactNode }) {
-  useMobileColorScheme()
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   return <Text style={settingsScreenStyles.emptyRow}>{children}</Text>
 }
 
-export const settingsScreenStyles = themedStyleSheet(() => ({
+export const settingsScreenStylesSheet = themedStyleSheet((colors) => ({
   container: { flex: 1, backgroundColor: colors.groupedPage },
   bar: { backgroundColor: colors.groupedPage },
   scrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },

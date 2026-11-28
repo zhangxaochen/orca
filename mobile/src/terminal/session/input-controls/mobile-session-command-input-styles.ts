@@ -1,11 +1,11 @@
 import { StyleSheet } from 'react-native'
 
-import { colors, spacing, radii, typography } from '../../../theme/mobile-theme'
+import { radii, spacing, typography } from '../../../theme/mobile-theme'
 import { TEXT_INPUT_FONT_SIZE } from '../../../platform/text-input/text-input-font-size'
 import { themedStyleSheet } from '../../../theme/themed-styles'
 
 /** Command dock styles. The field grows with the draft and stops at 120px. */
-export const mobileSessionCommandInputStyles = themedStyleSheet(() => ({
+export const mobileSessionCommandInputStylesSheet = themedStyleSheet((colors) => ({
   createWarningBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',

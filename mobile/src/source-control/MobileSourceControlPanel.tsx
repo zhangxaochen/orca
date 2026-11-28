@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
 import { View } from 'react-native'
-import { GitBranch } from 'lucide-react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import {
   MobileLoadErrorState,
   MobileOfflineState,
   MobileStateView
 } from '../components/feedback/MobileStateView'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { HostUpdateNotice } from '../host-update-notice/HostUpdateNotice'
 import { connectionRetryAction } from '../transport/connection/connection-retry-action'
 import { useMobileSourceControlState } from './use-mobile-source-control-state'
 import { useMobileSourceControlRefresh } from './panel/use-mobile-source-control-refresh'
@@ -28,11 +27,11 @@ import { MobileSourceControlNextStepBar } from './panel/MobileSourceControlNextS
 import { useMobileSourceControlNextStep } from './panel/use-mobile-source-control-next-step'
 import { OptionPager } from '../components/bottom-drawer/BottomDrawer'
 import { useSourceControlHubNavigation } from './panel/use-source-control-hub-navigation'
-import { styles } from './mobile-source-control-styles'
-import { hubStyles } from './panel/mobile-source-control-hub-styles'
+import { stylesSheet } from './mobile-source-control-styles'
+import { hubStylesSheet } from './panel/mobile-source-control-hub-styles'
 import {
   SOURCE_CONTROL_HUB_TABS,
-  SOURCE_CONTROL_HUB_TAB_LABELS,
+  sourceControlHubTabLabel,
   type SourceControlHubRouteTab
 } from './panel/mobile-source-control-hub-tab'
 import { groupMobileSourceControlMenu } from './workflows/mobile-source-control-actions'
@@ -45,6 +44,7 @@ import {
   type MobilePrTabOpeners
 } from './panel/use-mobile-source-control-pr-tab'
 import { openExternalLink as openMobilePrUrl } from '../platform/external-links/external-link'
+import { useThemedStyles } from '../theme/themed-styles'
 
 export type MobileSourceControlPanelProps = {
   hostId: string
@@ -66,7 +66,8 @@ export function MobileSourceControlPanel({
   backInPlace,
   onRequestClose
 }: MobileSourceControlPanelProps) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const hubStyles = useThemedStyles(hubStylesSheet)
   const t = useMobileTranslation()
   const {
     screens: hubScreens,
@@ -156,7 +157,7 @@ export function MobileSourceControlPanel({
     [actionSheetActions]
   )
   const primaryAction = useMemo(
-    () => buildMobileSourceControlPrimaryAction({ ...primaryActionArgs, review }),
+    () => buildMobileSourceControlPrimaryAction({ ...primaryActionArgs, review }, t),
     [primaryActionArgs, review, t]
   )
   const isHostedRepo = prController.prSidebarIsGithubRepo
@@ -262,7 +263,7 @@ export function MobileSourceControlPanel({
         <MobileSegmentedControl
           segments={SOURCE_CONTROL_HUB_TABS.map((tab) => ({
             value: tab,
-            label: SOURCE_CONTROL_HUB_TAB_LABELS[tab]
+            label: sourceControlHubTabLabel(tab, t)
           }))}
           selected={activeTab}
           onSelect={selectTab}
@@ -285,11 +286,7 @@ export function MobileSourceControlPanel({
     screenState.kind === 'loading' ? (
       <MobileStateView loading title={t('sourceControl.panel.loading', 'Loading changes…')} />
     ) : screenState.kind === 'unavailable' ? (
-      <MobileStateView
-        icon={GitBranch}
-        title={t('sourceControl.panel.unavailableTitle', 'Source Control Unavailable')}
-        message={screenState.message}
-      />
+      <HostUpdateNotice hostId={hostId} variant="screen" feature={screenState.message} />
     ) : screenState.kind === 'error' && connState !== 'connected' ? (
       <MobileOfflineState onReconnect={statusRetry} />
     ) : screenState.kind === 'error' ? (

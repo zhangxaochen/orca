@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { CircleAlert, ShieldAlert } from 'lucide-react-native'
 import type {
@@ -19,10 +19,9 @@ import {
   isBrowserNetworkLoadFailure
 } from '../../../../src/shared/browser/navigation/browser-load-failure'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
-import { colors } from '../../theme/mobile-theme'
-import { themedStyleSheet } from '../../theme/themed-styles'
-import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { themedStyleSheet, useThemedStyles } from '../../theme/themed-styles'
 import { MobileStateView } from '../../components/feedback/MobileStateView'
+import { HostUpdateToast } from '../../host-update-notice/HostUpdateNotice'
 
 type CertificateProceedState =
   | { challengeId: string; state: 'submitting' }
@@ -37,6 +36,9 @@ export type MobileBrowserLoadFailureState = {
   connecting: boolean
   /** The certificate warning's way past; the pane offers it in ⋯, never beside Retry. */
   proceedUnsafe: (() => void) | null
+  /** Proceeding needs a newer Orca on the computer; said once as the shared update toast. */
+  /** The refused proceed that needs a newer Orca on the computer, said once as the shared update toast. */
+  hostUpdateChallengeId: string | null
 }
 
 /** The desktop failure page's words for a failed load, and its unsafe way past a certificate warning. */
@@ -105,9 +107,13 @@ export function useMobileBrowserLoadFailure({
   return {
     title: text.title,
     message:
-      activeProceed?.state === 'failed'
+      activeProceed?.state === 'failed' && activeProceed.reason !== 'host-update-needed'
         ? certificateProceedFailureText(t, activeProceed.reason)
         : text.description,
+    hostUpdateChallengeId:
+      activeProceed?.state === 'failed' && activeProceed.reason === 'host-update-needed'
+        ? activeProceed.challengeId
+        : null,
     errorName: failure.errorName,
     certificate: certificateError,
     connecting,
@@ -127,10 +133,19 @@ export function MobileBrowserLoadFailure({
   onRetry: () => void
   showProceedUnsafe: boolean
 }) {
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
-  useMobileColorScheme()
+  // Each refused proceed says it once; Retry then asks for a new approval anyway.
+  const [dismissedChallenge, setDismissedChallenge] = useState<string | null>(null)
+  const challenge = failure.hostUpdateChallengeId
+  const dismissToast = useCallback(() => setDismissedChallenge(challenge), [challenge])
   return (
     <View style={styles.page}>
+      <HostUpdateToast
+        visible={challenge !== null && challenge !== dismissedChallenge}
+        onDismiss={dismissToast}
+        bottomInset={0}
+      />
       {failure.connecting ? (
         <MobileStateView loading title={t('browser.loadFailure.connecting', 'Connecting…')} />
       ) : (
@@ -192,14 +207,8 @@ function certificateFailureDescription(t: Translate, code: number, host: string)
 
 function certificateProceedFailureText(
   t: Translate,
-  reason: MobileCertificateProceedFailure
+  reason: Exclude<MobileCertificateProceedFailure, 'host-update-needed'>
 ): string {
-  if (reason === 'host-update-needed') {
-    return t(
-      'browser.loadFailure.certificateProceedNeedsHostUpdate',
-      'Update Orca on this host to accept certificate warnings from your phone.'
-    )
-  }
   const kind = browserCertificateProceedFailureKind(reason)
   if (kind === 'expired') {
     return t(
@@ -225,7 +234,7 @@ function certificateProceedFailureText(
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   page: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.bgBase

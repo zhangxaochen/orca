@@ -12,15 +12,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Check } from 'lucide-react-native'
-import { colors, radii, spacing, typography, pressedStyle } from '../../../src/theme/mobile-theme'
+import { radii, spacing, typography, pressedStyle } from '../../../src/theme/mobile-theme'
 import { NavBarButton } from '../../../src/components/nav-bar/NavBarButton'
-import { themedStyleSheet } from '../../../src/theme/themed-styles'
-import { useMobileColorScheme } from '../../../src/theme/use-mobile-color-scheme'
+import { themedStyleSheet, useThemedStyles } from '../../../src/theme/themed-styles'
+import { useMobileColors } from '../../../src/theme/use-mobile-color-scheme'
 import { loadHosts, updateHostNameAndEndpoint } from '../../../src/host-catalog/host-store'
 import { displayHostEndpoint } from '../../../src/transport/hosts/host-endpoint'
 import { resolveHostEndpointEdit } from '../../../src/transport/hosts/host-endpoint-edit'
 import {
   useForgetHostClient,
+  useHostClient,
   usePrimeHosts,
   useRefreshHostClient
 } from '../../../src/transport/connection/host-client-hooks'
@@ -30,7 +31,7 @@ import { leaveHostRoute } from '../../../src/host-route-exit'
 import { ConfirmModal } from '../../../src/components/sheets/ConfirmModal'
 import { ListRow } from '../../../src/components/list/ListGroup'
 import { TextField } from '../../../src/components/composer-input/TextField'
-import { groupFieldStyles } from '../../../src/components/composer-input/composer-input-styles'
+import { groupFieldStylesSheet } from '../../../src/components/composer-input/composer-input-styles'
 import type { HostProfile } from '../../../src/host-catalog/host-profile'
 import { hostOs } from '../../../src/platform/host-os'
 import { translate } from '../../../src/i18n/mobile-i18n'
@@ -39,19 +40,25 @@ import {
   SettingsNavBar,
   SettingsNote,
   SettingsSection,
-  settingsScreenStyles
+  settingsScreenStylesSheet
 } from '../../../src/settings/settings-screen-frame'
-import { HostOrcaVersionSection } from '../../../src/host-screen/identity/HostOrcaVersionSection'
+import { HostUpdatesSection } from '../../../src/host-screen/identity/updates/HostUpdatesSection'
+import { TransientToast, useTransientToast } from '../../../src/components/feedback/TransientToast'
 
 export default function EditHostScreen() {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const groupFieldStyles = useThemedStyles(groupFieldStylesSheet)
+  const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const { hostId } = useLocalSearchParams<{ hostId: string }>()
+  const { hostId, update } = useLocalSearchParams<{ hostId: string; update?: string }>()
   const primeHosts = usePrimeHosts()
   const refreshHostClient = useRefreshHostClient()
   const forgetHostClient = useForgetHostClient()
+  const hostConnection = useHostClient(hostId)
+  const { message: toastMessage, showToast } = useTransientToast()
   const queryClient = useQueryClient()
 
   const [host, setHost] = useState<HostProfile | null>(null)
@@ -120,7 +127,7 @@ export default function EditHostScreen() {
   }, [load])
 
   const endpointEdit = useMemo(
-    () => (host ? resolveHostEndpointEdit(host.endpoint, address) : null),
+    () => (host ? resolveHostEndpointEdit(host.endpoint, address, t) : null),
     [address, host, t]
   )
 
@@ -306,7 +313,14 @@ export default function EditHostScreen() {
               />
             </SettingsSection>
 
-            <HostOrcaVersionSection />
+            <HostUpdatesSection
+              hostId={host.id}
+              hostName={hostTitle}
+              client={hostConnection.client}
+              online={hostConnection.state === 'connected'}
+              showToast={showToast}
+              openUpdate={update === 'orca'}
+            />
 
             <SettingsSection>
               <ListRow
@@ -320,6 +334,7 @@ export default function EditHostScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
+      <TransientToast message={toastMessage} bottomInset={insets.bottom} />
       <ConfirmModal
         visible={confirmRemove}
         title={t('home.screen.removeComputerTitle', 'Remove computer')}
@@ -339,7 +354,7 @@ export default function EditHostScreen() {
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   flex: {
     flex: 1
   },

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, History, MessageSquarePlus, Play, RefreshCw } from 'lucide-react-native'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
   MobileSegmentedControl,
   type MobileSegment
@@ -20,7 +19,7 @@ import { buildMobileAgentHistorySections } from './agent-history-sections'
 import { shouldShowMobileCurrentWorktreeBadge } from './agent-history-current-worktree-badge'
 import { MobileAgentSessionHistoryList } from './MobileAgentSessionHistoryList'
 import { buildMobileAgentHistoryResumeActionState } from './agent-history-session-card'
-import { styles } from './agent-history-styles'
+import { stylesSheet } from './agent-history-styles'
 import {
   MobileLoadErrorState,
   MobileNoMatchState,
@@ -45,12 +44,14 @@ import { useNow } from '../hooks/use-now'
 import { useMobileResumeOperationOwnership } from './use-mobile-resume-operation-ownership'
 import type { Translate } from '../i18n/mobile-i18n'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { HostUpdateNotice } from '../host-update-notice/HostUpdateNotice'
 import { ActionSheetModal } from '../components/sheets/ActionSheetModal'
 import { AgentHistoryHandoffDrawer } from './AgentHistoryHandoffSheet'
 import { useAgentHistoryHandoff } from './use-agent-history-handoff'
 import { latestSessionConversationTurn } from '../../../src/shared/ai-vault/session-display/ai-vault-session-display'
 import { blockingAiVaultScanIssue } from '../../../src/shared/ai-vault/scanning/ai-vault-scan-issue-state'
 import { useAgentHistorySessionResume } from './use-agent-history-session-resume'
+import { useThemedStyles } from '../theme/themed-styles'
 
 export type MobileAgentSessionHistoryPanelProps = {
   hostId: string
@@ -78,7 +79,7 @@ function MobileAgentSessionHistoryPanelContent({
   name = '',
   origin = ''
 }: MobileAgentSessionHistoryPanelProps) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const router = useWorkspaceRouteHandoff()
   const { client, state: connState } = useWorkspaceClient(hostId)
@@ -98,7 +99,7 @@ function MobileAgentSessionHistoryPanelContent({
   const [searchBarHeight, setSearchBarHeight] = useState(0)
   const insets = useSafeAreaInsets()
   const now = useNow(30_000)
-  const worktreeLabel = getWorktreeLabel(name, worktreeId)
+  const worktreeLabel = getWorktreeLabel(name, worktreeId, t)
   const pickingHandoff = origin === 'handoff'
   const [actionSession, setActionSession] = useState<AiVault.AiVaultSession | null>(null)
 
@@ -122,15 +123,19 @@ function MobileAgentSessionHistoryPanelContent({
   )
   const sections = useMemo(
     () =>
-      buildMobileAgentHistorySections(sessions, {
-        query,
-        agents,
-        sort,
-        scope,
-        scopeFilterPaths,
-        activeWorktreePath,
-        now
-      }),
+      buildMobileAgentHistorySections(
+        sessions,
+        {
+          query,
+          agents,
+          sort,
+          scope,
+          scopeFilterPaths,
+          activeWorktreePath,
+          now
+        },
+        t
+      ),
     [sessions, query, agents, sort, scope, scopeFilterPaths, activeWorktreePath, now, t]
   )
 
@@ -199,13 +204,9 @@ function MobileAgentSessionHistoryPanelContent({
           title={t('agentHistory.panel.loading', 'Loading agent sessions…')}
         />
       ) : screenState.kind === 'unsupported' ? (
-        <MobileStateView
-          icon={History}
-          title={t('agentHistory.panel.unavailable', 'Agent history unavailable')}
-          message={t(
-            'agentHistory.panel.updateHost',
-            'Update Orca on this host to browse agent session history.'
-          )}
+        <HostUpdateNotice
+          variant="screen"
+          feature={t('agentHistory.panel.needsNewerOrca', 'Agent history needs a newer version.')}
         />
       ) : screenState.kind === 'error' && connState !== 'connected' ? (
         <MobileOfflineState onReconnect={retry} />

@@ -126,6 +126,7 @@ export type RuntimeStore = {
     browserClientHostedRemoteEnabled?: GlobalSettings['browserClientHostedRemoteEnabled']
     autoRenameBranchFromWork?: GlobalSettings['autoRenameBranchFromWork']
     nativeChatAutoName?: GlobalSettings['nativeChatAutoName']
+    antigravityChatNaming?: GlobalSettings['antigravityChatNaming']
     nativeChatResumeWorkOnRestart?: GlobalSettings['nativeChatResumeWorkOnRestart']
     notifications?: GlobalSettings['notifications']
     claudeManagedAccounts?: GlobalSettings['claudeManagedAccounts']
@@ -179,7 +180,6 @@ export type RuntimeStore = {
     agentDefaultSurfaceChosen?: GlobalSettings['agentDefaultSurfaceChosen']
     nativeChatProviders?: GlobalSettings['nativeChatProviders']
     antigravityChatAuth?: GlobalSettings['antigravityChatAuth']
-    antigravityManagedAgyEnabled?: GlobalSettings['antigravityManagedAgyEnabled']
     antigravityServerAutoUpdateEnabled?: GlobalSettings['antigravityServerAutoUpdateEnabled']
     antigravityGoogleSignIn?: GlobalSettings['antigravityGoogleSignIn']
     defaultTaskSource?: GlobalSettings['defaultTaskSource']
@@ -213,6 +213,7 @@ export type RuntimeStore = {
     voice?: VoiceSettings
     claudeAgentTeamsMode?: GlobalSettings['claudeAgentTeamsMode']
     claudeAccountSwitchRunningSessions?: GlobalSettings['claudeAccountSwitchRunningSessions']
+    antigravityAccountSwitchRunningSessions?: GlobalSettings['antigravityAccountSwitchRunningSessions']
     // Read query-responder kill switches per ingested chunk to capture reply ownership.
     terminalMainSideEffectAuthority?: GlobalSettings['terminalMainSideEffectAuthority']
     terminalHiddenDeliveryGate?: GlobalSettings['terminalHiddenDeliveryGate']

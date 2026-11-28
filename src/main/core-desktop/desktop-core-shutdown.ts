@@ -10,7 +10,6 @@ import { beginSshShutdown } from '../ipc/ssh/ssh-shutdown-drain'
 import { agentHookServer } from '../agent-hooks/server/agent-hook-server'
 import { botToolRelay } from '../bots/tool-relay/bot-tool-relay'
 import { wslHookRelayManager } from '../agent-hooks/wsl-relay/wsl-hook-relay-manager'
-import { removeManagedAgentHooksAsync } from '../agent-hooks/installation/managed-agent-hook-controls'
 import { stopStructuredAgentSessionRuntime } from '../runtime/agent-session/installation/structured-agent-session-runtime'
 import { setStructuredAgentSessionTeardownTrigger } from '../runtime/agent-session/installation/structured-agent-session-runtime-teardown'
 import {
@@ -21,13 +20,9 @@ import { awaitRuntimeFileWatcherUnsubscribes } from '../runtime/files/watch/file
 import { clearRuntimeMetadataIfOwned } from '../runtime/rpc/server/runtime-metadata'
 import { stopCodexStateDbBackfillRecoveries } from '../codex/history/index/codex-state-db-backfill-recovery'
 import { stopCodexAccountHistoryWork } from '../codex/history/shared-store/codex-account-history-index'
-import { awaitPackedRefsLockRelease } from '../git/refs/maintenance/local-repo-ref-maintenance'
 import { worktreeRemovalLifetime } from '../workspaces/removal/worktree-removal-lifetime'
-import { cancelHistoryGc } from '../pty/history/terminal-history-gc'
-import { fenceMainProcessCloudOnQuit } from '../startup/cloud-startup/main-process-connector-startup'
 import { ConnectorTurnEvents } from '../connector-cloud/connector-turn-events'
 import { getCanonicalUserDataPath } from '../persistence/loading-store/user-data-path'
-import { flushUnsavedCloudSessions } from '../orca-profiles/cloud-session/profile-cloud-session-owner'
 import { getWorkspaceCleanupRunner } from '../workspaces/cleanup/workspace-cleanup-runner-registry'
 import { shutdownWatchersOnce } from '../startup/quit/filesystem-watcher-quit-shutdown'
 
@@ -47,22 +42,6 @@ export type DesktopCoreShutdownNative = {
   retireBrowserClientHosts(): NamedQuitTeardown[]
   /** Dev-parent death leaves its temporary profile ownerless, so the daemon is shut down instead. */
   isDevParentShutdown(): boolean
-}
-
-/** Before-quit: fence new work while a renderer can still veto. `releaseAgentAwake` keeps its place. */
-export function fenceDesktopCore(core: DesktopCore, releaseAgentAwake: () => void): void {
-  flushUnsavedCloudSessions()
-  fenceMainProcessCloudOnQuit()
-  core.runtimeRpc?.setMobileRelayPairingProvider(null)
-  core.uninstallHookStatusRepublish?.()
-  core.uninstallHookStatusRepublish = null
-  releaseAgentAwake()
-  // Beforeunload may veto; wait for ref locks now but uninstall only after committed quit. isQuitting already blocks new attempts.
-  core.repoMaintenanceShutdown = awaitPackedRefsLockRelease()
-  // Delay PTY cleanup until scrollback capture; exit events otherwise unmount the renderer callbacks.
-  core.rateLimits?.stop()
-  // History GC is idempotent and rescheduled next launch; a vetoed quit costs only a deferred sweep.
-  cancelHistoryGc()
 }
 
 function stopPluginsAndSessions(
@@ -108,7 +87,9 @@ function cleanUpGrokHooksOnWindows(): Promise<void> {
     return Promise.resolve()
   }
   return settleWithinMs(
-    removeManagedAgentHooksAsync({ agents: ['grok'] }),
+    import('../agent-hooks/installation/managed-agent-hook-controls').then(
+      ({ removeManagedAgentHooksAsync }) => removeManagedAgentHooksAsync({ agents: ['grok'] })
+    ),
     GROK_HOOK_CLEANUP_DEADLINE_MS
   ).then((settled) => {
     if (settled.outcome === 'timed-out') {

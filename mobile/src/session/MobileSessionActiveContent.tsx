@@ -13,15 +13,15 @@ import { MobileBrowserTabBody } from '../browser/MobileBrowserTabBody'
 import { TerminalPaneView } from '../terminal/session/pane-layout/TerminalPaneView'
 import { MountedTerminalPanes } from '../terminal/session/pane-layout/mounted-terminal-lru'
 import { MobileNativeChatOverlay } from './native-chat/MobileNativeChatOverlay'
-import { mobileSessionNativeChatHostOutage } from './native-chat/status/mobile-native-chat-host-outage'
+import { useMobileSessionNativeChatHostOutage } from './native-chat/status/mobile-native-chat-host-outage'
 import { MobileAgentMessageProvider } from './native-chat/transcript/agent-messages/MobileAgentMessageProvider'
 import { MobileNativeChatForkProvider } from './MobileNativeChatForkProvider'
 import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navigation'
 import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/dictation/mobile-native-chat-dictation-preview-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/conversation/mobile-native-chat-eligibility'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useThemedStyles } from '../theme/themed-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { styles } from './mobile-session-styles'
+import { stylesSheet } from './mobile-session-styles'
 import { renderAnimatedToast } from '../components/feedback/TransientToast'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { useMobileSessionContentKeyboardLift } from '../terminal/session/input-controls/use-mobile-session-keyboard-lift'
@@ -29,6 +29,7 @@ import { useOpenUrlInOrca } from '../browser/tab-navigation/use-open-url-in-orca
 import { useMobileTerminalLinkOpen } from '../terminal/session/links/use-mobile-terminal-link-open'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useOpenHostAccounts } from '../accounts/use-open-mobile-accounts'
+import { useChatAccountSignIn } from '../accounts/sign-in/use-chat-account-sign-in'
 import { useHostProfile } from '../host-catalog/use-host-profile'
 import { useHostDisplay } from '../host-descriptors/use-host-display'
 import { FileReader } from '../files/session-documents/MobileSessionFileReader'
@@ -44,7 +45,7 @@ export function MobileSessionActiveContent({
 }: {
   controller: MobileSessionController
 }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const executionHost = useWorkspaceExecutionHost()
   const [paneFrame, setPaneFrame] = useState({ width: 0, height: 0 })
@@ -127,12 +128,20 @@ export function MobileSessionActiveContent({
   const terminalLinks = useMobileTerminalLinkOpen(controller, openUrlInOrca)
   const hostProfile = useHostProfile(hostId)
   const hostTitle = useHostDisplay(hostProfile).title
-  const nativeChatHostOutage = mobileSessionNativeChatHostOutage(controller, hostTitle, t)
+  const nativeChatHostOutage = useMobileSessionNativeChatHostOutage(controller, hostTitle, t)
   const nativeChatImageSource = useMemo(
     () => (client ? { client, worktreeId } : undefined),
     [client, worktreeId]
   )
   const openNativeChatAccounts = useOpenHostAccounts(controller.router, hostId)
+  // Accounts open on the paired host, so a chat another server runs offers none.
+  const chatAccounts = useChatAccountSignIn({
+    client,
+    onPairedHost: executionHost === undefined,
+    hostName: hostTitle,
+    onSignedIn: showToast,
+    openAccounts: openNativeChatAccounts
+  })
   const navigateToSender = useCallback(
     (senderWorktreeId: string, paneKey: string) => {
       const execution = executionHost ? `&executionHost=${encodeURIComponent(executionHost)}` : ''
@@ -363,10 +372,9 @@ export function MobileSessionActiveContent({
                     linkOpenMode={controller.linkOpenMode}
                     hostOutage={nativeChatHostOutage}
                     onRunInTerminal={nativeChatTerminalRunner(controller)}
-                    // Accounts open on the paired host, so a chat another server runs offers none.
-                    onOpenAccounts={
-                      executionHost === undefined ? openNativeChatAccounts : undefined
-                    }
+                    onOpenAccounts={chatAccounts.openAccounts}
+                    accountSignIn={chatAccounts.accountSignIn}
+                    onToast={controller.showToast}
                   />
                 </MobileSessionBotIdentity>
               </MobileBotCardHostProvider>
@@ -374,6 +382,7 @@ export function MobileSessionActiveContent({
           </MobileAgentMessageProvider>
         </MobileNativeChatDictationPreviewContext.Provider>
         {terminalLinks.terminalLinkSheet}
+        {chatAccounts.sheet}
         {toast}
       </View>
     )

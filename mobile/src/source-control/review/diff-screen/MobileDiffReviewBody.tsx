@@ -7,11 +7,11 @@ import {
   MobileOfflineState,
   MobileStateView
 } from '../../../components/feedback/MobileStateView'
-import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
+import { HostUpdateNotice } from '../../../host-update-notice/HostUpdateNotice'
 import { MobileDiffReviewLines, type LineRange } from './MobileDiffReviewLines'
 import { MobilePanZoomImage } from '../../../files/media/presentation/MobilePanZoomImage'
-import { filePreviewStyles } from '../../../files/preview/mobile-file-preview-styles'
+import { filePreviewStylesSheet } from '../../../files/preview/mobile-file-preview-styles'
 import type {
   ReviewDiffState,
   ReviewScreenState
@@ -22,6 +22,7 @@ import type {
 } from '../diff-state/mobile-diff-review-queue'
 import type { MobileDiffReviewThread } from '../diff-actions/mobile-diff-review-github'
 import type { PrThreadActions } from '../pull-request/comments/PrThreadRow'
+import { useThemedStyles } from '../../../theme/themed-styles'
 
 type Props = {
   commentsByLine: ReadonlyMap<number, DiffComment[]>
@@ -67,7 +68,6 @@ export function MobileDiffReviewBody({
   filter,
   onBack
 }: Props) {
-  useMobileColorScheme()
   const t = useMobileTranslation()
   if (screenState.kind === 'loading') {
     return (
@@ -76,6 +76,9 @@ export function MobileDiffReviewBody({
         title={t('components.diffReviewBody.loadingReview', 'Loading review...')}
       />
     )
+  }
+  if (screenState.kind === 'unavailable' && screenState.hostUpdate) {
+    return <HostUpdateNotice variant="screen" feature={screenState.message} />
   }
   if (screenState.kind === 'unavailable') {
     return (
@@ -164,6 +167,7 @@ function DiffImage({
   diffState: Extract<ReviewDiffState, { kind: 'image' }>
   title: string
 }) {
+  const filePreviewStyles = useThemedStyles(filePreviewStylesSheet)
   const t = useMobileTranslation()
   // An image the WebView can't decode stays hidden, so fall back to the binary notice.
   const [failed, setFailed] = useState(false)

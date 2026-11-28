@@ -1,14 +1,16 @@
 import { StyleSheet } from 'react-native'
-import { colors, spacing, radii } from '../../theme/mobile-theme'
+import { spacing, radii } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
 
-export const transientToastStyles = themedStyleSheet(() => ({
+export const transientToastStylesSheet = themedStyleSheet((colors) => ({
   toast: {
     position: 'absolute',
     bottom: spacing.lg,
     alignSelf: 'center',
     left: 0,
     right: 0,
+    // A message longer than one line keeps clear of the screen edges.
+    paddingHorizontal: spacing.lg,
     alignItems: 'center'
   },
   toastText: {
