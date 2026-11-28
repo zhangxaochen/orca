@@ -1,6 +1,7 @@
 import { useNativeChatUsageLimitAutoContinue } from '@/components/native-chat/usage/use-native-chat-usage-limit-auto-continue'
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Play } from 'lucide-react'
+import { useNativeChatViewGuard } from '../pane/ownership/native-chat-view-memory'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslate } from '@/i18n/use-translate'
@@ -97,9 +98,14 @@ export function useNativeChatInterruptedContinuation(input: {
   const {
     auto: usageLimitAutoContinue,
     unavailable: usageLimitAutoContinueUnavailable,
-    continueAt: usageLimitContinueAt
+    continueAt: usageLimitContinueAt,
+    limitedAccount: usageLimitLimitedAccount
   } = useNativeChatUsageLimitAutoContinue(target, sessionId, usageLimitCut)
-  const [attempt, setAttempt] = useState(NO_NATIVE_CHAT_INTERRUPTED_CONTINUE_ATTEMPT)
+  // Kept with the chat tab: a view released while Continue is being asked returns without offering it again.
+  const [attempt, setAttempt] = useNativeChatViewGuard(
+    'interrupted-continue',
+    NO_NATIVE_CHAT_INTERRUPTED_CONTINUE_ATTEMPT
+  )
   const [usageFailure, setUsageFailure] = useState<string | null>(null)
   if (usageFailure !== null && input.pending.some((entry) => entry.phase === 'sending')) {
     setUsageFailure(null)
@@ -182,7 +188,7 @@ export function useNativeChatInterruptedContinuation(input: {
         setAttempt((current) => failNativeChatInterruptedContinue(current, turnItemId))
       }
     })
-  }, [offered, target, sessionId, reportComposerError])
+  }, [offered, target, sessionId, reportComposerError, setAttempt])
   const remoteHost = target.kind === 'environment'
   const view = useMemo(
     () => ({
@@ -196,6 +202,7 @@ export function useNativeChatInterruptedContinuation(input: {
       usageLimitAutoContinue,
       usageLimitAutoContinueUnavailable,
       usageLimitContinueAt,
+      usageLimitLimitedAccount,
       onUsageLimitHandOffStarted:
         usageLimitAutoContinue?.kind === 'scheduled' ? usageLimitAutoContinue.cancel : undefined,
       usageLimitContinueDisabled: usageCapability === 'unknown',
@@ -212,6 +219,7 @@ export function useNativeChatInterruptedContinuation(input: {
       usageLimitAutoContinue,
       usageLimitAutoContinueUnavailable,
       usageLimitContinueAt,
+      usageLimitLimitedAccount,
       usageCapability,
       continueUsageLimit
     ]

@@ -38,6 +38,7 @@ import { registerBotDeepLinkIpcBridge } from './bot-deep-link-ipc-bridge'
 import { registerProjectCatalogIpcBridge } from './workspace-catalog/project-catalog-ipc-bridge'
 import { registerRateLimitIpcBridge } from './native-app/rate-limit-ipc-bridge'
 import { registerClaudeAccountSwitchIpcBridge } from '../../lib/provider-accounts/claude-account-switch-ipc-bridge'
+import { registerAntigravityAccountSwitchIpcBridge } from '../../lib/provider-accounts/antigravity-account-switch-ipc-bridge'
 import { registerRuntimeClientIpcBridge } from './runtime-events/runtime-client-ipc-bridge'
 import { registerSessionTabIpcBridge } from './session-tabs/session-tab-ipc-bridge'
 import { registerSettingsAndSidebarIpcBridge } from '../app-commands/settings-sidebar-ipc-bridge'
@@ -122,7 +123,7 @@ export function installAppLifetimeIpcEvents(): () => void {
       if (snapshot.transport === 'ready' && snapshot.verification === 'verified') {
         if (!availableHosts.has(snapshot.environmentId)) {
           availableHosts.add(snapshot.environmentId)
-          window.api.ui.notifySleepingMailAvailability?.()
+          window.api.ui.notifySleepingMailAvailability?.(undefined, snapshot.environmentId)
         }
       } else {
         availableHosts.delete(snapshot.environmentId)
@@ -206,6 +207,7 @@ export function installAppLifetimeIpcEvents(): () => void {
   registerRateLimitIpcBridge(unsubs)
   registerPluginViewIpcBridge(unsubs)
   registerClaudeAccountSwitchIpcBridge(unsubs)
+  registerAntigravityAccountSwitchIpcBridge(unsubs)
   const stopDirectSshStateBridge = registerDirectSshStateIpcBridge(unsubs)
   registerZoomIpcBridge(unsubs)
   const agentStatusBridge = registerAgentStatusIpcBridge(unsubs)

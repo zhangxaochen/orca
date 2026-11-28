@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../../theme/mobile-theme'
-import { themedStyleSheet } from '../../theme/themed-styles'
-import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { spacing, typography } from '../../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../../theme/themed-styles'
+import { useMobileColors } from '../../theme/use-mobile-color-scheme'
 
 export const SHELL_OPENING_LABEL = 'Opening workspace'
 
@@ -23,7 +23,8 @@ export function ShellWaitingFrame({
   indicator?: ReactNode
   caption?: string
 }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   return (
     <>
       <View style={styles.indicatorSlot}>
@@ -46,7 +47,7 @@ export function ShellPageCover({
   visible: boolean
 }) {
   const t = useMobileTranslation()
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const opacity = useRef(new Animated.Value(1)).current
   const [mounted, setMounted] = useState(visible)
 
@@ -93,7 +94,7 @@ export function ShellPageCover({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   cover: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',

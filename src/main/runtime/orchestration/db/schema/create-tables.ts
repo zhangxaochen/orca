@@ -34,11 +34,32 @@ export function createTables(this: OrchestrationDb): void {
   if (!this.hasColumn('remote_placements', 'never_sent_at')) {
     this.db.exec('ALTER TABLE remote_placements ADD COLUMN never_sent_at TEXT')
   }
+  if (!this.hasColumn('remote_placements', 'send_attempt')) {
+    this.db.exec('ALTER TABLE remote_placements ADD COLUMN send_attempt INTEGER NOT NULL DEFAULT 1')
+  }
   if (!this.hasColumn('remote_dispatches', 'task_settled_here')) {
     this.db.exec(
       'ALTER TABLE remote_dispatches ADD COLUMN task_settled_here INTEGER NOT NULL DEFAULT 0'
     )
   }
+  for (const [table, column] of [
+    ['remote_placements', 'creator_orca_session_id'],
+    ['remote_placements', 'creator_pane_key'],
+    ['remote_dispatches', 'creator_orca_session_id'],
+    ['remote_dispatches', 'creator_pane_key'],
+    ['remote_dispatches', 'worktree_id']
+  ] as const) {
+    if (!this.hasColumn(table, column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`)
+    }
+  }
+  // After the columns exist: a chat's tree finds its remote Dispatches as it finds its local ones.
+  this.db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_remote_dispatches_creator_session
+      ON remote_dispatches(creator_orca_session_id);
+    CREATE INDEX IF NOT EXISTS idx_remote_dispatches_creator_pane
+      ON remote_dispatches(creator_pane_key);
+  `)
   this.createMailboxDeliveryIndexesIfPossible()
   this.db.exec(DERIVED_DELIVERY_SCHEMA_SQL)
 }
