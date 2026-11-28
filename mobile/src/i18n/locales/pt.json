@@ -3747,6 +3747,7 @@
       "cardClosed": "O cartão foi fechado",
       "waitingForHost": "Aguardando o host…",
       "workspaceGone": "O espaço de trabalho não existe mais",
+      "workspaceUnreachable": "O host do espaço de trabalho está offline",
       "cardClosedOpeningWorkspace": "Cartão fechado; abrindo espaço de trabalho"
     },
     "tabsSheet": {

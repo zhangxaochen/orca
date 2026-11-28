@@ -4189,6 +4189,7 @@
       "cardClosed": "Карточка закрыта",
       "waitingForHost": "Ожидание хоста…",
       "workspaceGone": "Рабочая область больше не существует",
+      "workspaceUnreachable": "Хост рабочей области не в сети",
       "cardClosedOpeningWorkspace": "Карточка закрыта; открытие рабочей области"
     },
     "contentState": {

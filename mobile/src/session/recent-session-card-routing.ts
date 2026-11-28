@@ -5,6 +5,14 @@ import { rpcClientForExecutionHost } from '../worktree/execution-hosts/execution
 import { worktreeCatalogRead } from '../worktree/catalog/worktree-catalog-operations'
 import { sessionTabsListRead } from './tabs/mobile-session-tab-read-operations'
 import {
+  clearRecentCardHostMetadataCacheForTests,
+  collectRelayHostReachability,
+  parseRecentCardWorktreeRows,
+  readDesktopRecentCardHostMetadata,
+  sameExecutionHostSets,
+  type ParsedRecentCardWorktree
+} from './recent-session-card-host-health'
+import {
   isUnpublishedSnapshot,
   recentCardExecutionHostKey,
   recentCardSnapshotTabs
@@ -16,21 +24,18 @@ import {
 } from './recent-session-cards'
 import { recentCardWorktreeScopeKey } from './recent-session-card-visibility'
 
-export type RecentCardWorktree = {
-  worktreeId: string
-  executionHost?: ExecutionHostId
-  displayName?: string
-  isArchived?: boolean
-}
+export type RecentCardWorktree = ParsedRecentCardWorktree
 
 export type RecentCardsPollState = {
   worktrees: readonly RecentCardWorktree[]
   confirmedExecutionHosts: ReadonlySet<string>
+  unreachableExecutionHosts: ReadonlySet<string>
 }
 
 export const EMPTY_RECENT_CARDS_POLL_STATE: RecentCardsPollState = {
   worktrees: [],
-  confirmedExecutionHosts: new Set()
+  confirmedExecutionHosts: new Set(),
+  unreachableExecutionHosts: new Set()
 }
 
 const cachedPollStateByHost = new Map<string, RecentCardsPollState>()
@@ -41,6 +46,31 @@ export function getCachedRecentCardsPollState(hostId: string | undefined): Recen
 
 export function clearRecentCardsPollStateForTests(): void {
   cachedPollStateByHost.clear()
+  clearRecentCardHostMetadataCacheForTests()
+}
+
+export function markRecentCardExecutionHostUnreachable(
+  hostId: string,
+  executionHost: ExecutionHostId | undefined
+): RecentCardsPollState {
+  const current = getCachedRecentCardsPollState(hostId)
+  const key = recentCardExecutionHostKey(executionHost)
+  if (!key || current.unreachableExecutionHosts.has(key)) {
+    return current
+  }
+  const unreachableExecutionHosts = new Set(current.unreachableExecutionHosts)
+  unreachableExecutionHosts.add(key)
+  const confirmedExecutionHosts = new Set(current.confirmedExecutionHosts)
+  confirmedExecutionHosts.delete(key)
+  const next: RecentCardsPollState = {
+    worktrees: current.worktrees,
+    confirmedExecutionHosts,
+    unreachableExecutionHosts
+  }
+  if (hostId) {
+    cachedPollStateByHost.set(hostId, next)
+  }
+  return next
 }
 
 type ClientResolutionArgs = {
@@ -53,42 +83,16 @@ type ClientResolutionArgs = {
   hostCapabilities: readonly string[] | null | undefined
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
-
-function toRecentCardWorktrees(
-  rows: readonly unknown[] | undefined,
-  executionHost: ExecutionHostId | undefined
-): RecentCardWorktree[] {
-  const scopedExec =
-    executionHost && recentCardExecutionHostKey(executionHost) !== '' ? executionHost : undefined
-  return (rows ?? []).flatMap((row) =>
-    isRecord(row) && typeof row.worktreeId === 'string' && row.worktreeId.length > 0
-      ? [
-          {
-            worktreeId: row.worktreeId,
-            ...(scopedExec ? { executionHost: scopedExec } : {}),
-            displayName: typeof row.displayName === 'string' ? row.displayName : undefined,
-            isArchived: typeof row.isArchived === 'boolean' ? row.isArchived : undefined
-          }
-        ]
-      : []
-  )
-}
-
 export function sameRecentCardsPollState(
   prev: RecentCardsPollState,
   next: RecentCardsPollState
 ): boolean {
   if (
-    prev.confirmedExecutionHosts.size !== next.confirmedExecutionHosts.size ||
+    !sameExecutionHostSets(prev.confirmedExecutionHosts, next.confirmedExecutionHosts) ||
+    !sameExecutionHostSets(prev.unreachableExecutionHosts, next.unreachableExecutionHosts) ||
     prev.worktrees.length !== next.worktrees.length
   ) {
     return false
-  }
-  for (const key of prev.confirmedExecutionHosts) {
-    if (!next.confirmedExecutionHosts.has(key)) {
-      return false
-    }
   }
   return prev.worktrees.every(
     (a, i) =>
@@ -96,7 +100,8 @@ export function sameRecentCardsPollState(
       recentCardExecutionHostKey(a.executionHost) ===
         recentCardExecutionHostKey(next.worktrees[i]?.executionHost) &&
       a.displayName === next.worktrees[i]?.displayName &&
-      a.isArchived === next.worktrees[i]?.isArchived
+      a.isArchived === next.worktrees[i]?.isArchived &&
+      Boolean(a.unreachable) === Boolean(next.worktrees[i]?.unreachable)
   )
 }
 
@@ -135,6 +140,28 @@ export async function pollRecentCardsAcrossHosts(
   const { hostId, worktreeId, sessionTabsCount, currentExecutionHost, isCancelled, ...clientArgs } =
     args
   const cardsForHost = readAllRecentSessionCardsSync().filter((item) => item.hostId === hostId)
+  const desktopClient = resolveRecentCardClient({
+    ...clientArgs,
+    currentExecutionHost,
+    targetExecutionHost: undefined
+  })
+  const desktopMetadata = await readDesktopRecentCardHostMetadata(hostId, desktopClient)
+  if (isCancelled() || !hostId) {
+    return null
+  }
+  const { unreachableExecKeys, activeRuntimeExecKeys } = collectRelayHostReachability(
+    desktopMetadata.relayHosts
+  )
+  const unreachableExecutionHosts = new Set(unreachableExecKeys)
+  if (activeRuntimeExecKeys !== null) {
+    for (const item of cardsForHost) {
+      const cardExec = recentCardExecutionHostKey(item.executionHost)
+      if (cardExec.startsWith('runtime:') && !activeRuntimeExecKeys.has(cardExec)) {
+        unreachableExecutionHosts.add(cardExec)
+        removeRecentSessionCard(hostId, item.worktreeId, undefined, undefined, item.executionHost)
+      }
+    }
+  }
   const catalogTargets = new Map<string, ExecutionHostId | undefined>()
   for (const exec of [
     undefined,
@@ -152,26 +179,48 @@ export async function pollRecentCardsAcrossHosts(
   const populatedExecutionHosts = new Set<string>()
   await Promise.allSettled(
     [...catalogTargets.entries()].map(async ([execKey, execHost]) => {
+      if (execKey !== '' && unreachableExecutionHosts.has(execKey)) {
+        return
+      }
       const targetClient = resolveRecentCardClient({
         ...clientArgs,
         currentExecutionHost,
         targetExecutionHost: execHost
       })
       if (!targetClient) {
+        if (execKey !== '') {
+          unreachableExecutionHosts.add(execKey)
+        }
         return
       }
-      const reply = await worktreeCatalogRead.request(targetClient, { limit: 10000 })
-      const catalog = !isCancelled() ? worktreeCatalogRead.interpret(reply) : null
-      if (
-        catalog?.accepted &&
-        Array.isArray(catalog.value.worktrees) &&
-        catalog.value.unchanged !== true
-      ) {
-        confirmedExecutionHosts.add(execKey)
-        if (catalog.value.worktrees.length > 0) {
-          populatedExecutionHosts.add(execKey)
+      try {
+        const reply = await worktreeCatalogRead.request(targetClient, { limit: 10000 })
+        const catalog = !isCancelled() ? worktreeCatalogRead.interpret(reply) : null
+        if (
+          catalog?.accepted &&
+          Array.isArray(catalog.value.worktrees) &&
+          catalog.value.unchanged !== true
+        ) {
+          confirmedExecutionHosts.add(execKey)
+          if (catalog.value.worktrees.length > 0) {
+            populatedExecutionHosts.add(execKey)
+          }
+          const parsed = parseRecentCardWorktreeRows(
+            catalog.value.worktrees,
+            execHost,
+            execKey === '' ? desktopMetadata : null
+          )
+          worktrees.push(...parsed.worktrees)
+          for (const removedId of parsed.removedWorktreeIds) {
+            removeRecentSessionCard(hostId, removedId, undefined, undefined, undefined)
+          }
+        } else if (execKey !== '' && !reply.ok) {
+          unreachableExecutionHosts.add(execKey)
         }
-        worktrees.push(...toRecentCardWorktrees(catalog.value.worktrees, execHost))
+      } catch {
+        if (execKey !== '') {
+          unreachableExecutionHosts.add(execKey)
+        }
       }
     })
   )
@@ -189,18 +238,19 @@ export async function pollRecentCardsAcrossHosts(
   for (const item of cardsForHost) {
     const itemExecKey = recentCardExecutionHostKey(item.executionHost)
     const scopeKey = recentCardWorktreeScopeKey(item.worktreeId, item.executionHost)
-    if (
-      populatedExecutionHosts.has(itemExecKey) &&
-      !activeWorktreeKeys.has(scopeKey) &&
-      !prunedScopeKeys.has(scopeKey)
-    ) {
+    const hostAuthoritative =
+      populatedExecutionHosts.has(itemExecKey) ||
+      (itemExecKey !== '' && confirmedExecutionHosts.has(itemExecKey))
+    if (hostAuthoritative && !activeWorktreeKeys.has(scopeKey) && !prunedScopeKeys.has(scopeKey)) {
       prunedScopeKeys.add(scopeKey)
       removeRecentSessionCard(hostId, item.worktreeId, undefined, undefined, item.executionHost)
     }
   }
 
-  const confirmedWorktreeKeys = new Set(
-    worktrees.map((w) => recentCardWorktreeScopeKey(w.worktreeId, w.executionHost))
+  const reachableWorktreeKeys = new Set(
+    worktrees
+      .filter((w) => !w.isArchived && !w.unreachable)
+      .map((w) => recentCardWorktreeScopeKey(w.worktreeId, w.executionHost))
   )
   const currentExecKey = recentCardExecutionHostKey(currentExecutionHost)
   const tabTargets = new Map<string, { worktreeId: string; executionHost?: ExecutionHostId }>()
@@ -210,15 +260,13 @@ export async function pollRecentCardsAcrossHosts(
       continue
     }
     const key = recentCardWorktreeScopeKey(item.worktreeId, item.executionHost)
-    if (!confirmedWorktreeKeys.has(key) || prunedScopeKeys.has(key)) {
+    if (!reachableWorktreeKeys.has(key) || prunedScopeKeys.has(key) || tabTargets.has(key)) {
       continue
     }
-    if (!tabTargets.has(key)) {
-      tabTargets.set(key, {
-        worktreeId: item.worktreeId,
-        ...(itemExecKey ? { executionHost: item.executionHost } : {})
-      })
-    }
+    tabTargets.set(key, {
+      worktreeId: item.worktreeId,
+      ...(itemExecKey ? { executionHost: item.executionHost } : {})
+    })
   }
 
   await Promise.allSettled(
@@ -254,7 +302,11 @@ export async function pollRecentCardsAcrossHosts(
   if (isCancelled()) {
     return null
   }
-  const nextState: RecentCardsPollState = { worktrees, confirmedExecutionHosts }
+  const nextState: RecentCardsPollState = {
+    worktrees,
+    confirmedExecutionHosts,
+    unreachableExecutionHosts
+  }
   const prevCached = cachedPollStateByHost.get(hostId)
   if (!prevCached || !sameRecentCardsPollState(prevCached, nextState)) {
     cachedPollStateByHost.set(hostId, nextState)

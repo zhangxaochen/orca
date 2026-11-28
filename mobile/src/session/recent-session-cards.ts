@@ -311,6 +311,7 @@ export function getVisibleRecentSessionCards(p: {
   limit?: number
   liveWorktrees?: readonly LiveRecentCardWorktree[]
   confirmedExecutionHosts?: ReadonlySet<string>
+  unreachableExecutionHosts?: ReadonlySet<string>
   currentWorktreeTabs?: readonly LiveRecentCardTab[]
 }): Cards {
   return filterVisibleRecentSessionCards(readAllRecentSessionCardsSync(), {

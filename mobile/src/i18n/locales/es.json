@@ -3090,6 +3090,7 @@
       "cardClosed": "La tarjeta se cerró",
       "waitingForHost": "Esperando al host…",
       "workspaceGone": "El espacio de trabajo ya no existe",
+      "workspaceUnreachable": "El host del espacio de trabajo está sin conexión",
       "cardClosedOpeningWorkspace": "Tarjeta cerrada; abriendo espacio de trabajo"
     },
     "tabsSheet": {

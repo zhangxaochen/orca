@@ -3511,6 +3511,7 @@
       "cardClosed": "Karte wurde geschlossen",
       "waitingForHost": "Warte auf Host…",
       "workspaceGone": "Arbeitsbereich existiert nicht mehr",
+      "workspaceUnreachable": "Host des Arbeitsbereichs ist offline",
       "cardClosedOpeningWorkspace": "Karte wurde geschlossen; Arbeitsbereich wird geöffnet"
     },
     "tabsSheet": {

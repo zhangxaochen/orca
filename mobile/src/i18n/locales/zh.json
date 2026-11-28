@@ -3890,6 +3890,7 @@
       "cardClosed": "该卡片已关闭",
       "waitingForHost": "正在等待主机连接…",
       "workspaceGone": "工作区已不存在",
+      "workspaceUnreachable": "工作区所在主机已断开连接",
       "cardClosedOpeningWorkspace": "该卡片已关闭，正在打开工作区"
     }
   },

@@ -3369,6 +3369,7 @@
       "cardClosed": "Card was closed",
       "waitingForHost": "Waiting for host…",
       "workspaceGone": "Workspace no longer exists",
+      "workspaceUnreachable": "Workspace host is offline",
       "cardClosedOpeningWorkspace": "Card was closed; opening workspace"
     }
   },

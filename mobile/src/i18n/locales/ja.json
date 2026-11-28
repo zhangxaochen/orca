@@ -3509,6 +3509,7 @@
       "cardClosed": "カードは閉じられました",
       "waitingForHost": "ホストを待機中…",
       "workspaceGone": "ワークスペースは存在しません",
+      "workspaceUnreachable": "ワークスペースのホストがオフラインです",
       "cardClosedOpeningWorkspace": "カードは閉じられました。ワークスペースを開いています"
     },
     "tabsSheet": {

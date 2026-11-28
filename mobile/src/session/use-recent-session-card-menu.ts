@@ -1,26 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BOTTOM_DRAWER_SHOW_DURATION_MS } from '../components/bottom-drawer/bottom-drawer-constants'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import {
-  useWorkspaceExecutionHost,
-  workspaceRouteHref
-} from '../navigation/workspace-execution-host'
-import { triggerError, triggerSuccess } from '../platform/haptics/haptics'
-import {
-  activateMobileSessionTab,
-  setPendingCrossWorktreeTabTarget
-} from './tabs/mobile-session-tab-activation'
-import { recentCardExecutionHostKey, recentCardRowKey } from './recent-session-card-snapshot'
+import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
+import { useRelayHosts } from '../worktree/execution-hosts/relay-hosts-feed'
+import { collectRelayHostReachability } from './recent-session-card-host-health'
 import {
   getCachedRecentCardsPollState,
   pollRecentCardsAcrossHosts,
-  resolveRecentCardClient,
   sameRecentCardsPollState,
   type RecentCardsPollState
 } from './recent-session-card-routing'
+import { selectRecentSessionCard } from './recent-session-card-selection'
+import { recentCardExecutionHostKey } from './recent-session-card-snapshot'
 import {
   getVisibleRecentSessionCards,
-  removeRecentSessionCard,
+  readAllRecentSessionCardsSync,
   subscribeRecentSessionCards,
   type RecentSessionCardRecord
 } from './recent-session-cards'
@@ -28,6 +22,7 @@ import type { MobileSessionPresentationModel } from './use-mobile-session-presen
 
 const EMPTY_RECENT_SESSION_CARDS: readonly RecentSessionCardRecord[] = []
 const POLL_INTERVAL_MS = 2500
+const PREWARM_DELAY_MS = 150
 
 export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) {
   const t = useMobileTranslation()
@@ -58,6 +53,13 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
   const [recentCardsPollState, setRecentCardsPollState] = useState<RecentCardsPollState>(() =>
     getCachedRecentCardsPollState(hostId)
   )
+  const relayHostsClient =
+    pairedHostClient && pairedHostState === 'connected'
+      ? pairedHostClient
+      : executionHost === undefined && connState === 'connected'
+        ? client
+        : null
+  const relayHosts = useRelayHosts(relayHostsClient, hostCapabilities ?? [])
 
   useEffect(() => {
     const cached = getCachedRecentCardsPollState(hostId)
@@ -72,6 +74,61 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
   }, [isRecentCardsOpen])
 
   const anyHostConnected = connState === 'connected' || pairedHostState === 'connected'
+  useEffect(() => {
+    if (!anyHostConnected || !hostId || isRecentCardsOpen) {
+      return
+    }
+    if (
+      getCachedRecentCardsPollState(hostId).confirmedExecutionHosts.size > 0 ||
+      !readAllRecentSessionCardsSync().some((c) => c.hostId === hostId)
+    ) {
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (recentCardsPollInFlightRef.current || cancelled) {
+        return
+      }
+      recentCardsPollInFlightRef.current = true
+      void pollRecentCardsAcrossHosts({
+        hostId,
+        worktreeId,
+        sessionTabsCount: sessionTabs.length,
+        currentExecutionHost: executionHost,
+        currentClient: client,
+        currentConnState: connState,
+        pairedHostClient,
+        pairedHostState,
+        hostCapabilities,
+        isCancelled: () => cancelled
+      })
+        .then((next) => {
+          if (next && !cancelled) {
+            setRecentCardsPollState((prev) => (sameRecentCardsPollState(prev, next) ? prev : next))
+          }
+        })
+        .finally(() => {
+          recentCardsPollInFlightRef.current = false
+        })
+    }, PREWARM_DELAY_MS)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [
+    anyHostConnected,
+    client,
+    connState,
+    executionHost,
+    hostCapabilities,
+    hostId,
+    isRecentCardsOpen,
+    pairedHostClient,
+    pairedHostState,
+    sessionTabs.length,
+    worktreeId
+  ])
+
   useEffect(() => {
     if (!isRecentCardsOpen || !anyHostConnected) {
       return
@@ -102,6 +159,9 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
         recentCardsPollInFlightRef.current = false
       }
     }
+    if (getCachedRecentCardsPollState(hostId).confirmedExecutionHosts.size === 0) {
+      void tick()
+    }
     const settleTimer = setTimeout(() => {
       void tick()
     }, BOTTOM_DRAWER_SHOW_DURATION_MS)
@@ -126,6 +186,27 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
     worktreeId
   ])
 
+  const liveRelayReach = useMemo(() => collectRelayHostReachability(relayHosts), [relayHosts])
+
+  const effectiveUnreachableHosts = useMemo(() => {
+    const merged = new Set(recentCardsPollState.unreachableExecutionHosts)
+    for (const key of liveRelayReach.unreachableExecKeys) {
+      merged.add(key)
+    }
+    if (liveRelayReach.activeRuntimeExecKeys !== null) {
+      for (const card of readAllRecentSessionCardsSync()) {
+        if (card.hostId !== hostId) {
+          continue
+        }
+        const execKey = recentCardExecutionHostKey(card.executionHost)
+        if (execKey.startsWith('runtime:') && !liveRelayReach.activeRuntimeExecKeys.has(execKey)) {
+          merged.add(execKey)
+        }
+      }
+    }
+    return merged
+  }, [hostId, liveRelayReach, recentCardsPollState.unreachableExecutionHosts, recentCardsRevision])
+
   const recentSessionCards = useMemo(() => {
     if (!isRecentCardsOpen) {
       return EMPTY_RECENT_SESSION_CARDS
@@ -138,10 +219,12 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
       currentTabId: activeSessionTabId,
       liveWorktrees: recentCardsPollState.worktrees,
       confirmedExecutionHosts: recentCardsPollState.confirmedExecutionHosts,
+      unreachableExecutionHosts: effectiveUnreachableHosts,
       currentWorktreeTabs: sessionTabs
     })
   }, [
     activeSessionTabId,
+    effectiveUnreachableHosts,
     executionHost,
     hostId,
     isRecentCardsOpen,
@@ -160,106 +243,31 @@ export function useRecentSessionCardMenu(scope: MobileSessionPresentationModel) 
     if (jumpingRecentCardKey !== null || jumpLockRef.current) {
       return
     }
-    const isSameWorktree =
-      card.worktreeId === worktreeId &&
-      recentCardExecutionHostKey(card.executionHost) === recentCardExecutionHostKey(executionHost)
-    if (isSameWorktree) {
-      if (card.tabId === activeSessionTabId) {
-        closeRecentCardSheets()
-        return
-      }
-      const targetTab = sessionTabs.find(
-        (tab) =>
-          tab.id === card.tabId ||
-          (tab.type === 'terminal' &&
-            Boolean(card.terminalHandle) &&
-            tab.terminal === card.terminalHandle)
-      )
-      closeRecentCardSheets()
-      if (targetTab) {
-        switchSessionTab(targetTab)
-        triggerSuccess()
-      } else {
-        removeRecentSessionCard(hostId, card.worktreeId, card.tabId, undefined, card.executionHost)
-        triggerError()
-        showToast(t('session.recentSessionCards.cardClosed', 'Card was closed'))
-      }
-      return
-    }
-    const targetClient = resolveRecentCardClient({
-      targetExecutionHost: card.executionHost,
-      currentExecutionHost: executionHost,
-      currentClient: client,
-      currentConnState: connState,
-      pairedHostClient,
-      pairedHostState,
-      hostCapabilities
-    })
-    if (!targetClient) {
-      triggerError()
-      showToast(t('session.recentSessionCards.waitingForHost', 'Waiting for host…'))
-      return
-    }
     jumpLockRef.current = true
-    setJumpingRecentCardKey(recentCardRowKey(card))
     try {
-      setPendingCrossWorktreeTabTarget({
-        worktreeId: card.worktreeId,
-        tabId: card.tabId,
-        leafId: card.leafId,
-        terminalHandle: card.terminalHandle
+      await selectRecentSessionCard(card, {
+        hostId,
+        worktreeId,
+        executionHost,
+        client,
+        connState,
+        pairedHostClient,
+        pairedHostState,
+        hostCapabilities,
+        sessionTabs,
+        activeSessionTabId,
+        recentCardsPollState,
+        effectiveUnreachableHosts,
+        switchSessionTab,
+        showToast,
+        closeRecentCardSheets,
+        setPollState: setRecentCardsPollState,
+        setJumpingCardKey: setJumpingRecentCardKey,
+        replaceRoute: (href) => router.replace(href),
+        t
       })
-      const response = await activateMobileSessionTab(targetClient, {
-        worktree: `id:${card.worktreeId}`,
-        tabId: card.tabId,
-        ...(card.leafId ? { leafId: card.leafId } : {}),
-        notifyClients: false,
-        navigation: 'caller',
-        intent: 'user'
-      })
-      if (!response.ok) {
-        setPendingCrossWorktreeTabTarget(null)
-        if (response.error.code === 'repo_not_found') {
-          removeRecentSessionCard(
-            hostId,
-            card.worktreeId,
-            card.tabId,
-            undefined,
-            card.executionHost
-          )
-        }
-        if (
-          response.error.code === 'repo_not_found' ||
-          response.error.code === 'selector_not_found'
-        ) {
-          triggerError()
-          showToast(t('session.recentSessionCards.workspaceGone', 'Workspace no longer exists'))
-          closeRecentCardSheets()
-          return
-        }
-        showToast(
-          t(
-            'session.recentSessionCards.cardClosedOpeningWorkspace',
-            'Card was closed; opening workspace'
-          )
-        )
-      } else {
-        triggerSuccess()
-      }
-      closeRecentCardSheets()
-      const query = card.worktreeName ? `?name=${encodeURIComponent(card.worktreeName)}` : ''
-      router.replace(
-        workspaceRouteHref(
-          `/h/${encodeURIComponent(hostId)}/session/${encodeURIComponent(card.worktreeId)}${query}`,
-          card.executionHost ?? null
-        )
-      )
-    } catch {
-      setPendingCrossWorktreeTabTarget(null)
-      triggerError()
     } finally {
       jumpLockRef.current = false
-      setJumpingRecentCardKey(null)
     }
   }
 

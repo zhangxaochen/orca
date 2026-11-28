@@ -15,6 +15,7 @@ import type { TerminalRecord as Terminal } from '../../terminal/session/inventor
 import type { MobileSessionContentCreateActionsModel } from '../use-mobile-session-content-create-actions'
 import { mobileNativeChatScopeKey } from '../native-chat/conversation/mobile-native-chat-scope-key'
 import { closeMobileNativeChatTabDraft } from '../native-chat/composer/drafts/mobile-native-chat-draft-store'
+import { canRetireUnconfirmedLocalGhostTab } from '../recent-session-card-host-health'
 import { removeRecentSessionCard } from '../recent-session-cards'
 import { useWorkspaceExecutionHost } from '../../navigation/workspace-execution-host'
 import {
@@ -53,6 +54,7 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
     setFileDocs,
     setMarkdownDocs,
     sessionTabsRef,
+    appliedSnapshotMarkerRef,
     forgetLastSessionTab,
     closedTabTombstonesRef,
     closingTerminalTabsRef,
@@ -160,6 +162,89 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
     if (closingTerminal) {
       closingTerminalTabsRef.current.add(closingTerminal)
     }
+    const dropClosedMapKey = <V>(prev: Map<string, V>, shouldDrop?: (val: V) => boolean) => {
+      const entry = prev.get(tab.id)
+      if (!prev.has(tab.id) || (entry !== undefined && shouldDrop && !shouldDrop(entry))) {
+        return prev
+      }
+      const next = new Map(prev)
+      next.delete(tab.id)
+      return next
+    }
+    const commitLocalSessionTabClose = (retirementConfirmed?: boolean) => {
+      if (hostId && worktreeId) {
+        removeRecentSessionCard(
+          hostId,
+          worktreeId,
+          tab.id,
+          tab.type === 'terminal' ? tab.terminal : undefined,
+          executionHost
+        )
+      }
+      const chatScope = mobileNativeChatScopeKey(hostId, worktreeId, tab.id)
+      if (chatScope && retirementConfirmed) {
+        closeMobileNativeChatTabDraft(chatScope)
+      }
+      if (tab.type === 'markdown') {
+        setMarkdownDocs((prev) =>
+          dropClosedMapKey(prev, (doc) => !(doc.status === 'ready' && doc.isDirty))
+        )
+      } else if (tab.type === 'file') {
+        setFileDocs((prev) => dropClosedMapKey(prev))
+      }
+      const remainingTabs = sessionTabsRef.current.filter((candidate) => candidate.id !== tab.id)
+      if (tab.type === 'browser' && tab.browserPageId === pendingBrowserFocusPageIdRef.current) {
+        pendingBrowserFocusPageIdRef.current = null
+      }
+      for (const handle of closingTerminal?.handles ?? []) {
+        unsubscribeTerminal(handle)
+        terminalRefs.current.delete(handle)
+        if (pendingSelectionHandle(pendingSelectionRef.current) === handle) {
+          pendingSelectionRef.current = withoutPendingHandle(pendingSelectionRef.current)
+        }
+      }
+      sessionTabsRef.current = remainingTabs
+      setSessionTabs(remainingTabs)
+      forgetLastSessionTab(tab.id)
+      // Tombstone closed tabs until snapshots confirm them; immediate refetch can resurrect a pending close.
+      closedTabTombstonesRef.current.set(tab.id, Date.now() + 10_000)
+      if (selectedSessionTabIdRef.current === tab.id) {
+        selectedSessionTabIdRef.current =
+          remainingTabs.find((candidate) => candidate.id === activeSessionTabIdRef.current)?.id ??
+          null
+      }
+      if (pendingSelectionTabId(pendingSelectionRef.current) === tab.id) {
+        pendingSelectionRef.current = withoutPendingTabId(pendingSelectionRef.current)
+      }
+      // Read active identity live: bulk close can reactivate its anchor while an older close closure still names another tab.
+      // An empty snapshot published before this reply can leave the ID null or set to the closed terminal's handle.
+      const activeTabId = activeSessionTabIdRef.current
+      const activeHandle = activeHandleRef.current
+      if (
+        activeTabId === tab.id ||
+        ((activeTabId === null || activeTabId === activeHandle) &&
+          activeHandle !== null &&
+          closingTerminal?.handles.has(activeHandle))
+      ) {
+        activeSessionTabTypeRef.current = null
+        activeSessionTabIdRef.current = null
+        setActiveSessionTabId(null)
+        activeHandleRef.current = null
+        setActiveHandle(null)
+      }
+    }
+    const failOrRetireGhost = (errorCode?: string) => {
+      if (
+        canRetireUnconfirmedLocalGhostTab(
+          appliedSnapshotMarkerRef?.current?.version ?? 0,
+          errorCode
+        )
+      ) {
+        commitLocalSessionTabClose(false)
+      } else {
+        showCloseFailed(errorCode)
+      }
+    }
     try {
       const reply = await sessionTabClose.request(client, {
         worktree: `id:${worktreeId}`,
@@ -170,85 +255,16 @@ export function useMobileSessionCloseActions(scope: MobileSessionContentCreateAc
       })
       const response = sessionTabClose.interpret(reply)
       if (!response.accepted || response.value.refused) {
-        showCloseFailed(reply.ok ? undefined : reply.error.code)
-      } else {
-        if (hostId && worktreeId) {
-          removeRecentSessionCard(
-            hostId,
-            worktreeId,
-            tab.id,
-            tab.type === 'terminal' ? tab.terminal : undefined,
-            executionHost
-          )
+        if (!response.accepted) {
+          failOrRetireGhost(reply.ok ? undefined : reply.error.code)
+        } else {
+          showCloseFailed()
         }
-        const chatScope = mobileNativeChatScopeKey(hostId, worktreeId, tab.id)
-        if (chatScope && response.value.retirementConfirmed) {
-          closeMobileNativeChatTabDraft(chatScope)
-        }
-        if (tab.type === 'markdown') {
-          setMarkdownDocs((prev) => {
-            const doc = prev.get(tab.id)
-            if (!doc || (doc.status === 'ready' && doc.isDirty)) {
-              return prev
-            }
-            const next = new Map(prev)
-            next.delete(tab.id)
-            return next
-          })
-        }
-        if (tab.type === 'file') {
-          setFileDocs((prev) => {
-            if (!prev.has(tab.id)) {
-              return prev
-            }
-            const next = new Map(prev)
-            next.delete(tab.id)
-            return next
-          })
-        }
-        const remainingTabs = sessionTabsRef.current.filter((candidate) => candidate.id !== tab.id)
-        if (tab.type === 'browser' && tab.browserPageId === pendingBrowserFocusPageIdRef.current) {
-          pendingBrowserFocusPageIdRef.current = null
-        }
-        for (const handle of closingTerminal?.handles ?? []) {
-          unsubscribeTerminal(handle)
-          terminalRefs.current.delete(handle)
-          if (pendingSelectionHandle(pendingSelectionRef.current) === handle) {
-            pendingSelectionRef.current = withoutPendingHandle(pendingSelectionRef.current)
-          }
-        }
-        sessionTabsRef.current = remainingTabs
-        setSessionTabs(remainingTabs)
-        forgetLastSessionTab(tab.id)
-        // Tombstone closed tabs until snapshots confirm them; immediate refetch can resurrect a pending close.
-        closedTabTombstonesRef.current.set(tab.id, Date.now() + 10_000)
-        if (selectedSessionTabIdRef.current === tab.id) {
-          selectedSessionTabIdRef.current =
-            remainingTabs.find((candidate) => candidate.id === activeSessionTabIdRef.current)?.id ??
-            null
-        }
-        if (pendingSelectionTabId(pendingSelectionRef.current) === tab.id) {
-          pendingSelectionRef.current = withoutPendingTabId(pendingSelectionRef.current)
-        }
-        // Read active identity live: bulk close can reactivate its anchor while an older close closure still names another tab.
-        // An empty snapshot published before this reply can leave the ID null or set to the closed terminal's handle.
-        const activeTabId = activeSessionTabIdRef.current
-        const activeHandle = activeHandleRef.current
-        if (
-          activeTabId === tab.id ||
-          ((activeTabId === null || activeTabId === activeHandle) &&
-            activeHandle !== null &&
-            closingTerminal?.handles.has(activeHandle))
-        ) {
-          activeSessionTabTypeRef.current = null
-          activeSessionTabIdRef.current = null
-          setActiveSessionTabId(null)
-          activeHandleRef.current = null
-          setActiveHandle(null)
-        }
+        return
       }
+      commitLocalSessionTabClose(response.value.retirementConfirmed)
     } catch {
-      showCloseFailed()
+      failOrRetireGhost()
     } finally {
       if (closingTerminal) {
         closingTerminalTabsRef.current.delete(closingTerminal)

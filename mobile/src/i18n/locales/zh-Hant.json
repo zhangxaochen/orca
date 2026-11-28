@@ -3433,6 +3433,7 @@
       "cardClosed": "該卡片已關閉",
       "waitingForHost": "正在等待主機連線…",
       "workspaceGone": "工作區已不存在",
+      "workspaceUnreachable": "工作區所在主機已中斷連線",
       "cardClosedOpeningWorkspace": "該卡片已關閉，正在開啟工作區"
     },
     "tabsSheet": {

@@ -11,6 +11,7 @@ export type LiveRecentCardWorktree = {
   executionHost?: ExecutionHostId
   displayName?: string
   isArchived?: boolean
+  unreachable?: boolean
 }
 
 export const recentCardWorktreeScopeKey = (
@@ -138,6 +139,7 @@ export function filterVisibleRecentSessionCards(
     limit: number
     liveWorktrees?: readonly LiveRecentCardWorktree[]
     confirmedExecutionHosts?: ReadonlySet<string>
+    unreachableExecutionHosts?: ReadonlySet<string>
     currentWorktreeTabs?: readonly LiveRecentCardTab[]
   }
 ): RecentSessionCardSnapshot[] {
@@ -151,14 +153,18 @@ export function filterVisibleRecentSessionCards(
   return cards
     .filter((i) => {
       const cardExec = recentCardExecutionHostKey(i.executionHost)
+      if (p.unreachableExecutionHosts?.has(cardExec)) {
+        return false
+      }
       const inCurrent = i.worktreeId === p.currentWorktreeId && cardExec === currentExec
       const isCurrent = Boolean(p.currentTabId) && inCurrent && i.tabId === p.currentTabId
       const closed =
         Boolean(tabs?.length) && inCurrent && !tabs?.some((t) => recentCardMatchesTab(i, t))
       const liveRow = live?.get(recentCardWorktreeScopeKey(i.worktreeId, i.executionHost))
+      const liveRowActive = Boolean(liveRow && !liveRow.isArchived && !liveRow.unreachable)
       const activeWt = p.confirmedExecutionHosts
-        ? !p.confirmedExecutionHosts.has(cardExec) || Boolean(liveRow && !liveRow.isArchived)
-        : !live || Boolean(liveRow && !liveRow.isArchived)
+        ? !p.confirmedExecutionHosts.has(cardExec) || liveRowActive
+        : !live || liveRowActive
       return i.hostId === p.hostId && !isCurrent && activeWt && !closed
     })
     .slice(0, p.limit)

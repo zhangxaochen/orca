@@ -3971,6 +3971,7 @@
       "cardClosed": "Kart kapatıldı",
       "waitingForHost": "Ana bilgisayar bekleniyor…",
       "workspaceGone": "Çalışma alanı artık mevcut değil",
+      "workspaceUnreachable": "Çalışma alanı ana bilgisayarı çevrimdışı",
       "cardClosedOpeningWorkspace": "Kart kapatıldı; çalışma alanı açılıyor"
     },
     "tabsSheet": {

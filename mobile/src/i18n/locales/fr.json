@@ -3482,6 +3482,7 @@
       "cardClosed": "La carte a été fermée",
       "waitingForHost": "En attente de l’hôte…",
       "workspaceGone": "L’espace de travail n’existe plus",
+      "workspaceUnreachable": "L’hôte de l’espace de travail est hors ligne",
       "cardClosedOpeningWorkspace": "Carte fermée ; ouverture de l’espace de travail"
     },
     "tabsSheet": {

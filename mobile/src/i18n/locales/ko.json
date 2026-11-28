@@ -3636,6 +3636,7 @@
       "cardClosed": "카드가 닫혔습니다",
       "waitingForHost": "호스트 연결 대기 중…",
       "workspaceGone": "워크스페이스가 더 이상 존재하지 않습니다",
+      "workspaceUnreachable": "워크스페이스 호스트가 오프라인입니다",
       "cardClosedOpeningWorkspace": "카드가 닫혀 워크스페이스를 엽니다"
     },
     "tabsSheet": {
