@@ -24,7 +24,7 @@ export function MobileFileTabActionSheet(props: {
   return (
     <ActionSheetModal
       visible={target != null}
-      {...mobileSessionTabMenuHeader(target, [])}
+      {...mobileSessionTabMenuHeader(target, [], t)}
       groupDestructive
       title={target?.title || t('session.sheets.file', 'File')}
       actions={[
