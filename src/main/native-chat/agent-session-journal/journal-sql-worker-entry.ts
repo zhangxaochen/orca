@@ -13,6 +13,7 @@ import {
   openJournalDomainDatabase
 } from './database/journal-domain-database'
 import { JournalCheckpointOwner } from './database/journal-checkpoint-owner'
+import { journalWalWriterRelief } from './database/journal-wal-writer-relief'
 import { JournalSqlBatch, JournalSqlBatchError } from './journal-sql-batch'
 import { JournalSqlCommand } from './journal-sql-command'
 import {
@@ -62,6 +63,7 @@ let readOnly = true
 let fault: unknown
 let closing = false
 let scheduled = false
+let idleShrinkTimer: ReturnType<typeof setTimeout> | undefined
 const queue = new JournalSqlWriterQueue()
 let parking: JournalSqlWalParking | undefined
 const clock = new JournalSqlQueueClock(() => parking?.mark() ?? { bulk: 0, urgent: 0 })
@@ -88,7 +90,9 @@ async function open(): Promise<void> {
     forks = new JournalForkStages(db, stateDirectory)
     commands = new JournalSqlCommand(db, stateDirectory, forks)
     if (!readOnly) {
-      checkpoint = new JournalCheckpointOwner(db, workerData.filename)
+      checkpoint = new JournalCheckpointOwner(db, workerData.filename, {
+        relief: journalWalWriterRelief(db, workerData.filename)
+      })
       parking = new JournalSqlWalParking(checkpoint)
     }
     batch = new JournalSqlBatch(db, checkpoint && journalSqlTimedGate(checkpoint, gate))
@@ -123,6 +127,7 @@ port.on('message', (request: JournalSqlRequest) => {
     })
     return
   }
+  clearTimeout(idleShrinkTimer)
   if (request.command.type === 'close') {
     closing = true
     checkpointClosing = checkpoint?.close()
@@ -288,5 +293,16 @@ function scheduleNextDrain(): void {
     setImmediate(() => {
       void drain()
     })
+  } else if (!closing && db) {
+    clearTimeout(idleShrinkTimer)
+    idleShrinkTimer = setTimeout(() => {
+      if (db && !closing && !db.isTransaction) {
+        try {
+          db.pragma('shrink_memory')
+        } catch {
+          // Best-effort idle memory release.
+        }
+      }
+    }, 10_000).unref?.()
   }
 }

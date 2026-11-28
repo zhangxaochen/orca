@@ -68,6 +68,8 @@ export type BotLookAroundRunnerDeps = {
   turnRunning: (sessionId: string) => boolean
   /** The usage limit that ended the session's last turn, or null when none did. */
   usageLimitOf: (sessionId: string) => Promise<LookUsageLimit | null>
+  /** The bot agent's selected saved account, which lifts a limit another account hit. */
+  selectedAccount?: (agent: string) => string | undefined
   /** Whether a usage-limited look finishes in its own chat (see `limitedLookContinuesInItsChat`),
    *  so its slot starts no other. */
   usageLimitContinues: (sessionId: string) => Promise<boolean>
@@ -90,9 +92,20 @@ export class BotLookAroundRunner {
   private ticking = false
   private checkedAbandoned = false
   /** Looks this process started; only a recorded run outside it was cut off by a restart. */
-  private readonly ownSessions = new Set<string>()
+  private readonly ownSessions = new Map<string, { botId: string; clientMessageId: string }>()
 
   constructor(private readonly deps: BotLookAroundRunnerDeps) {}
+
+  ownsOpening(botId: string, sessionId: string, clientMessageId: string): boolean {
+    const opening = this.ownSessions.get(sessionId)
+    return (
+      opening?.botId === botId &&
+      opening.clientMessageId === clientMessageId &&
+      this.deps.store
+        .get(botId)
+        .runs.some((run) => run.sessionId === sessionId && run.endedAt === undefined)
+    )
+  }
 
   private change(botId: string, next: (state: BotLookState) => BotLookState): void {
     this.deps.store.update(botId, (state) => ({ state: next(state), result: null }))
@@ -129,7 +142,13 @@ export class BotLookAroundRunner {
           }
           continue
         }
-        const slot = lookAroundDueAt(setting, state, now)
+        const slot = lookAroundDueAt(
+          setting,
+          state,
+          now,
+          true,
+          this.deps.selectedAccount?.(bot.agent)
+        )
         const limited = state.runs.findLast((run) => run.endedAt !== undefined)
         // Only the slot the limited look took finishes in its chat; later slots are their own.
         if (
@@ -205,14 +224,37 @@ export class BotLookAroundRunner {
       return false
     }
     const state = withoutBackgroundRun(this.deps.store.get(botId), sessionId)
-    return lookAroundDueAt(botLookAround(bot), state, this.deps.now()) === slot
+    return (
+      lookAroundDueAt(
+        botLookAround(bot),
+        state,
+        this.deps.now(),
+        true,
+        this.deps.selectedAccount?.(bot.agent)
+      ) === slot
+    )
   }
 
   /** `slot` is the scheduled slot it takes; Look now has none and is never held back. */
   private async run(bot: Bot, slot?: number): Promise<void> {
-    this.running.add(bot.id)
     const sessionId = randomUUID()
-    this.ownSessions.add(sessionId)
+    this.running.add(bot.id)
+    let failed: boolean
+    try {
+      failed = await this.runRegistered(bot, sessionId, slot)
+    } finally {
+      this.ownSessions.delete(sessionId)
+      this.running.delete(bot.id)
+      void this.deps.sessions.release(sessionId)
+    }
+    if (failed && failedLooksInARow(this.deps.store.get(bot.id)) >= LOOK_FAILURES_TO_TURN_OFF) {
+      await this.deps.turnOff(bot).catch((error: unknown) => {
+        console.warn('[bots] could not turn off a failing Look around', error)
+      })
+    }
+  }
+
+  private async runRegistered(bot: Bot, sessionId: string, slot?: number): Promise<boolean> {
     const startedAt = this.deps.now()
     const text = lookAroundPrompt({
       focus: botLookAround(bot).focus,
@@ -221,6 +263,8 @@ export class BotLookAroundRunner {
     // Recorded before the session exists, so its launch already knows it only reads.
     let before: BotLookState | undefined
     this.change(bot.id, (state) => beginRun((before = state), sessionId, startedAt))
+    const clientMessageId = randomUUID()
+    this.ownSessions.set(sessionId, { botId: bot.id, clientMessageId })
     const watch = watchBackgroundRun(this.deps.power, sessionId)
     let failure: string | undefined
     let notifies = false
@@ -242,6 +286,7 @@ export class BotLookAroundRunner {
               text,
               title: 'Look around',
               sessionId,
+              run: { messageId: clientMessageId },
               beforeFirstMessage: gate.beforeFirstMessage,
               beforeDelivery: gate.beforeDelivery,
               actsFor: { actsFor: [...OWNER_ACTS_FOR] }
@@ -292,18 +337,7 @@ export class BotLookAroundRunner {
               usageLimited
             )
       )
-      this.running.delete(bot.id)
-      this.ownSessions.delete(sessionId)
-      void this.deps.sessions.release(sessionId)
     }
-    if (
-      failure &&
-      !gate.deferred() &&
-      failedLooksInARow(this.deps.store.get(bot.id)) >= LOOK_FAILURES_TO_TURN_OFF
-    ) {
-      await this.deps.turnOff(bot).catch((error: unknown) => {
-        console.warn('[bots] could not turn off a failing Look around', error)
-      })
-    }
+    return failure !== undefined && !gate.deferred()
   }
 }

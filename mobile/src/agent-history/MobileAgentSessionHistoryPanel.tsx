@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, History, MessageSquarePlus, Play, RefreshCw } from 'lucide-react-native'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
   MobileSegmentedControl,
   type MobileSegment
@@ -24,7 +23,7 @@ import {
 } from './MobileAgentSessionHistoryList'
 import { openHistorySession } from './worktree-navigation-actions'
 import { buildMobileAgentHistoryResumeActionState } from './agent-history-session-card'
-import { styles } from './agent-history-styles'
+import { stylesSheet } from './agent-history-styles'
 import {
   MobileLoadErrorState,
   MobileNoMatchState,
@@ -35,6 +34,7 @@ import {
   AgentHistoryInterruptedNotice,
   AgentHistoryResumeNotice,
   AgentHistoryScanNotices,
+  agentHistoryInterruptedShown,
   AgentHistoryHandoffNotice
 } from './AgentHistoryNotices'
 import {
@@ -48,10 +48,14 @@ import { useNow } from '../hooks/use-now'
 import { useMobileResumeOperationOwnership } from './use-mobile-resume-operation-ownership'
 import type { Translate } from '../i18n/mobile-i18n'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { HostUpdateNotice } from '../host-update-notice/HostUpdateNotice'
 import { ActionSheetModal } from '../components/sheets/ActionSheetModal'
 import { AgentHistoryHandoffDrawer } from './AgentHistoryHandoffSheet'
 import { useAgentHistoryHandoff } from './use-agent-history-handoff'
+import { latestSessionConversationTurn } from '../../../src/shared/ai-vault/session-display/ai-vault-session-display'
+import { blockingAiVaultScanIssue } from '../../../src/shared/ai-vault/scanning/ai-vault-scan-issue-state'
 import { useAgentHistorySessionResume } from './use-agent-history-session-resume'
+import { useThemedStyles } from '../theme/themed-styles'
 
 export type MobileAgentSessionHistoryPanelProps = {
   hostId: string
@@ -80,7 +84,7 @@ function MobileAgentSessionHistoryPanelContent({
   name = '',
   origin
 }: MobileAgentSessionHistoryPanelProps) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const router = useWorkspaceRouteHandoff()
   const { client, state: connState } = useWorkspaceClient(hostId)
@@ -100,7 +104,7 @@ function MobileAgentSessionHistoryPanelContent({
   const [searchBarHeight, setSearchBarHeight] = useState(0)
   const insets = useSafeAreaInsets()
   const now = useNow(30_000)
-  const worktreeLabel = getWorktreeLabel(name, worktreeId)
+  const worktreeLabel = getWorktreeLabel(name, worktreeId, t)
   const pickingHandoff = origin === 'handoff'
   const [actionSession, setActionSession] = useState<AiVault.AiVaultSession | null>(null)
 
@@ -116,6 +120,8 @@ function MobileAgentSessionHistoryPanelContent({
     retry
   } = useMobileAgentHistoryState({ hostId, worktreeId, worktrees, worktreesLoaded, projectSetups })
 
+  const showRefreshLine = useRefreshHint(revalidating)
+  const restartOffer = useAgentHistoryRestartOffer(client, connState === 'connected')
   const owner = { hostId, worktreeId, client, connState, worktrees }
   const resume = useAgentHistorySessionResume({ ...owner, origin, claimResumeOwnership })
   const {
@@ -163,6 +169,8 @@ function MobileAgentSessionHistoryPanelContent({
     showMessage: setResumeMessage
   })
 
+  // A failed scan explains the empty list, so it outranks every other notice.
+  const scanBlocked = blockingAiVaultScanIssue({ sessions, issues }) !== null
   const resumeActionStateBySessionId = useMemo(
     () =>
       buildMobileAgentHistoryResumeActionState(
@@ -188,7 +196,7 @@ function MobileAgentSessionHistoryPanelContent({
           title={
             pickingHandoff
               ? t('agentHistory.handoff.title', 'Hand off to agent')
-              : t('agentHistory.panel.title', 'Agent Session History')
+              : t('agentHistory.panel.title', 'Agent history')
           }
           subtitle={worktreeLabel}
           refreshing={showRefreshLine}
@@ -219,13 +227,9 @@ function MobileAgentSessionHistoryPanelContent({
           title={t('agentHistory.panel.loading', 'Loading agent sessions…')}
         />
       ) : screenState.kind === 'unsupported' ? (
-        <MobileStateView
-          icon={History}
-          title={t('agentHistory.panel.unavailable', 'Agent Session History Unavailable')}
-          message={t(
-            'agentHistory.panel.updateHost',
-            'Update Orca on this host to browse agent session history.'
-          )}
+        <HostUpdateNotice
+          variant="screen"
+          feature={t('agentHistory.panel.needsNewerOrca', 'Agent history needs a newer version.')}
         />
       ) : screenState.kind === 'error' && connState !== 'connected' ? (
         <MobileOfflineState onReconnect={retry} />
@@ -233,13 +237,25 @@ function MobileAgentSessionHistoryPanelContent({
         <MobileLoadErrorState error={screenState.message} onRetry={retry} />
       ) : (
         <>
-          <AgentHistoryInterruptedNotice offer={restartOffer} />
-          <AgentHistoryScanNotices sessions={sessions} issues={issues} />
+          {/* One notice at most: why the list is empty, what just happened, what waits, what the scan found. */}
           <AgentHistoryResumeNotice
-            message={resumeMessage}
+            message={scanBlocked ? null : resumeMessage}
             onDismiss={() => setResumeMessage(null)}
           />
-          <AgentHistoryHandoffNotice notice={handoff.notice} onDismiss={handoff.dismissNotice} />
+          <AgentHistoryHandoffNotice
+            notice={scanBlocked || resumeMessage ? null : handoff.notice}
+            onDismiss={handoff.dismissNotice}
+          />
+          {scanBlocked ? (
+            <AgentHistoryScanNotices sessions={sessions} issues={issues} />
+          ) : resumeMessage || handoff.notice ? null : (
+            <>
+              <AgentHistoryInterruptedNotice offer={restartOffer} />
+              {agentHistoryInterruptedShown(restartOffer) ? null : (
+                <AgentHistoryScanNotices sessions={sessions} issues={issues} />
+              )}
+            </>
+          )}
           {sections.length === 0 ? (
             query ? (
               <MobileNoMatchState
@@ -257,10 +273,6 @@ function MobileAgentSessionHistoryPanelContent({
               <MobileStateView
                 icon={History}
                 title={t('agentHistory.panel.noSessions', 'No agent sessions')}
-                message={t(
-                  'agentHistory.panel.emptyScope',
-                  'No past agent sessions in this scope.'
-                )}
                 bottomInset={searchBarHeight}
               />
             )
@@ -297,6 +309,10 @@ function MobileAgentSessionHistoryPanelContent({
       <ActionSheetModal
         visible={actionSession !== null}
         title={actionSession?.title}
+        // The last thing said, so a long-press shows where the session left off before resuming it.
+        {...(actionSession
+          ? { message: latestSessionConversationTurn(actionSession)?.text.trim() || undefined }
+          : {})}
         onClose={() => setActionSession(null)}
         actions={
           actionSession

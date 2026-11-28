@@ -10,20 +10,19 @@ import { beginSshShutdown } from '../ipc/ssh/ssh-shutdown-drain'
 import { agentHookServer } from '../agent-hooks/server/agent-hook-server'
 import { botToolRelay } from '../bots/tool-relay/bot-tool-relay'
 import { wslHookRelayManager } from '../agent-hooks/wsl-relay/wsl-hook-relay-manager'
-import { removeManagedAgentHooksAsync } from '../agent-hooks/installation/managed-agent-hook-controls'
 import { stopStructuredAgentSessionRuntime } from '../runtime/agent-session/installation/structured-agent-session-runtime'
 import { setStructuredAgentSessionTeardownTrigger } from '../runtime/agent-session/installation/structured-agent-session-runtime-teardown'
+import {
+  beginProviderRelayQuit,
+  providerRelayDetachesSettled
+} from '../provider-relay/app-provider-relays'
 import { awaitRuntimeFileWatcherUnsubscribes } from '../runtime/files/watch/file-watcher-leases'
 import { clearRuntimeMetadataIfOwned } from '../runtime/rpc/server/runtime-metadata'
 import { stopCodexStateDbBackfillRecoveries } from '../codex/history/index/codex-state-db-backfill-recovery'
 import { stopCodexAccountHistoryWork } from '../codex/history/shared-store/codex-account-history-index'
-import { awaitPackedRefsLockRelease } from '../git/refs/maintenance/local-repo-ref-maintenance'
 import { worktreeRemovalLifetime } from '../workspaces/removal/worktree-removal-lifetime'
-import { cancelHistoryGc } from '../pty/history/terminal-history-gc'
-import { fenceMainProcessCloudOnQuit } from '../startup/cloud-startup/main-process-connector-startup'
 import { ConnectorTurnEvents } from '../connector-cloud/connector-turn-events'
 import { getCanonicalUserDataPath } from '../persistence/loading-store/user-data-path'
-import { flushUnsavedCloudSessions } from '../orca-profiles/cloud-session/profile-cloud-session-owner'
 import { getWorkspaceCleanupRunner } from '../workspaces/cleanup/workspace-cleanup-runner-registry'
 import { shutdownWatchersOnce } from '../startup/quit/filesystem-watcher-quit-shutdown'
 
@@ -45,22 +44,6 @@ export type DesktopCoreShutdownNative = {
   isDevParentShutdown(): boolean
 }
 
-/** Before-quit: fence new work while a renderer can still veto. `releaseAgentAwake` keeps its place. */
-export function fenceDesktopCore(core: DesktopCore, releaseAgentAwake: () => void): void {
-  flushUnsavedCloudSessions()
-  fenceMainProcessCloudOnQuit()
-  core.runtimeRpc?.setMobileRelayPairingProvider(null)
-  core.uninstallHookStatusRepublish?.()
-  core.uninstallHookStatusRepublish = null
-  releaseAgentAwake()
-  // Beforeunload may veto; wait for ref locks now but uninstall only after committed quit. isQuitting already blocks new attempts.
-  core.repoMaintenanceShutdown = awaitPackedRefsLockRelease()
-  // Delay PTY cleanup until scrollback capture; exit events otherwise unmount the renderer callbacks.
-  core.rateLimits?.stop()
-  // History GC is idempotent and rescheduled next launch; a vetoed quit costs only a deferred sweep.
-  cancelHistoryGc()
-}
-
 function stopPluginsAndSessions(
   core: DesktopCore,
   trigger: 'update' | 'quit'
@@ -72,6 +55,10 @@ function stopPluginsAndSessions(
   // Final stats flush closes working sessions synchronously; quit supplies no terminating hook to preserve their duration.
   core.starNag?.stop()
   core.automations?.stop()
+  core.stopTeamPolicyRefresh?.()
+  core.stopTeamPolicyRefresh = null
+  core.stopTeamPluginPolicy?.()
+  core.stopTeamPluginPolicy = null
   if (core.runtime) {
     getWorkspaceCleanupRunner(core.runtime)?.stop()
   }
@@ -88,6 +75,7 @@ function stopPluginsAndSessions(
   stopCodexAccountHistoryWork()
   // Stamp resume reasons before stopping sessions; an update restart was not a user quit.
   setStructuredAgentSessionTeardownTrigger(trigger)
+  beginProviderRelayQuit()
   const structuredAgentSessionShutdown = stopStructuredAgentSessionRuntime()
   core.pluginService = null
   return { pluginHostShutdown, codexBackfillRecoveryShutdown, structuredAgentSessionShutdown }
@@ -99,7 +87,9 @@ function cleanUpGrokHooksOnWindows(): Promise<void> {
     return Promise.resolve()
   }
   return settleWithinMs(
-    removeManagedAgentHooksAsync({ agents: ['grok'] }),
+    import('../agent-hooks/installation/managed-agent-hook-controls').then(
+      ({ removeManagedAgentHooksAsync }) => removeManagedAgentHooksAsync({ agents: ['grok'] })
+    ),
     GROK_HOOK_CLEANUP_DEADLINE_MS
   ).then((settled) => {
     if (settled.outcome === 'timed-out') {
@@ -168,6 +158,9 @@ export function beginDesktopCoreShutdown(
   // The connector was fenced at before-quit; its last turn ends and memory history rows land now.
   const connectorTurnEndsFlush = ConnectorTurnEvents.settled()
   const botMemoryHistoryFlush = runtime?.bots.memory.historySettled() ?? Promise.resolve()
+  // Which Slack drawing each bot shows, unsaved after a failed write: one bounded last try.
+  const botSlackIconRecordsFlush =
+    runtime?.bots.slackIcons.shownRecords.finalSave() ?? Promise.resolve()
   const browserJoins = native.retireBrowsers()
   const emulatorShutdown = runtime?.getEmulatorBridge()?.destroyAllSessions() ?? Promise.resolve()
   const finalStore = profile.store
@@ -229,7 +222,11 @@ export function beginDesktopCoreShutdown(
     rpcStopAndClear
   ]).then(() => runtime?.closeNotificationDismissals())
   // Normal quits preserve the detached daemon for warm reattach.
-  const daemonTeardown = removalQuiescence.then(() =>
+  // Chat agents handed to the daemon need their detach to arrive before the client goes.
+  const daemonTeardown = Promise.all([
+    removalQuiescence,
+    providerRelayDetachesSettled(structuredAgentSessionShutdown)
+  ]).then(() =>
     native.isDevParentShutdown() ? daemon.shutdownDaemon() : daemon.disconnectDaemon()
   )
   return [
@@ -253,6 +250,7 @@ export function beginDesktopCoreShutdown(
     { name: 'stats', promise: statsFlush },
     { name: 'connector-turn-ends', promise: connectorTurnEndsFlush },
     { name: 'bot-memory-history', promise: botMemoryHistoryFlush },
+    { name: 'bot-slack-icon-records', promise: botSlackIconRecordsFlush },
     { name: 'state', promise: storeFlush }
   ]
 }

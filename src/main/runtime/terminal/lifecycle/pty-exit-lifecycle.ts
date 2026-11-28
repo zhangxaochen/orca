@@ -5,6 +5,7 @@ import type { PtyIncarnationId } from '../../../../shared/terminal/pty/lifecycle
 import {
   type TerminalExitCause,
   OPERATOR_CLOSE_EXIT_CAUSE,
+  isUnobservedTerminalExit,
   resolveUnreportedExitCause
 } from '../../../../shared/terminal/pty/lifecycle/terminal-exit-cause'
 import { SSH_EXIT_UNCONFIRMED_REASON } from '../../../../shared/terminal/pty/lifecycle/pty-liveness-verdict'
@@ -17,6 +18,7 @@ import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/workspace-layout/l
 import { exitedSplitPaneFacts } from './exited-split-pane-rule'
 
 import type { RuntimePtyWorktreeRecord } from '../records/runtime-terminal-state-records'
+import { forgetAgyTerminalAuthority } from '../../../antigravity/agy-terminal-authority'
 
 export abstract class OrcaRuntimeWithOnPtyExit extends RuntimeTerminalWorkerModelWait {
   protected abstract pruneDisconnectedPtyRecords(): void
@@ -64,8 +66,7 @@ export abstract class OrcaRuntimeWithOnPtyExit extends RuntimeTerminalWorkerMode
     // A bare exit code is not enough to establish why a process ended: older
     // daemons and SSH relays can report 0 for crashes and wrapper exits.
     const observedCause = options.cause ?? resolveUnreportedExitCause(exitCode)
-    const stopNeverConfirmed =
-      observedCause.kind === 'unknown' && observedCause.reason === 'stop_unverified'
+    const stopNeverConfirmed = isUnobservedTerminalExit(observedCause)
     const stopRequested = this.stopRequestedPtyIds.has(ptyId)
     const exitCause: TerminalExitCause =
       stopRequested && !stopNeverConfirmed ? OPERATOR_CLOSE_EXIT_CAUSE : observedCause
@@ -77,6 +78,7 @@ export abstract class OrcaRuntimeWithOnPtyExit extends RuntimeTerminalWorkerMode
       pty?.connectionId != null &&
       exitCode < 0 &&
       options.hostExitConfirmed !== true
+    forgetAgyTerminalAuthority(ptyId)
     // Why: collect before retirePtyAgentLaunchAuthority, which deletes the restored-authority
     // receipt a receipt-only pane's key comes from.
     const exitPaneKeys = this.collectAgentStatusPaneKeysForPty(ptyId)

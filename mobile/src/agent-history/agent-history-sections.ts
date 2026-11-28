@@ -9,6 +9,7 @@ import type {
   AiVaultSort
 } from '../../../src/shared/ai-vault/contracts/ai-vault-types'
 
+import type { Translate } from '../i18n/mobile-i18n'
 import {
   buildMobileAgentHistoryCard,
   type MobileAgentHistoryCard
@@ -33,7 +34,8 @@ export function buildMobileAgentHistorySections(
     activeWorktreePath: string | null
     now: number
     closedSessionIds?: ReadonlySet<string>
-  }
+  },
+  t: Translate
 ): MobileAgentHistorySection[] {
   // Until worktree.ps supplies prefixes, leave scoped tabs unfiltered rather than flash empty; memo reruns when paths arrive.
   const narrowByPath = options.scope !== 'all' && options.scopeFilterPaths.length > 0
@@ -55,7 +57,8 @@ export function buildMobileAgentHistorySections(
         session,
         options.activeWorktreePath,
         options.now,
-        options.closedSessionIds
+        options.closedSessionIds,
+        t
       )
     )
   }))

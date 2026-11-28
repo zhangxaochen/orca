@@ -1,3 +1,4 @@
+import type { ChatAccountSignIn } from '../../accounts/sign-in/use-chat-account-sign-in'
 import { slackPeopleOf } from '../../../../src/shared/connectors/slack-mention-tokens'
 import { MobileQueuedMessageComposerContext } from './input/queued-messages/mobile-queued-message-composer-context'
 import { MobileMarkdownSlackPeopleContext } from '../../components/markdown/parsing/mobile-markdown-mentions'
@@ -14,7 +15,10 @@ import { useMobileNativeChatComposerTray } from './composer/menus/use-mobile-nat
 import { useMobileNativeChatVisualRenderer } from './visual/MobileNativeChatVisual'
 import { MobileNativeChatVisualContext } from './visual/mobile-native-chat-visual-context'
 import { MobileNativeChatRootItemSourceContext } from './transcript/projection/mobile-native-chat-item-read'
-import { useMobileNativeChatMessageDetail } from './transcript/projection/use-mobile-native-chat-message-detail'
+import {
+  useMobileNativeChatDetailSource,
+  useMobileNativeChatMessageDetail
+} from './transcript/projection/use-mobile-native-chat-message-detail'
 import {
   MobileNativeChatReplyRevealsContext,
   useMobileNativeChatReplyReveals
@@ -24,6 +28,7 @@ import type { MobileLinkOpenMode } from '../../storage/preferences'
 import { nativeChatAskRequiresTerminal } from '../../../../src/shared/native-chat/native-chat-agent-support'
 import { tuiAgentDisplayName } from '../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MobileNativeChatNoticeContext } from './transcript/notices/mobile-native-chat-notice-context'
+import { useMobileAntigravityChatAccountSheet } from './transcript/notices/MobileAntigravityChatAccountSheet'
 import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-image-preview'
 import type { MobileNativeChatHostOutage } from './status/mobile-native-chat-host-outage'
 import { MobileMarkdownLinksContext } from '../../components/markdown/links/mobile-markdown-links-context'
@@ -60,6 +65,9 @@ type Props = {
   hostName: string | null
   /** Opens the accounts of the host that runs this chat; absent when the phone can't reach them. */
   onOpenAccounts?: () => void
+  /** Signs the chat's managed account in again on its host; absent where the phone can't. */
+  accountSignIn?: ChatAccountSignIn
+  onToast?: (message: string, durationMs?: number) => void
   /** Opens tapped links in Orca's browser; absent where the host can't open a browser tab. */
   onOpenUrlInOrca?: (url: string) => void
   linkOpenMode: MobileLinkOpenMode
@@ -116,7 +124,9 @@ function MobileNativeChatOverlayContent({
   linkOpenMode,
   onRunInTerminal,
   hostOutage = null,
-  onOpenAccounts
+  onOpenAccounts,
+  accountSignIn,
+  onToast
 }: Props): React.JSX.Element {
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
@@ -142,9 +152,11 @@ function MobileNativeChatOverlayContent({
   const composerTray = useMobileNativeChatComposerTray({
     queued: {
       cards: queued.cards,
+      steerOrder: queued.steerOrder,
       onSend: queued.send,
       onDelete: queued.delete,
       onClearAll: queued.clear,
+      clearIds: queued.clearIds,
       onEdit: queued.edit,
       editor: queued.editor,
       onMove: queued.move,
@@ -153,40 +165,19 @@ function MobileNativeChatOverlayContent({
       sessionKey: queued.sessionKey,
       // Hold steering while Stop ends the turn; use the session’s single display-status decision.
       steerHeld: controller.nativeChatTurnIndicator?.stopping === true,
-      agentWorking: controller.nativeChatTurnActive
+      agentWorking: controller.nativeChatTurnActive,
+      agentMail: queued.agentMail,
+      agentMailEditable: queued.agentMailEditable
     },
     taskList,
-    backgroundTasks: controller.nativeChatBackgroundTasks
+    backgroundTasks: controller.nativeChatBackgroundTasks,
+    workerDock: controller.nativeChatWorkerDock,
+    workerApprovals: controller.nativeChatWorkerApprovals.open
   })
   const visuals = useMobileNativeChatVisualRenderer(controller.nativeChatVisualSource)
   const replyReveals = useMobileNativeChatReplyReveals(folded, streaming !== null, sendSurfaceId)
   const itemSource = controller.nativeChatItemSource
-  const committedDetail = useMemo(
-    () => ({ current: fullContent.detail }),
-    [itemSource?.client, itemSource?.sessionId]
-  )
-  useLayoutEffect(() => {
-    committedDetail.current = fullContent.detail
-  }, [committedDetail, fullContent.detail])
-  const load = useCallback(
-    async (id: string) => {
-      if (!committedDetail.current) {
-        throw new Error('Message unavailable')
-      }
-      await committedDetail.current.load(id)
-    },
-    [committedDetail]
-  )
-  const detailSource = useMemo(
-    () =>
-      itemSource
-        ? {
-            ...itemSource,
-            messageDetail: fullContent.detail ? { ...fullContent.detail, load } : null
-          }
-        : null,
-    [itemSource, fullContent.detail, load]
-  )
+  const detailSource = useMobileNativeChatDetailSource(itemSource, fullContent.detail)
   const { mentionFiles, markdownLinks, openFile } = useMobileNativeChatFiles({
     controller,
     worktreePath,
@@ -238,6 +229,10 @@ function MobileNativeChatOverlayContent({
   const runInTerminal = useCallback((command: string) => runInTerminalRef.current(command), [])
   const t = useMobileTranslation()
   const continuation = controller.nativeChatInterruptedContinue
+  const agySheet = useMobileAntigravityChatAccountSheet(
+    controller.nativeChatUsageLimit?.antigravityAccounts,
+    onToast
+  )
   const noticeView = useMemo(
     () => ({
       hostName,
@@ -246,6 +241,8 @@ function MobileNativeChatOverlayContent({
       usageLimit: controller.nativeChatUsageLimit,
       unresolvedFailureRows: controller.nativeChatUnresolvedFailureRows,
       ...(onOpenAccounts ? { openAccounts: onOpenAccounts } : {}),
+      ...(accountSignIn ? { accountSignIn } : {}),
+      ...(agySheet.open ? { openAntigravityAccounts: agySheet.open } : {}),
       ...(continuation
         ? {
             continuation: {
@@ -267,7 +264,9 @@ function MobileNativeChatOverlayContent({
       runInTerminal,
       controller.nativeChatUsageLimit,
       controller.nativeChatUnresolvedFailureRows,
-      onOpenAccounts
+      onOpenAccounts,
+      accountSignIn,
+      agySheet.open
     ]
   )
   const continueFailed = sendErrorMessage === null && continuation?.failed === true
@@ -342,6 +341,7 @@ function MobileNativeChatOverlayContent({
                       onLoadEarlier={session.loadEarlier}
                       onSend={images.sendNativeChat}
                       sendSurfaceId={sendSurfaceId}
+                      sessionId={sessionId}
                       getSendCompletionGeneration={getSendCompletionGeneration}
                       getComposerEditGeneration={controller.getChatComposerEditGeneration}
                       pending={controller.chatPending}
@@ -401,6 +401,7 @@ function MobileNativeChatOverlayContent({
   return (
     <MobileMarkdownSlackPeopleContext.Provider value={slackPeople}>
       {chat}
+      {agySheet.sheet}
     </MobileMarkdownSlackPeopleContext.Provider>
   )
 }

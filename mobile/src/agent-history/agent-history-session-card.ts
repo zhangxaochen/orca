@@ -7,7 +7,7 @@ import {
 } from '../../../src/shared/ai-vault/contracts/ai-vault-types'
 import { aiVaultSessionMessageCountKnown } from '../../../src/shared/ai-vault/session-display/cursor-acp-session-path'
 import { formatTimeAgo } from '../worktree/agent-lineage/agent-row-display'
-import { translate } from '../i18n/mobile-i18n'
+import type { Translate } from '../i18n/mobile-i18n'
 
 export type MobileAgentHistoryCard = {
   id: string
@@ -45,7 +45,8 @@ export function buildMobileAgentHistoryCard(
   session: AiVaultSession & { forked?: true },
   activeWorktreePath: string | null,
   now: number,
-  closedSessionIds?: ReadonlySet<string>
+  closedSessionIds: ReadonlySet<string> | undefined,
+  t: Translate
 ): MobileAgentHistoryCard {
   const latestTurn = latestSessionConversationTurn(session)
   const updatedAtMs = Date.parse(session.updatedAt ?? session.modifiedAt)
@@ -53,12 +54,11 @@ export function buildMobileAgentHistoryCard(
     id: session.id,
     agent: session.agent,
     agentLabel: aiVaultAgentLabel(session.agent),
-    title:
-      session.title || translate('agentHistory.sessionCard.untitledSession', 'Untitled session'),
+    title: session.title || t('agentHistory.sessionCard.untitledSession', 'Untitled session'),
     forked: session.forked === true,
     lastMessage: latestTurn?.text.trim() ?? '',
     messageCount: aiVaultSessionMessageCountKnown(session) ? session.messageCount : null,
-    timeAgo: Number.isFinite(updatedAtMs) ? formatTimeAgo(updatedAtMs, now) : '',
+    timeAgo: Number.isFinite(updatedAtMs) ? formatTimeAgo(updatedAtMs, now, t) : '',
     isCurrentWorktree: isSessionInActiveWorktree(session, activeWorktreePath),
     openTab: closedSessionIds?.has(session.id) ? null : (session.openTab ?? null)
   }

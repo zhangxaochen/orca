@@ -7,22 +7,25 @@ import {
 } from '../../../../shared/telemetry/schemas/telemetry-agent-token-usage-schema'
 import type { UsageTelemetryHost } from '../../usage-store-host'
 import { UsageCacheSnapshotWriter } from '../../cache/usage-cache-snapshot-writer'
-import { getLocalUsageDay } from '../range-query/usage-calendar-range'
+import { getLocalUsageDay, shiftDay } from '../range-query/usage-calendar-range'
 import type { AgentTokenDay } from './agent-token-usage'
+import { lazyZodSchema } from '../../../../shared/schema/lazy-zod-schema'
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 // Days older than this are neither sent nor remembered, so late growth for them is dropped.
 const LOOKBACK_DAYS = 30
 
-const stateSchema = z
-  .object({
-    schemaVersion: z.literal(2),
-    /** First day this reporter may send; earlier history is never reported. */
-    startDay: z.string().regex(DAY),
-    /** What each recent day's rows have added up to so far. */
-    reported: z.array(z.tuple([z.string().regex(DAY), agentTokenCountsSchema]))
-  })
-  .strict()
+const stateSchema = lazyZodSchema(() =>
+  z
+    .object({
+      schemaVersion: z.literal(2),
+      /** First day this reporter may send; earlier history is never reported. */
+      startDay: z.string().regex(DAY),
+      /** What each recent day's rows have added up to so far. */
+      reported: z.array(z.tuple([z.string().regex(DAY), agentTokenCountsSchema]))
+    })
+    .strict()
+)
 
 type State = { startDay: string; reported: Map<string, AgentTokenCounts> }
 
@@ -54,12 +57,6 @@ const isZero = (c: AgentTokenCounts): boolean =>
 
 function localDay(date: Date): string {
   return getLocalUsageDay(date.toISOString()) ?? date.toISOString().slice(0, 10)
-}
-
-function shiftDay(day: string, days: number): string {
-  const date = new Date(`${day}T00:00:00Z`)
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
 }
 
 /** Sends each finished local day's token totals once, then only growth found for it later. */

@@ -1,3 +1,4 @@
+import { redactBrowserMetadata } from '../../../../shared/browser/browser-metadata-redaction'
 // List saved headless browser tabs immediately; start pages lazily on first use, never merely on host restart.
 
 import type { BrowserBackend } from '../../../browser/browser-backend'
@@ -55,6 +56,7 @@ export class ServeBrowserTabs {
   private readonly pendingOpens = new Map<string, ServeBrowserPageState>()
 
   opened(page: ServeBrowserPageState & { profileId?: string; groupId?: string }): void {
+    page = redactBrowserMetadata(page)
     // Main commits the tab layout before its page address is saved.
     if (ORCA_LAYOUT_OWNER_IS_MAIN && this.deps.applyLayout) {
       this.openThroughLayout(page, this.deps.applyLayout)
@@ -67,6 +69,7 @@ export class ServeBrowserTabs {
 
   /** A saved tab follows its page; a page whose tab was closed is not saved again. */
   navigated(page: ServeBrowserPageState): void {
+    page = redactBrowserMetadata(page)
     // While layout open is pending, retain the latest page address for its eventual save.
     if (ORCA_LAYOUT_OWNER_IS_MAIN && this.pendingOpens.has(page.pageId)) {
       this.pendingOpens.set(page.pageId, page)
@@ -157,6 +160,20 @@ export class ServeBrowserTabs {
             .map((page) => ({ worktreeId, pageId: page.id, tabId: tab.id }))
         )
     })
+  }
+
+  /** Profiles that saved tabs name; a tab with no profile is Default's. */
+  savedProfileIds(): Set<string> {
+    if (!this.deps.backend()) {
+      return new Set()
+    }
+    return new Set(
+      [...new Set(this.deps.savedWorktreeIds())].flatMap((worktreeId) =>
+        (this.deps.session(worktreeId)?.browserTabsByWorktree?.[worktreeId] ?? []).flatMap((tab) =>
+          tab.sessionProfileId ? [tab.sessionProfileId] : []
+        )
+      )
+    )
   }
 
   /** Whether the page's tab is saved, so a freed page can start again from it. */
