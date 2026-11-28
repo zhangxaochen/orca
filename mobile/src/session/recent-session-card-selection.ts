@@ -166,7 +166,7 @@ export async function selectRecentSessionCard(
     replaceRoute(
       workspaceRouteHref(
         `/h/${encodeURIComponent(hostId)}/session/${encodeURIComponent(card.worktreeId)}${query}`,
-        card.executionHost ?? null
+        card.executionHost
       )
     )
   } catch {

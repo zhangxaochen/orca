@@ -1,4 +1,7 @@
-import type { ExecutionHostId } from '../../../src/shared/execution-host/execution-host'
+import {
+  normalizeExecutionHostId,
+  type ExecutionHostId
+} from '../../../src/shared/execution-host/execution-host'
 import type { ExecutionHostHealth } from '../../../src/shared/execution-host/execution-host-health'
 import type { MobileRelayHost } from '../../../src/shared/remote-runtime/relay/mobile-relay-hosts-contract'
 import { sshTargetSummaryHostId } from '../../../src/shared/worktree/row-display/host-context-labels'
@@ -131,7 +134,9 @@ export function evaluateDesktopWorktreeSshReachability(
 ): { ownerHostId: ExecutionHostId; unreachable: boolean; targetRemoved: boolean } {
   const ownerHostId = resolveWorktreeHostId(
     {
-      hostId: typeof row.hostId === 'string' ? row.hostId : undefined,
+      hostId:
+        normalizeExecutionHostId(typeof row.hostId === 'string' ? row.hostId : undefined) ??
+        undefined,
       repoId: typeof row.repoId === 'string' ? row.repoId : ''
     },
     metadata.repoHostIdByRepoId
